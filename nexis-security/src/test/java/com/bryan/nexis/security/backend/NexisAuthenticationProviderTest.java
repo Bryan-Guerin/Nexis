@@ -61,17 +61,6 @@ class NexisAuthenticationProviderTest {
         assertThat(rep.isAuthenticated()).isFalse();
     }
 
-    /**
-     * Utilitaire : lance ce test seul pour obtenir un hash BCrypt à insérer en base.
-     */
-    @Test
-    void imprimerHashPourSeeding() {
-        String hash = BCrypt.hashpw("root", BCrypt.gensalt(12));
-        System.out.println("=== Hash BCrypt (cost 12) pour 'root' ===");
-        System.out.println(hash);
-        System.out.println("Verification : " + BCrypt.checkpw("root", hash));
-    }
-
     // ─── helpers ──────────────────────────────────────────────────────────────
 
     private NexisAuthenticationProvider<Object> provider(RefUser user) {

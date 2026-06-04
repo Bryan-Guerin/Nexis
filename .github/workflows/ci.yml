@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # Le frontend-maven-plugin télécharge Node v22.15.0 et l'installe sous
+      # nexis-app/front/node — on le met en cache pour accélérer les runs.
+      - name: Cache Node (frontend-maven-plugin)
+        uses: actions/cache@v4
+        with:
+          path: |
+            nexis-app/front/node
+            nexis-app/front/node_modules
+          key: front-${{ runner.os }}-${{ hashFiles('nexis-app/front/package.json') }}
+
+      - name: Build + tests (front + back)
+        run: ./mvnw -B -ntp verify -Denforcer.skip=true

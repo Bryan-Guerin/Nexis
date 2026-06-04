@@ -1,0 +1,17 @@
+# Reverse-proxy Caddy devant l'application Nexis.
+#
+# - HTTPS automatique (Let's Encrypt) dès que NEXIS_DOMAIN est un vrai domaine
+#   public pointant vers ce serveur, avec les ports 80 et 443 ouverts.
+# - Pour un test local : NEXIS_DOMAIN=localhost (Caddy émet un certificat interne)
+#   ou NEXIS_DOMAIN=:80 (HTTP seul, sans TLS).
+# - reverse_proxy gère nativement l'upgrade WebSocket (bus temps réel /ws).
+
+{
+	# E-mail pour les notifications ACME / Let's Encrypt (optionnel mais recommandé).
+	email {$ACME_EMAIL}
+}
+
+{$NEXIS_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy app:8080
+}

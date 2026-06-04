@@ -22,3 +22,6 @@ nexis-app/src/main/resources/public/
 # Node.js téléchargé par frontend-maven-plugin
 node/
 /logs/
+
+# Secrets de déploiement (docker-compose) — ne jamais committer
+.env

@@ -1,0 +1,24 @@
+# Build artefacts & dépendances (régénérés dans l'image)
+**/target/
+**/build/
+**/out/
+nexis-app/front/node_modules/
+nexis-app/front/.vite/
+nexis-app/src/main/resources/public/
+node/
+
+# Outillage / IDE / VCS
+.git/
+.github/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Docs, compose & proxy (inutiles au build de l'image)
+docker-compose*.yaml
+Caddyfile
+.env
+.env.example
+*.md

@@ -1,0 +1,77 @@
+# Déploiement « classique » : Postgres + application all-in-one (front + back)
+# derrière un reverse-proxy Caddy (HTTPS automatique).
+#
+#   docker compose up -d --build        # build local de l'image + démarrage
+#   docker compose logs -f app
+#   docker compose down                 # (ajouter -v pour effacer la base + certifs)
+#
+# Les secrets/paramètres se règlent dans un fichier .env (voir .env.example).
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nexis
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - nexis-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d nexis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    # Image publiée sur Docker Hub par la CI. Sur le VPS on la « pull » (pas de build).
+    # En local, docker-compose.override.yaml ajoute `build: .` pour construire à la place.
+    image: ${NEXIS_IMAGE:-bryanguerin/nexis:latest}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATASOURCES_DEFAULT_URL: jdbc:postgresql://db:5432/nexis
+      DATASOURCES_DEFAULT_USERNAME: ${POSTGRES_USER:-postgres}
+      DATASOURCES_DEFAULT_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Secret JWT HS256 — OBLIGATOIRE, ≥ 32 caractères. Le `:?` fait échouer
+      # le démarrage si la variable n'est pas définie (pas de défaut faible en prod).
+      JWT_GENERATOR_SIGNATURE_SECRET: ${JWT_GENERATOR_SIGNATURE_SECRET:?définissez un secret fort dans .env}
+      JAVA_OPTS: ${JAVA_OPTS:-}
+    # /health (Micronaut Management) : healthcheck applicatif → DOWN si la DB tombe.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # Plus de port publié : seul Caddy est exposé. Pour un accès direct en debug,
+    # décommenter :
+    # ports:
+    #   - "${APP_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # Domaine servi par Caddy (HTTPS auto si domaine public). Ex: nexis.mondomaine.fr
+      # Pour un test local : localhost (cert interne) ou :80 (HTTP seul).
+      NEXIS_DOMAIN: ${NEXIS_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data     # certificats Let's Encrypt (à persister !)
+      - caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"        # HTTP/3 (QUIC)
+    restart: unless-stopped
+
+volumes:
+  nexis-db:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,11 @@
+# Surcharge auto-chargée par `docker compose` EN LOCAL uniquement.
+# Elle fait construire l'image depuis le Dockerfile au lieu de la télécharger.
+#
+#   docker compose up -d --build      # build local (override pris en compte)
+#
+# ⚠️ NE PAS copier ce fichier sur le VPS : le serveur doit « pull » l'image
+# publiée sur Docker Hub, pas la reconstruire. Sur le VPS, seul
+# docker-compose.yaml + .env sont présents.
+services:
+  app:
+    build: .
