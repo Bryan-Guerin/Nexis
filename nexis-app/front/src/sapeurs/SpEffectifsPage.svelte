@@ -1,0 +1,836 @@
+<script>
+  import { onMount } from 'svelte'
+  import { api } from '../shared/api.js'
+  import { currentUser } from '../shared/stores.js'
+
+  // ── Données ──────────────────────────────────────────────────────────────
+  let membres   = $state([])
+  let grades    = $state([])
+  let fonctions = $state([])   // catalogue des fonctions = des qualifications
+  let users     = $state([])
+  let loading   = $state(true)
+  let error     = $state('')
+
+  let isAdmin = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
+  let isRh    = $derived($currentUser?.roles?.includes('ROLE_SP_RH') ?? false)
+  let canManageNotation = $derived(isAdmin || isRh)
+
+  // Notations du membre sélectionné
+  let notations = $state([])
+  let notOpen   = $state(false)
+  function moisCourant() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
+  function emptyNotForm() { return { mois: moisCourant(), comportementDiscipline: 3, competencesTechniques: 3, aptitudePhysique: 3, initiativeAutonomie: 3, espritEquipe: 3, respectSecurite: 3, observations: '', objectifs: '' } }
+  let notForm  = $state(emptyNotForm())
+  let notError = $state('')
+
+  const NOTATION_CRITERES = [
+    ['comportementDiscipline', 'Comportement & discipline'],
+    ['competencesTechniques', 'Compétences techniques'],
+    ['aptitudePhysique', 'Aptitude physique'],
+    ['initiativeAutonomie', 'Initiative & autonomie'],
+    ['espritEquipe', "Esprit d'équipe"],
+    ['respectSecurite', 'Respect des consignes de sécurité'],
+  ]
+
+  function canSeeNotation(m) {
+    return m && (canManageNotation || m.username === $currentUser?.username)
+  }
+  async function loadNotations(m) {
+    notations = []
+    if (!canSeeNotation(m)) return
+    const path = canManageNotation ? `/sp/rh/membres/${m.id}/notations` : '/sp/membres/me/notations'
+    notations = await api.get(path).catch(() => [])
+  }
+  async function submitNotation() {
+    notError = ''
+    try {
+      await api.post(`/sp/rh/membres/${selectedId}/notations`, notForm)
+      notOpen = false; notForm = emptyNotForm()
+      await loadNotations(selected)
+    } catch (e) { notError = e.message }
+  }
+  function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'medium' }) : '—' }
+
+  // ── Relances (RH/admin) ─────────────────────────────────────────────────────
+  let relances         = $state([])   // du membre sélectionné
+  let relancesOuvertes = $state([])   // vue d'ensemble → indicateur dans la liste
+  let relForm          = $state({ texte: '', echeance: '' })
+  let relError         = $state('')
+  const todayISO = new Date().toISOString().slice(0, 10)
+  let relanceMembreIds  = $derived(new Set(relancesOuvertes.map(r => r.membreId)))
+  let relanceOverdueIds = $derived(new Set(relancesOuvertes.filter(r => r.echeance && r.echeance < todayISO).map(r => r.membreId)))
+
+  async function loadRelancesOuvertes() { relancesOuvertes = await api.get('/sp/rh/relances/ouvertes').catch(() => []) }
+  async function loadRelancesMembre(m) {
+    relances = canManageNotation && m ? await api.get(`/sp/rh/membres/${m.id}/relances`).catch(() => []) : []
+  }
+  async function createRelance() {
+    relError = ''
+    if (!relForm.texte.trim()) { relError = 'Texte requis'; return }
+    try {
+      await api.post(`/sp/rh/membres/${selectedId}/relances`, { texte: relForm.texte, echeance: relForm.echeance || null })
+      relForm = { texte: '', echeance: '' }
+      await loadRelancesMembre(selected); await loadRelancesOuvertes()
+    } catch (e) { relError = e.message }
+  }
+  async function relanceFaite(r) {
+    try { await api.put(`/sp/rh/relances/${r.id}/fait`); await loadRelancesMembre(selected); await loadRelancesOuvertes() }
+    catch (e) { relError = e.message }
+  }
+  async function supprimerRelance(r) {
+    if (!window.confirm('Supprimer cette relance ?')) return
+    try { await api.delete(`/sp/rh/relances/${r.id}`); await loadRelancesMembre(selected); await loadRelancesOuvertes() }
+    catch (e) { relError = e.message }
+  }
+
+  // ── Recherche + sélection / détail ─────────────────────────────────────────
+  let recherche = $state('')
+  let membresFiltres = $derived(membres.filter(m => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return true
+    return [m.matricule, m.username, m.grade, m.contrat].filter(Boolean).some(s => s.toLowerCase().includes(q))
+  }))
+  let selectedId = $state(null)
+  // Détail chargé à la demande (GET dédié) — toujours frais, indépendant de la liste.
+  let selected   = $state(null)
+  let detailLoading = $state(false)
+
+  // Seul RH / ADMIN peut gérer les qualifications.
+  let canManageQuals = $derived(isAdmin || isRh)
+
+  // Qualifications du membre sélectionné (safe — jamais undefined)
+  let selectedQuals = $derived(selected?.qualifications ?? [])
+
+  // Casiers disponibles (0-30 hors ceux déjà pris)
+  let takenCasiers      = $derived(new Set(membres.map(m => m.numeroCasier)))
+  let freeCasiers       = $derived(Array.from({length: 31}, (_, i) => i).filter(n => !takenCasiers.has(n)))
+  let casierEditOptions = $derived(Array.from({length: 31}, (_, i) => i).filter(n => !takenCasiers.has(n) || n === selected?.numeroCasier))
+
+  // Sections collapsibles dans le détail
+  let qualifsOpen = $state(true)
+
+  // ── État inline d'édition (admin) ────────────────────────────────────────
+  let editName        = $state(false)
+  let editNameVal     = $state('')
+  let editGrade       = $state(false)
+  let editGradeId     = $state('')
+  let editContrat     = $state(false)
+  let editCasier      = $state(false)
+  let editCasierVal   = $state(0)
+  let saveError       = $state('')
+
+  // ── Qualifications ─────────────────────────────────────────────────────────
+  let addQualOpen     = $state(false)
+  let addQualFonction = $state('')
+
+  // ── Modal création membre ────────────────────────────────────────────────
+  let showCreate   = $state(false)
+  let createForm   = $state({ userId: '', gradeId: '', contrat: 'SPV', numeroCasier: 0, nomComplet: '' })
+  let createError  = $state('')
+  let showNewUser  = $state(false)
+  let newUserForm  = $state({ username: '', password: '' })
+  let newUserError = $state('')
+
+  onMount(() => { loadAll(); if (canManageNotation) loadRelancesOuvertes() })
+
+  async function loadAll() {
+    loading = true; error = ''
+    try {
+      const [mem, g, u, f] = await Promise.all([
+        api.get('/sp/membres'),
+        api.get('/sp/grades'),
+        api.get('/admin/users').catch(() => []),
+        api.get('/sp/fonctions'),
+      ])
+      membres = mem; grades = g; users = u; fonctions = f
+    } catch (e) { error = e.message }
+    finally { loading = false }
+  }
+
+  // ── Sélection ────────────────────────────────────────────────────────────
+  async function select(m) {
+    selectedId   = m.id
+    editName     = false
+    editGrade    = false
+    editContrat  = false
+    editCasier   = false
+    addQualOpen  = false
+    saveError    = ''
+    qualifsOpen  = true
+    notOpen      = false
+    notError     = ''
+    relError     = ''
+    relForm      = { texte: '', echeance: '' }
+    // Charge le détail à la demande (back) plutôt que de réutiliser la liste.
+    detailLoading = true
+    try {
+      selected = await api.get(`/sp/membres/${m.id}`)
+    } catch (e) {
+      selected = m   // repli sur la donnée de liste
+      saveError = e.message
+    } finally {
+      detailLoading = false
+    }
+    loadNotations(selected)
+    loadRelancesMembre(selected)
+  }
+
+  /** Recharge le détail du membre sélectionné depuis le back + met la liste à jour. */
+  async function reloadSelected() {
+    if (!selectedId) return
+    const updated = await api.get(`/sp/membres/${selectedId}`)
+    refreshMembre(updated)
+  }
+
+  // ── Sauvegarde admin ─────────────────────────────────────────────────────
+  async function saveName() {
+    saveError = ''
+    try {
+      const updated = await api.patch(`/sp/membres/${selectedId}`, { nomComplet: editNameVal })
+      refreshMembre(updated)
+      editName = false
+    } catch (e) { saveError = e.message }
+  }
+
+  async function saveGrade() {
+    if (!editGradeId) return
+    saveError = ''
+    try {
+      const updated = await api.patch(`/sp/membres/${selectedId}`, { gradeId: editGradeId })
+      refreshMembre(updated)
+      editGrade = false
+    } catch (e) { saveError = e.message }
+  }
+
+  async function saveContrat(val) {
+    saveError = ''
+    try {
+      const updated = await api.patch(`/sp/membres/${selectedId}`, { contrat: val })
+      refreshMembre(updated)
+      editContrat = false
+    } catch (e) { saveError = e.message }
+  }
+
+  async function saveCasier() {
+    saveError = ''
+    try {
+      const updated = await api.patch(`/sp/membres/${selectedId}`, { numeroCasier: editCasierVal })
+      refreshMembre(updated)
+      editCasier = false
+    } catch (e) { saveError = e.message }
+  }
+
+  function refreshMembre(updated) {
+    membres = membres.map(m => m.id === updated.id ? updated : m)
+    if (updated.id === selectedId) selected = updated
+  }
+
+  // ── Qualifications (fonctions du membre) ───────────────────────────────────
+  async function addQualification() {
+    if (!addQualFonction) return
+    saveError = ''
+    try {
+      await api.post(`/sp/membres/${selectedId}/qualifications/${addQualFonction}`)
+      addQualOpen = false; addQualFonction = ''
+      await reloadSelected()
+    } catch (e) { saveError = e.message }
+  }
+
+  async function removeQualification(fonctionId) {
+    saveError = ''
+    try {
+      await api.delete(`/sp/membres/${selectedId}/qualifications/${fonctionId}`)
+      await reloadSelected()
+    } catch (e) { saveError = e.message }
+  }
+
+  function fonctionLabel(fonctionId) {
+    const f = fonctions.find(x => x.id === fonctionId)
+    return f ? f.label : '…'
+  }
+
+  // ── Création membre ───────────────────────────────────────────────────────
+  async function submitNewUser(e) {
+    e.preventDefault(); newUserError = ''
+    try {
+      const created = await api.post('/sp/users', newUserForm)
+      users = [...users, created]
+      createForm.userId = created.id
+      showNewUser = false; newUserForm = { username: '', password: '' }
+    } catch (e) { newUserError = e.message }
+  }
+
+  async function submitCreate(e) {
+    e.preventDefault(); createError = ''
+    try {
+      const created = await api.post('/sp/membres', createForm)
+      membres = [...membres, created]
+      showCreate = false
+      createForm = { userId: '', gradeId: '', contrat: 'SPV', numeroCasier: freeCasiers[0] ?? 0, nomComplet: '' }
+      select(created)
+    } catch (e) { createError = e.message }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function openEdit(field) {
+    editName = false; editGrade = false; editContrat = false; editCasier = false
+    saveError = ''
+    if (field === 'name')    { editName = true;    editNameVal  = selected.nomComplet ?? '' }
+    if (field === 'grade')   { editGrade = true;   editGradeId  = selected.gradeId }
+    if (field === 'contrat') { editContrat = true }
+    if (field === 'casier')  { editCasier = true;  editCasierVal = selected.numeroCasier }
+  }
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- ── En-tête ─────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <h2>Effectifs — Sapeurs-Pompiers</h2>
+    {#if isAdmin}
+      <button class="btn-primary" onclick={() => { createForm = { userId: '', gradeId: '', contrat: 'SPV', numeroCasier: freeCasiers[0] ?? 0, nomComplet: '' }; showCreate = true; createError = ''; showNewUser = false }}>
+        + Ajouter un membre
+      </button>
+    {/if}
+  </div>
+
+  {#if loading}
+    <p class="muted">Chargement…</p>
+  {:else if error}
+    <p class="inline-error">{error}</p>
+  {:else}
+
+  <!-- ── Split pane ──────────────────────────────────────────────────────── -->
+  <div class="split">
+
+    <!-- ── Liste (gauche) ────────────────────────────────────────────────── -->
+    <div class="list-pane">
+      <input class="list-search" type="search" bind:value={recherche} placeholder="Rechercher…" />
+      {#each membresFiltres as m (m.id)}
+        <button
+          class="list-item"
+          class:active={m.id === selectedId}
+          onclick={() => select(m)}
+        >
+          <span class="li-mat">{m.matricule}</span>
+          <span class="li-main">
+            <span class="li-name">{m.nomComplet || m.username}</span>
+            <span class="li-grade">{m.grade}{#if m.nomComplet} · {m.username}{/if}</span>
+          </span>
+          <span class="contrat-pill" class:spp={m.contrat === 'SPP'} class:spv={m.contrat === 'SPV'}>
+            {m.contrat}
+          </span>
+          {#if canManageNotation && relanceMembreIds.has(m.id)}
+            <span class="relance-flag" class:overdue={relanceOverdueIds.has(m.id)} title="Relance(s) en attente">⚠</span>
+          {/if}
+        </button>
+      {/each}
+      {#if membresFiltres.length === 0}
+        <p class="muted" style="padding:16px;font-size:13px">{membres.length === 0 ? 'Aucun membre' : 'Aucun résultat'}</p>
+      {/if}
+    </div>
+
+    <!-- ── Détail (droite) ───────────────────────────────────────────────── -->
+    <div class="detail-pane">
+      {#if !selected}
+        <div class="empty-detail">
+          <p>Sélectionnez un effectif dans la liste</p>
+        </div>
+      {:else}
+
+        <!-- En-tête fiche -------------------------------------------------- -->
+        <div class="detail-header">
+          <div class="dh-main">
+            <span class="dh-matricule">{selected.matricule}</span>
+            <span class="contrat-pill lg" class:spp={selected.contrat === 'SPP'} class:spv={selected.contrat === 'SPV'}>
+              {selected.contrat === 'SPP' ? 'Professionnel' : 'Volontaire'}
+            </span>
+          </div>
+          <div class="dh-sub">
+            <span class="dh-grade">{selected.grade}</span>
+            {#if selected.nomComplet}<span class="dh-name">{selected.nomComplet}</span>{/if}
+            <span class="dh-username">@{selected.username}</span>
+            <span class="badge" class:badge-actif={selected.actif} class:badge-inactif={!selected.actif}>
+              {selected.actif ? 'Actif' : 'Inactif'}
+            </span>
+          </div>
+        </div>
+
+        {#if saveError}
+          <p class="inline-error">{saveError}</p>
+        {/if}
+
+        <!-- Informations + Qualifications côte à côte ---------------------- -->
+        <div class="detail-cols">
+
+        <!-- Section informations ------------------------------------------- -->
+        <div class="detail-section">
+          <h3>Informations</h3>
+
+          <div class="info-grid">
+
+            <!-- Nom / Prénom -->
+            <div class="info-row">
+              <span class="info-label">Nom / Prénom</span>
+              {#if editName && isAdmin}
+                <div class="inline-edit">
+                  <input type="text" maxlength="100" bind:value={editNameVal} placeholder="Nom Prénom" />
+                  <button class="btn-save" onclick={saveName}>✓</button>
+                  <button class="btn-cancel" onclick={() => editName = false}>✕</button>
+                </div>
+              {:else}
+                <span class="info-value">
+                  {selected.nomComplet || '—'}
+                  {#if isAdmin}<button class="btn-edit" onclick={() => openEdit('name')} title="Modifier">✎</button>{/if}
+                </span>
+              {/if}
+            </div>
+
+            <!-- Grade -->
+            <div class="info-row">
+              <span class="info-label">Grade</span>
+              {#if editGrade && isAdmin}
+                <div class="inline-edit">
+                  <select bind:value={editGradeId}>
+                    {#each grades as g}<option value={g.id}>{g.label}</option>{/each}
+                  </select>
+                  <button class="btn-save" onclick={saveGrade}>✓</button>
+                  <button class="btn-cancel" onclick={() => editGrade = false}>✕</button>
+                </div>
+              {:else}
+                <span class="info-value">
+                  {selected.grade}
+                  {#if isAdmin}
+                    <button class="btn-edit" onclick={() => openEdit('grade')} title="Modifier">✎</button>
+                  {/if}
+                </span>
+              {/if}
+            </div>
+
+            <!-- Contrat -->
+            <div class="info-row">
+              <span class="info-label">Contrat</span>
+              {#if editContrat && isAdmin}
+                <div class="inline-edit">
+                  <button
+                    class="contrat-btn"
+                    class:active={selected.contrat === 'SPP'}
+                    onclick={() => saveContrat('SPP')}
+                  >SPP</button>
+                  <button
+                    class="contrat-btn"
+                    class:active={selected.contrat === 'SPV'}
+                    onclick={() => saveContrat('SPV')}
+                  >SPV</button>
+                  <button class="btn-cancel" onclick={() => editContrat = false}>✕</button>
+                </div>
+              {:else}
+                <span class="info-value">
+                  {selected.contrat === 'SPP' ? 'Sapeur-Pompier Professionnel' : 'Sapeur-Pompier Volontaire'}
+                  {#if isAdmin}
+                    <button class="btn-edit" onclick={() => openEdit('contrat')} title="Modifier">✎</button>
+                  {/if}
+                </span>
+              {/if}
+            </div>
+
+            <!-- Numéro de casier -->
+            <div class="info-row">
+              <span class="info-label">N° casier</span>
+              {#if editCasier && isAdmin}
+                <div class="inline-edit">
+                  <select bind:value={editCasierVal} style="width:80px">
+                    {#each casierEditOptions as n}
+                      <option value={n}>{n}</option>
+                    {/each}
+                  </select>
+                  <button class="btn-save" onclick={saveCasier}>✓</button>
+                  <button class="btn-cancel" onclick={() => editCasier = false}>✕</button>
+                </div>
+              {:else}
+                <span class="info-value">
+                  {selected.numeroCasier}
+                  {#if isAdmin}
+                    <button class="btn-edit" onclick={() => openEdit('casier')} title="Modifier">✎</button>
+                  {/if}
+                </span>
+              {/if}
+            </div>
+
+            <!-- Date d'intégration -->
+            <div class="info-row">
+              <span class="info-label">Intégration</span>
+              <span class="info-value">{fmtDate(selected.dateIntegration)}</span>
+            </div>
+
+            <!-- Dernière promotion -->
+            <div class="info-row">
+              <span class="info-label">Dern. promotion</span>
+              <span class="info-value">{fmtDate(selected.dateDernierePromotion)}</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section qualifications (collapsible) ----------------------------- -->
+        <div class="detail-section">
+          <button
+            class="section-toggle"
+            onclick={() => qualifsOpen = !qualifsOpen}
+          >
+            <h3>Qualifications <span class="hab-count">({selectedQuals.length})</span></h3>
+            <span class="chevron" class:open={qualifsOpen}>▾</span>
+          </button>
+
+          {#if qualifsOpen}
+            <div class="hab-list">
+              {#each selectedQuals as q (q.fonctionId)}
+                <div class="hab-item">
+                  <span class="hab-label">
+                    {q.fonctionLabel}
+                    <span class="hab-meta">délivré le {fmtDate(q.dateDelivrance)}{#if q.delivrePar} par {q.delivrePar}{/if}</span>
+                  </span>
+                  {#if canManageQuals}
+                    <button class="rm-btn" onclick={() => removeQualification(q.fonctionId)} title="Retirer">×</button>
+                  {/if}
+                </div>
+              {/each}
+              {#if selectedQuals.length === 0}
+                <p class="muted small">Aucune qualification</p>
+              {/if}
+
+              <!-- Ajout qualification (RH / ADMIN uniquement) -->
+              {#if !canManageQuals}
+                <!-- pas de gestion -->
+              {:else if addQualOpen}
+                <div class="add-hab-form">
+                  <select bind:value={addQualFonction}>
+                    <option value="">— choisir une fonction —</option>
+                    {#each fonctions.filter(f => !selectedQuals.some(q => q.fonctionId === f.id)) as f (f.id)}
+                      <option value={f.id}>{f.label}</option>
+                    {/each}
+                  </select>
+                  <button class="btn-save" onclick={addQualification}>Ajouter</button>
+                  <button class="btn-cancel" onclick={() => { addQualOpen = false; addQualFonction = '' }}>Annuler</button>
+                </div>
+              {:else}
+                <button class="btn-ghost-sm" onclick={() => addQualOpen = true}>+ Qualification</button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        </div><!-- /detail-cols -->
+
+        <!-- Section notations (RH/admin + l'effectif concerné) --------------- -->
+        {#if canSeeNotation(selected)}
+          <div class="detail-section">
+            <div class="detail-section-head">
+              <h3>Notations <span class="hab-count">({notations.length})</span></h3>
+              {#if canManageNotation}
+                <button class="btn-ghost-sm" onclick={() => { notOpen = !notOpen; notError = '' }}>{notOpen ? 'Annuler' : '+ Noter'}</button>
+              {/if}
+            </div>
+
+            {#if notOpen && canManageNotation}
+              <div class="not-form">
+                {#if notError}<p class="inline-error">{notError}</p>{/if}
+                <label class="not-mois">Mois <input type="month" bind:value={notForm.mois} /></label>
+                {#each NOTATION_CRITERES as [key, label]}
+                  <div class="not-critere">
+                    <span class="not-label">{label}</span>
+                    <input type="range" min="0" max="5" bind:value={notForm[key]} />
+                    <span class="not-val">{notForm[key]}/5</span>
+                  </div>
+                {/each}
+                <label class="not-text">Observations du service
+                  <textarea rows="2" bind:value={notForm.observations}></textarea>
+                </label>
+                <label class="not-text">Objectifs pour le prochain mois
+                  <textarea rows="2" bind:value={notForm.objectifs}></textarea>
+                </label>
+                <button class="btn-primary" onclick={submitNotation}>Enregistrer la notation</button>
+              </div>
+            {/if}
+
+            <div class="not-list">
+              {#each notations as n (n.id)}
+                <div class="not-item">
+                  <div class="not-item-head">
+                    <span class="not-mois-badge">{n.mois}</span>
+                    {#each NOTATION_CRITERES as [key, label]}
+                      <span class="not-score" title={label}>{label.split(' ')[0]} {n[key]}/5</span>
+                    {/each}
+                    <span class="not-by">{n.evaluateur ?? ''} · {fmtDate(n.creeLe)}</span>
+                  </div>
+                  {#if n.observations}<p class="not-obs"><strong>Observations :</strong> {n.observations}</p>{/if}
+                  {#if n.objectifs}<p class="not-obs"><strong>Objectifs :</strong> {n.objectifs}</p>{/if}
+                </div>
+              {/each}
+              {#if notations.length === 0}<p class="muted small" style="padding:12px 16px">Aucune notation</p>{/if}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Section relances (RH/admin) : recyclages / compétences à prévoir -->
+        {#if canManageNotation}
+          <div class="detail-section">
+            <div class="detail-section-head"><h3>Relances <span class="hab-count">({relances.filter(r => r.statut === 'OUVERT').length} en attente)</span></h3></div>
+            {#if relError}<p class="inline-error" style="margin:8px 16px">{relError}</p>{/if}
+            <div class="rel-list">
+              {#each relances as r (r.id)}
+                <div class="rel-item" class:done={r.statut === 'FAIT'}>
+                  <span class="rel-texte">{r.texte}</span>
+                  {#if r.echeance}<span class="rel-ech" class:overdue={r.statut === 'OUVERT' && r.echeance < todayISO}>échéance {fmtDate(r.echeance)}</span>{/if}
+                  {#if r.statut === 'OUVERT'}
+                    <button class="btn-ghost-sm" onclick={() => relanceFaite(r)}>Fait</button>
+                  {:else}
+                    <span class="rel-badge">Fait{#if r.faitPar} · {r.faitPar}{/if}</span>
+                  {/if}
+                  <button class="rm-btn" title="Supprimer" onclick={() => supprimerRelance(r)}>×</button>
+                </div>
+              {/each}
+              {#if relances.length === 0}<p class="muted small">Aucune relance</p>{/if}
+              <div class="rel-add">
+                <input type="text" bind:value={relForm.texte} placeholder="Nouvelle relance (ex: recyclage SAP)" />
+                <input type="date" bind:value={relForm.echeance} title="Échéance (optionnel)" />
+                <button class="btn-ghost-sm" onclick={createRelance}>Ajouter</button>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+      {/if}
+    </div>
+  </div>
+  {/if}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ Modal ═ -->
+{#if showCreate}
+  <div class="backdrop" onclick={() => showCreate = false}>
+    <div class="modal" onclick={e => e.stopPropagation()}>
+      <h3>Nouveau membre SP</h3>
+      {#if createError}<p class="inline-error">{createError}</p>{/if}
+
+      <form onsubmit={submitCreate} style="display:flex;flex-direction:column;gap:14px">
+        <!-- Compte -->
+        <label class="field-label">Compte utilisateur
+          <div class="user-row">
+            <select bind:value={createForm.userId} required>
+              <option value="">— choisir —</option>
+              {#each users as u}<option value={u.id}>{u.username}</option>{/each}
+            </select>
+            <button type="button" class="btn-ghost-sm" onclick={() => showNewUser = !showNewUser}>
+              {showNewUser ? 'Annuler' : '+ Nouveau compte'}
+            </button>
+          </div>
+        </label>
+
+        {#if showNewUser}
+          <div class="sub-form">
+            <p class="sub-title">Créer un compte SP</p>
+            {#if newUserError}<p class="inline-error">{newUserError}</p>{/if}
+            <div class="form-row">
+              <label class="field-label">Nom d'utilisateur
+                <input type="text" bind:value={newUserForm.username} required />
+              </label>
+              <label class="field-label">Mot de passe
+                <input type="password" bind:value={newUserForm.password} required />
+              </label>
+            </div>
+            <button type="button" class="btn-ghost-sm" onclick={submitNewUser}>Créer le compte</button>
+          </div>
+        {/if}
+
+        <!-- Nom / Prénom -->
+        <label class="field-label">Nom / Prénom <span class="muted small">(optionnel)</span>
+          <input type="text" maxlength="100" bind:value={createForm.nomComplet} placeholder="ex: Jean Dupont" />
+        </label>
+
+        <!-- Grade -->
+        <label class="field-label">Grade
+          <select bind:value={createForm.gradeId} required>
+            <option value="">— choisir —</option>
+            {#each grades as g}<option value={g.id}>{g.label}</option>{/each}
+          </select>
+        </label>
+
+        <!-- Contrat -->
+        <label class="field-label">Contrat
+          <div class="contrat-toggle">
+            <button
+              type="button"
+              class="contrat-btn"
+              class:active={createForm.contrat === 'SPV'}
+              onclick={() => createForm.contrat = 'SPV'}
+            >SPV — Volontaire</button>
+            <button
+              type="button"
+              class="contrat-btn"
+              class:active={createForm.contrat === 'SPP'}
+              onclick={() => createForm.contrat = 'SPP'}
+            >SPP — Professionnel</button>
+          </div>
+        </label>
+
+        <!-- Numéro de casier -->
+        <label class="field-label">N° casier
+          <select bind:value={createForm.numeroCasier} required>
+            {#each freeCasiers as n}
+              <option value={n}>{n}</option>
+            {/each}
+          </select>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost-sm" onclick={() => showCreate = false}>Annuler</button>
+          <button type="submit" class="btn-primary">Créer le membre</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+<style>
+  /* ── Mise en page (spécifique à l'écran effectifs) ───────────────────── */
+  .page  { display: flex; flex-direction: column; gap: 16px; }
+
+  .split {
+    display: flex;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    min-height: calc(100vh - 130px);
+    flex: 1;
+    align-items: flex-start;
+  }
+
+  /* ── Liste gauche ────────────────────────────────────────────────────── */
+  .list-pane {
+    width: 250px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface);
+    max-height: calc(100vh - 130px);
+    align-self: stretch;
+  }
+  .list-search { width: calc(100% - 16px); margin: 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 6px 9px; outline: none; }
+  .list-item {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 12px;
+    background: none; border: none; color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+    border-left: 3px solid transparent;
+    cursor: pointer; text-align: left; transition: background .12s;
+  }
+  .list-item:hover  { background: var(--hover); }
+  .list-item.active { background: color-mix(in srgb, var(--accent) 10%, transparent); border-left-color: var(--accent); }
+  .li-mat  { font-family: monospace; font-size: 10px; color: var(--color-muted); min-width: 52px; }
+  .li-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .li-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .li-grade { font-size: 10px; color: var(--color-muted); }
+
+  /* ── Détail droite ───────────────────────────────────────────────────── */
+  .detail-pane { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* Informations + Qualifications côte à côte (notations en pleine largeur dessous) */
+  .detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 920px) { .detail-cols { grid-template-columns: 1fr; } }
+  .empty-detail { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-muted); font-size: 13px; }
+
+  .detail-header { display: flex; flex-direction: column; gap: 6px; }
+  .dh-main { display: flex; align-items: center; gap: 12px; }
+  .dh-matricule { font-family: monospace; font-size: 28px; font-weight: 700; letter-spacing: 1px; }
+  .dh-sub  { display: flex; align-items: center; gap: 10px; }
+  .dh-grade { font-size: 14px; font-weight: 600; color: var(--accent); }
+  .dh-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
+  .dh-username { font-size: 13px; color: var(--color-muted); }
+
+  /* Badges contrat (sémantique propre : SPP=bleu, SPV=vert) */
+  .contrat-pill { font-size: 10px; font-weight: 700; letter-spacing: .5px; padding: 2px 7px; border-radius: 8px; white-space: nowrap; }
+  .contrat-pill.spp { background: rgba(79,110,247,.15); color: var(--color-primary); }
+  .contrat-pill.spv { background: rgba(76,175,130,.15); color: var(--color-success); }
+  .contrat-pill.lg  { font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+
+  /* Sections */
+  .detail-section { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+  .detail-section h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--color-muted); margin: 0; }
+  .section-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 16px; background: none; border: none; cursor: pointer; border-bottom: 1px solid var(--color-border); transition: background .12s; }
+  .section-toggle:hover { background: var(--hover); }
+  .chevron { color: var(--color-muted); font-size: 16px; transition: transform .2s; }
+  .chevron.open { transform: rotate(0deg); }
+  .chevron:not(.open) { transform: rotate(-90deg); }
+
+  /* Grille infos */
+  .info-grid { padding: 12px 16px; display: flex; flex-direction: column; gap: 0; }
+  .detail-section > .info-grid { padding-top: 12px; }
+  .detail-section > h3 { padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+  .info-row { display: flex; align-items: center; gap: 12px; min-height: 36px; border-bottom: 1px solid var(--color-border); padding: 4px 0; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; min-width: 100px; }
+  .info-value { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+  /* Édition inline */
+  .inline-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .inline-edit select, .inline-edit input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 5px 8px; outline: none; }
+  .inline-edit select:focus, .inline-edit input:focus { border-color: var(--accent); }
+  .btn-edit   { background: none; border: none; color: var(--color-muted); cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
+  .btn-edit:hover { color: var(--accent); }
+  .btn-save   { background: var(--accent); border: none; border-radius: var(--radius); color: #fff; font-size: 12px; padding: 4px 10px; cursor: pointer; }
+  .btn-cancel { background: none; border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 12px; padding: 4px 8px; cursor: pointer; }
+  .btn-cancel:hover { border-color: var(--color-danger); color: var(--color-danger); }
+
+  /* Boutons contrat */
+  .contrat-toggle { display: flex; gap: 8px; margin-top: 4px; }
+  .contrat-btn { padding: 5px 14px; border: 1px solid var(--color-border); border-radius: var(--radius); background: none; color: var(--color-muted); font-size: 13px; cursor: pointer; transition: all .15s; }
+  .contrat-btn.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+
+  /* Qualifications */
+  .hab-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .hab-item { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: var(--color-bg); border-radius: var(--radius); border: 1px solid var(--color-border); }
+  .hab-label { font-size: 13px; display: flex; flex-direction: column; gap: 2px; }
+  .hab-meta { font-size: 10px; color: var(--color-muted); }
+  .hab-count { font-weight: 400; font-size: 10px; color: var(--color-muted); }
+
+  /* Notations */
+  .detail-section-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+  .detail-section-head h3 { margin: 0; }
+  .not-form { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--color-border); }
+  .not-mois { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-muted); }
+  .not-mois input, .not-text textarea { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
+  .not-critere { display: flex; align-items: center; gap: 10px; }
+  .not-label { flex: 1; font-size: 13px; }
+  .not-critere input[type="range"] { width: 140px; }
+  .not-val { font-family: monospace; font-size: 12px; color: var(--accent); min-width: 32px; text-align: right; }
+  .not-text { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-muted); }
+  .not-text textarea { resize: vertical; }
+  .not-list { padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .not-item { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; }
+  .not-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .not-mois-badge { font-family: monospace; font-weight: 700; color: var(--accent); }
+  .not-score { font-size: 11px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 1px 7px; }
+  .not-by { margin-left: auto; font-size: 11px; color: var(--color-muted); }
+  .not-obs { font-size: 12px; margin: 6px 0 0; }
+
+  /* Relances */
+  .relance-flag { font-size: 12px; color: #e0a23c; }
+  .relance-flag.overdue { color: var(--color-danger); }
+  .rel-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .rel-item { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 6px 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .rel-item.done { opacity: .6; }
+  .rel-texte { flex: 1; }
+  .rel-ech { font-size: 11px; color: var(--color-muted); }
+  .rel-ech.overdue { color: var(--color-danger); font-weight: 600; }
+  .rel-badge { font-size: 10px; font-weight: 700; color: var(--color-success); }
+  .rel-add { display: flex; gap: 8px; margin-top: 4px; }
+  .rel-add input[type="text"] { flex: 1; }
+  .rel-add input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
+  .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; padding: 0 4px; cursor: pointer; line-height: 1; }
+  .rm-btn:hover { color: var(--color-danger); }
+  .add-hab-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .add-hab-form select { flex: 1; min-width: 200px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
+  .add-hab-form select:focus { border-color: var(--accent); }
+</style>

@@ -1,0 +1,56 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg:        #0f1117;
+  --color-surface:   #1a1e2e;
+  --color-border:    #2d3148;
+  --color-primary:   #4f6ef7;
+  --color-primary-h: #3a58e8;
+  --color-text:      #e2e4f0;
+  --color-muted:     #8890b0;
+  --color-danger:    #e05c5c;
+  --color-success:   #4caf82;
+
+  /* Accent thématique (couleur d'action). Défaut = GN/bleu ; surchargé par
+     faction sur <main> (voir Layout.svelte). */
+  --accent:    var(--color-primary);
+  --accent-h:  var(--color-primary-h);
+
+  --nav-width:  220px;
+  --header-h:    56px;
+  --radius:       6px;
+  color-scheme: dark;
+}
+
+/* Thème clair (basculé via une classe sur <html>) — surcharge la palette de base.
+   L'accent (faction) et les couleurs sémantiques restent inchangés. */
+html.light {
+  --color-bg:      #f3f4f8;
+  --color-surface: #ffffff;
+  --color-border:  #dde1ec;
+  --color-text:    #1b1f2e;
+  --color-muted:   #6a7290;
+  --hover:         rgba(0, 0, 0, 0.05);
+  color-scheme: light;
+}
+:root { --hover: rgba(255, 255, 255, 0.05); }
+
+/* Thème par faction, posé par Layout sur <main> */
+main.theme-sp { --accent: var(--color-success); --accent-h: #3d9e6e; }
+main.theme-gn { --accent: var(--color-primary); --accent-h: var(--color-primary-h); }
+
+html, body, #app {
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+a { color: var(--color-primary); text-decoration: none; }
+button { cursor: pointer; font-family: inherit; font-size: inherit; }

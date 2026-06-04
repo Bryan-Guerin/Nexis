@@ -21,3 +21,4 @@ nexis-app/src/main/resources/public/
 
 # Node.js téléchargé par frontend-maven-plugin
 node/
+/logs/

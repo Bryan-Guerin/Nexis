@@ -1,0 +1,149 @@
+/* =========================================================================
+   ui.css — Primitives UI partagées (boutons, formulaires, tables, badges,
+   chips, cartes dispatch, modale…).
+
+   Thématisation : tout l'accent (couleur d'action) passe par --accent /
+   --accent-h, posés par Layout sur <main> selon la faction (bleu GN / vert SP).
+   Rappel spécificité : un style *scopé* de composant l'emporte toujours sur
+   ces règles globales → une page peut surcharger localement au besoin.
+   ========================================================================= */
+
+/* ── Conteneurs de page ─────────────────────────────────────────────── */
+.page           { display: flex; flex-direction: column; gap: 20px; }
+.page-header    { display: flex; align-items: center; justify-content: space-between; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.page h2 { font-size: 20px; font-weight: 600; }
+.page h3 { font-size: 14px; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .5px; }
+
+/* ── Texte utilitaire ───────────────────────────────────────────────── */
+.muted { color: var(--color-muted); }
+.small { font-size: 12px; }
+.mono, .immat { font-family: monospace; font-size: 12px; }
+
+/* ── Boutons ────────────────────────────────────────────────────────── */
+.btn-primary {
+  align-self: flex-start;
+  background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius); font-size: 13px; font-weight: 600;
+  padding: 8px 16px; cursor: pointer; transition: background .2s, opacity .2s;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+.btn-primary:disabled { opacity: .6; cursor: default; }
+
+.btn-secondary, .btn-ghost, .btn-ghost-sm {
+  background: transparent; border: 1px solid var(--color-border);
+  border-radius: var(--radius); color: var(--color-muted);
+  font-size: 12px; padding: 6px 12px; cursor: pointer;
+  transition: border-color .15s, color .15s; white-space: nowrap;
+}
+.btn-secondary:hover, .btn-ghost:hover, .btn-ghost-sm:hover {
+  border-color: var(--accent); color: var(--accent);
+}
+.btn-ghost.small, .btn-ghost-sm { font-size: 11px; padding: 5px 11px; }
+
+/* ── Feedback ───────────────────────────────────────────────────────── */
+.inline-error {
+  color: var(--color-danger); background: rgba(224, 92, 92, .1);
+  border: 1px solid var(--color-danger); border-radius: var(--radius);
+  padding: 8px 12px; font-size: 13px;
+}
+
+/* ── Formulaires ────────────────────────────────────────────────────── */
+.create-form, .poste-form, .planning-form {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.form-row label, .create-form > label {
+  display: flex; flex-direction: column; gap: 5px;
+  color: var(--color-muted); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .5px;
+  flex: 1; min-width: 130px;
+}
+.page input, .page select {
+  background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius); color: var(--color-text);
+  font-size: 13px; padding: 7px 10px; outline: none;
+}
+.page input:focus, .page select:focus { border-color: var(--accent); }
+
+.field-label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 11px; color: var(--color-muted);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.field-label input, .field-label select {
+  background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius); color: var(--color-text);
+  font-size: 13px; padding: 7px 10px; outline: none;
+}
+.field-label input:focus, .field-label select:focus { border-color: var(--accent); }
+
+.user-row { display: flex; gap: 8px; align-items: center; }
+.user-row select { flex: 1; }
+
+.sub-form {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: var(--radius); padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sub-title { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin: 0; }
+
+/* ── Tables ─────────────────────────────────────────────────────────── */
+.page table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.page th, .page td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
+.page th { color: var(--color-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; background: var(--color-surface); }
+.empty { text-align: center; color: var(--color-muted); padding: 24px; }
+
+/* ── Chips ──────────────────────────────────────────────────────────── */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 20px; font-size: 13px; padding: 5px 14px;
+  display: flex; gap: 8px; align-items: center;
+}
+.chip-label { font-weight: 500; }
+.chip-code  { font-family: monospace; font-size: 11px; color: var(--color-muted); }
+.etat-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Badges ─────────────────────────────────────────────────────────── */
+.badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.badge-actif   { background: rgba(76, 175, 130, .15); color: var(--color-success); }
+.badge-inactif { background: var(--color-border);     color: var(--color-muted); }
+.statut-garde     { background: rgba(79, 110, 247, .15); color: var(--color-primary); }
+.statut-astreinte { background: rgba(232, 162, 58, .15); color: #e8a23a; }
+.statut-formation { background: rgba(76, 175, 130, .15); color: var(--color-success); }
+.statut-absent    { background: var(--color-border);     color: var(--color-muted); }
+
+/* ── Modale ─────────────────────────────────────────────────────────── */
+.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px; width: 420px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.modal h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 8px; }
+
+/* ── Tableau de bord : cartes statistiques ──────────────────────────── */
+.stat-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.stat-card  { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.stat-label { color: var(--color-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+.quick-links { display: flex; gap: 16px; flex-wrap: wrap; }
+.quick-link { color: var(--color-muted); font-size: 13px; padding: 8px 14px; border: 1px solid var(--color-border); border-radius: var(--radius); transition: border-color .2s, color .2s; }
+.quick-link:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Dispatch : cartes véhicule ─────────────────────────────────────── */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.veh-info { display: flex; flex-direction: column; gap: 2px; }
+.veh-type { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .6px; }
+.veh-lib { font-size: 15px; font-weight: 600; }
+.veh-immat { font-family: monospace; font-size: 12px; color: var(--color-muted); }
+.etat-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.crew { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.crew-member { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 8px; background: var(--color-bg); border-radius: var(--radius); }
+.crew-matricule { font-family: monospace; font-size: 11px; color: var(--color-muted); min-width: 60px; }
+.crew-name { flex: 1; font-weight: 500; }
+.crew-grade { font-size: 11px; color: var(--color-muted); }
+.empty-crew { font-size: 12px; color: var(--color-muted); font-style: italic; }
