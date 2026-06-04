@@ -1,8 +1,8 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
 
-  // Catégories de configuration (chacune = une "enum" ordonnée)
+    // Catégories de configuration (chacune = une "enum" ordonnée)
   const CATEGORIES = [
     { key: 'grades',    label: 'Grades',          list: '/sp/grades',    order: '/sp/grades/order',    kind: 'codelabel', deletable: true },
     { key: 'fonctions', label: 'Fonctions',       list: '/sp/fonctions', order: '/sp/fonctions/order', kind: 'codelabel', deletable: true, confirmDelete: true },

@@ -1,7 +1,7 @@
 <script>
-  import { authToken } from '../shared/stores.js'
+    import {authToken} from '../shared/stores.js'
 
-  let username = $state('')
+    let username = $state('')
   let password = $state('')
   let error    = $state('')
   let loading  = $state(false)

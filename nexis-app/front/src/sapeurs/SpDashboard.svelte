@@ -1,10 +1,9 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
-  import { realtime } from '../shared/realtime.js'
-  import { currentUser } from '../shared/stores.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
+    import {realtime} from '../shared/realtime.js'
 
-  let stats   = $state(null)
+    let stats   = $state(null)
   let journal = $state([])
   let statuts = $state([])          // statuts planning (pour la prise de garde rapide)
   let error   = $state('')

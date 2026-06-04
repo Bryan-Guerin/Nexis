@@ -1,20 +1,20 @@
 <script>
-  /**
-   * Composant planning partagé GN / SP.
-   * Affichage paysage : colonnes = heures (6h→6h), lignes = effectifs.
-   *
-   * Props attendues :
-   *   planningPath  — ex. '/gn/planning'
-   *   membresPath   — ex. '/gn/membres'
-   *   selfPath      — ex. '/gn/planning/me'
-   *   title         — titre de la page
-   *
-   * La couleur d'accent provient du thème de faction (--accent), posé par Layout.
-   */
-  import { onMount } from 'svelte'
-  import { api } from './api.js'
+    /**
+     * Composant planning partagé GN / SP.
+     * Affichage paysage : colonnes = heures (6h→6h), lignes = effectifs.
+     *
+     * Props attendues :
+     *   planningPath  — ex. '/gn/planning'
+     *   membresPath   — ex. '/gn/membres'
+     *   selfPath      — ex. '/gn/planning/me'
+     *   title         — titre de la page
+     *
+     * La couleur d'accent provient du thème de faction (--accent), posé par Layout.
+     */
+    import {onMount} from 'svelte'
+    import {api} from './api.js'
 
-  let { planningPath, membresPath, selfPath, title } = $props()
+    let { planningPath, membresPath, selfPath, title } = $props()
 
   // ── Constantes de mise en page ──────────────────────────────────────────────
   const PX_M     = 1.2        // pixels par minute (axe horizontal)

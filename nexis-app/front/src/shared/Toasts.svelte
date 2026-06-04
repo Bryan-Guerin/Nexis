@@ -1,5 +1,5 @@
 <script>
-  import { toasts } from './toasts.js'
+    import {toasts} from './toasts.js'
 </script>
 
 <div class="toasts">

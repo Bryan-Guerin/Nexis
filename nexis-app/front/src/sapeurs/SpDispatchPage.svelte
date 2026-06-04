@@ -1,9 +1,9 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
-  import { realtime } from '../shared/realtime.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
+    import {realtime} from '../shared/realtime.js'
 
-  let vehicules    = $state([])
+    let vehicules    = $state([])
   let membres      = $state([])
   let enServiceIds = $state([])
   let loading      = $state(true)

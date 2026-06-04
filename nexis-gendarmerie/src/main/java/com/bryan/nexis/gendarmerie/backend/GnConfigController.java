@@ -1,6 +1,9 @@
 package com.bryan.nexis.gendarmerie.backend;
 
-import com.bryan.nexis.gendarmerie.backend.dto.*;
+import com.bryan.nexis.gendarmerie.backend.dto.CreateGnGradeRequest;
+import com.bryan.nexis.gendarmerie.backend.dto.CreateGnVehiculeEtatRequest;
+import com.bryan.nexis.gendarmerie.backend.dto.GnGradeDto;
+import com.bryan.nexis.gendarmerie.backend.dto.GnVehiculeEtatDto;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.security.annotation.Secured;

@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store'
+import {writable} from 'svelte/store'
 
 // File de petites notifications éphémères.
 export const toasts = writable([])

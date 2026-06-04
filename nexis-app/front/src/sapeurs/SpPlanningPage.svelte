@@ -1,5 +1,5 @@
 <script>
-  import PlanningCalendar from '../shared/PlanningCalendar.svelte'
+    import PlanningCalendar from '../shared/PlanningCalendar.svelte'
 </script>
 
 <PlanningCalendar

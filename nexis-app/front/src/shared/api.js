@@ -1,6 +1,6 @@
-import { get } from 'svelte/store'
-import { authToken } from './stores.js'
-import { pushToast } from './toasts.js'
+import {get} from 'svelte/store'
+import {authToken} from './stores.js'
+import {pushToast} from './toasts.js'
 
 // Empêche plusieurs redirections concurrentes (ex. Promise.all qui renvoie plusieurs 401)
 let redirectingToLogin = false

@@ -1,8 +1,8 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
 
-  let types      = $state([])
+    let types      = $state([])
   let vehicules  = $state([])
   let etats      = $state([])   // états maîtres (système)
   let statuts    = $state([])   // statuts RP (ordonnés)

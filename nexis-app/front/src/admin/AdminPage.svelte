@@ -1,9 +1,9 @@
 <script>
-  import { onMount } from 'svelte'
-  import { currentUser } from '../shared/stores.js'
-  import { api } from '../shared/api.js'
+    import {onMount} from 'svelte'
+    import {currentUser} from '../shared/stores.js'
+    import {api} from '../shared/api.js'
 
-  let users    = $state([])
+    let users    = $state([])
   let roles    = $state([])
   let loading  = $state(false)
   let error    = $state('')

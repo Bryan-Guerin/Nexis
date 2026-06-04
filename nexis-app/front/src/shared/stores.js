@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store'
+import {writable} from 'svelte/store'
 
 // Décode le payload du JWT (base64url) sans vérification de signature — côté client uniquement.
 // La vraie validation se fait côté serveur à chaque requête API.

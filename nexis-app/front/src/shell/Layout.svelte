@@ -1,12 +1,18 @@
 <script>
-  import { onMount } from 'svelte'
-  import Nav from './Nav.svelte'
-  import { currentUser, authToken, theme as themeMode } from '../shared/stores.js'
-  import { api } from '../shared/api.js'
-  import { realtime, startBipLoop, stopBipLoop } from '../shared/realtime.js'
-  import { notifications, unread, startNotifications, markAllRead, clearNotifications } from '../shared/notifications.js'
+    import {onMount} from 'svelte'
+    import Nav from './Nav.svelte'
+    import {authToken, currentUser, theme as themeMode} from '../shared/stores.js'
+    import {api} from '../shared/api.js'
+    import {realtime, startBipLoop, stopBipLoop} from '../shared/realtime.js'
+    import {
+        clearNotifications,
+        markAllRead,
+        notifications,
+        startNotifications,
+        unread
+    } from '../shared/notifications.js'
 
-  let { children } = $props()
+    let { children } = $props()
 
   // ── Profil / avatar ─────────────────────────────────────────────────────────
   const AVATARS = ['🧑‍🚒', '👨‍🚒', '👩‍🚒', '🚒', '🚑', '🦺', '⛑️', '🔥', '🧯', '🚓', '👮', '🐶']

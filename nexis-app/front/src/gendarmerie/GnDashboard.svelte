@@ -1,8 +1,8 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
 
-  let disponibles  = $state('—')
+    let disponibles  = $state('—')
   let enService    = $state('—')
   let effectifs    = $state('—')
 

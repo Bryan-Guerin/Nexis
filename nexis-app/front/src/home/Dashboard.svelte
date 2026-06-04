@@ -1,7 +1,7 @@
 <script>
-  import { currentUser } from '../shared/stores.js'
+    import {currentUser} from '../shared/stores.js'
 
-  const modules = [
+    const modules = [
     { path: '/gn', title: 'Gendarmerie',      desc: 'Véhicules, interventions, effectifs GN', roles: ['ROLE_GN'] },
     { path: '/sp', title: 'Sapeurs-Pompiers', desc: 'Véhicules, interventions, effectifs SP', roles: ['ROLE_SP'] },
     { path: '/admin', title: 'Administration', desc: 'Gestion des utilisateurs et rôles',      roles: ['ROLE_SYSTEM'] },

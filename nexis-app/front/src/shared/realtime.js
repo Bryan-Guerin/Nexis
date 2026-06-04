@@ -1,5 +1,5 @@
-import { get } from 'svelte/store'
-import { authToken } from './stores.js'
+import {get} from 'svelte/store'
+import {authToken} from './stores.js'
 
 // ── Client WebSocket unique (bus d'événements temps réel) ────────────────────
 let socket = null

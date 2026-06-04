@@ -1,11 +1,11 @@
 <script>
-  import { onMount } from 'svelte'
-  import { get } from 'svelte/store'
-  import { api } from '../shared/api.js'
-  import { authToken, currentUser } from '../shared/stores.js'
-  import { pushToast } from '../shared/toasts.js'
+    import {onMount} from 'svelte'
+    import {get} from 'svelte/store'
+    import {api} from '../shared/api.js'
+    import {authToken, currentUser} from '../shared/stores.js'
+    import {pushToast} from '../shared/toasts.js'
 
-  let categories = $state([])
+    let categories = $state([])
   let error      = $state('')
   let newCat     = $state('')
   let uploads    = $state({})   // categorieId -> { nom, file, busy }

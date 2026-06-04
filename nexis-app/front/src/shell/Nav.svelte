@@ -1,7 +1,7 @@
 <script>
-  import { currentUser } from '../shared/stores.js'
+    import {currentUser} from '../shared/stores.js'
 
-  const nav = [
+    const nav = [
     { path: '/',                   label: 'Accueil',         roles: null },
 
     { section: 'Gendarmerie',                                roles: ['ROLE_GN'] },

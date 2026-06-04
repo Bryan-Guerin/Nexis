@@ -1,9 +1,9 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
-  import { currentUser } from '../shared/stores.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
+    import {currentUser} from '../shared/stores.js'
 
-  // ── Données ──────────────────────────────────────────────────────────────
+    // ── Données ──────────────────────────────────────────────────────────────
   let membres   = $state([])
   let grades    = $state([])
   let fonctions = $state([])   // catalogue des fonctions = des qualifications

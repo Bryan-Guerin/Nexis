@@ -1,7 +1,7 @@
-import { writable, derived, get } from 'svelte/store'
-import { realtime } from './realtime.js'
-import { currentUser } from './stores.js'
-import { api } from './api.js'
+import {derived, get, writable} from 'svelte/store'
+import {realtime} from './realtime.js'
+import {currentUser} from './stores.js'
+import {api} from './api.js'
 
 // Centre de notifications (session) : écoute le bus temps réel et retient les
 // événements pertinents pour l'utilisateur connecté. Les départs en intervention

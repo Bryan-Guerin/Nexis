@@ -4,7 +4,6 @@ import com.bryan.nexis.gendarmerie.backend.dto.GnDispatchDto;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
 
 import java.util.List;
 

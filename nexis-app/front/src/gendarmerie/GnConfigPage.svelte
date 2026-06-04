@@ -1,8 +1,8 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
 
-  let grades   = $state([])
+    let grades   = $state([])
   let etats    = $state([])
   let loading  = $state(true)
   let error    = $state('')

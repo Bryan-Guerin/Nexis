@@ -1,8 +1,8 @@
 <script>
-  import { onMount } from 'svelte'
-  import { api } from '../shared/api.js'
+    import {onMount} from 'svelte'
+    import {api} from '../shared/api.js'
 
-  let s = $state(null)
+    let s = $state(null)
   let error = $state('')
 
   onMount(async () => {

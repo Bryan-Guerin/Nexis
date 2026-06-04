@@ -1,14 +1,14 @@
 <script>
-  /**
-   * Timeline d'événements du journal (main courante / audit), avec filtres
-   * par tag (type, multi-sélection) et par date (jour unique ou intervalle).
-   * Props : path (endpoint REST), title.
-   */
-  import { onMount } from 'svelte'
-  import { api } from './api.js'
-  import { realtime } from './realtime.js'
+    /**
+     * Timeline d'événements du journal (main courante / audit), avec filtres
+     * par tag (type, multi-sélection) et par date (jour unique ou intervalle).
+     * Props : path (endpoint REST), title.
+     */
+    import {onMount} from 'svelte'
+    import {api} from './api.js'
+    import {realtime} from './realtime.js'
 
-  let { path, title } = $props()
+    let { path, title } = $props()
 
   let entries = $state([])
   let loading = $state(true)
