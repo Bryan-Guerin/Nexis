@@ -45,22 +45,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
-    # Plus de port publié : seul Caddy est exposé. Pour un accès direct en debug,
-    # décommenter :
-    # ports:
-    #   - "${APP_PORT:-8080}:8080"
+    # Port exposé directement — accessible via http://<IP_VPS>:8080 sans domaine.
+    # Quand tu as un domaine, couper ce port (commenter) et activer le profil https.
+    ports:
+      - "${APP_PORT:-8080}:8080"
     restart: unless-stopped
 
+  # ── Reverse proxy HTTPS ───────────────────────────────────────────────────────
+  # Démarrage : docker compose --profile https up -d
+  # Prérequis : NEXIS_DOMAIN + ACME_EMAIL définis dans .env, ports 80/443 ouverts.
+  # Quand Caddy est actif, désactiver le port 8080 ci-dessus pour ne pas l'exposer.
   caddy:
+    profiles: ["https"]
     image: caddy:2-alpine
     depends_on:
       app:
         condition: service_healthy
     environment:
-      # Domaine servi par Caddy (HTTPS auto si domaine public). Ex: nexis.mondomaine.fr
-      # Pour un test local : localhost (cert interne) ou :80 (HTTP seul).
-      NEXIS_DOMAIN: ${NEXIS_DOMAIN:-localhost}
-      ACME_EMAIL: ${ACME_EMAIL:-}
+      # Domaine public. Ex: nexis.mondomaine.fr
+      NEXIS_DOMAIN: ${NEXIS_DOMAIN:?définissez NEXIS_DOMAIN dans .env (ex nexis.mondomaine.fr)}
+      ACME_EMAIL: ${ACME_EMAIL:?définissez ACME_EMAIL dans .env pour Let's Encrypt}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data     # certificats Let's Encrypt (à persister !)

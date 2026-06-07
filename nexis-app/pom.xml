@@ -116,6 +116,11 @@
             <artifactId>micronaut-test-resources-client</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>io.micronaut.testresources</groupId>
+            <artifactId>micronaut-test-resources-jdbc-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
