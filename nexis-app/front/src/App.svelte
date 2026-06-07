@@ -1,4 +1,6 @@
 <script>
+    // noinspection ES6UnusedImports
+    import Router from 'svelte-spa-router'
     import {authToken} from './shared/stores.js'
     import {realtime} from './shared/realtime.js'
     import Toasts from './shared/Toasts.svelte'
