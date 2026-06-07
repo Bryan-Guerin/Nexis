@@ -31,6 +31,9 @@ services:
       db:
         condition: service_healthy
     environment:
+      # Empêche le chargement du profil "dev" (localhost) : seules les variables
+      # DATASOURCES_DEFAULT_* ci-dessous font foi en production.
+      MICRONAUT_ENVIRONMENTS: prod
       DATASOURCES_DEFAULT_URL: jdbc:postgresql://db:5432/nexis
       DATASOURCES_DEFAULT_USERNAME: ${POSTGRES_USER:-postgres}
       DATASOURCES_DEFAULT_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
