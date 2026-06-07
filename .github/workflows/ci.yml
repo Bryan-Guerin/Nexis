@@ -17,6 +17,8 @@ jobs:
   build:
     name: Build & tests
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +38,9 @@ jobs:
             nexis-app/front/node
             nexis-app/front/node_modules
           key: front-${{ runner.os }}-${{ hashFiles('nexis-app/front/package.json') }}
+
+      - name: Fix mvnw permissions
+        run: chmod +x mvnw
 
       - name: Build + tests (front + back)
         run: ./mvnw -B -ntp verify -Denforcer.skip=true
