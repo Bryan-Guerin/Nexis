@@ -116,11 +116,12 @@
             <artifactId>micronaut-test-resources-client</artifactId>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>io.micronaut.testresources</groupId>
-            <artifactId>micronaut-test-resources-jdbc-postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!--
+            NB : le resolver micronaut-test-resources-jdbc-postgresql n'est PAS déclaré
+            ici. Le serveur Test Resources tourne dans un process séparé avec son propre
+            classpath ; une dépendance de scope test n'y serait pas visible. Il est donc
+            ajouté via <testResourcesDependencies> du micronaut-maven-plugin (plus bas).
+        -->
     </dependencies>
 
     <build>
@@ -160,6 +161,17 @@
                 <groupId>io.micronaut.maven</groupId>
                 <artifactId>micronaut-maven-plugin</artifactId>
                 <configuration>
+                    <!--
+                        Resolvers ajoutés au classpath du serveur Test Resources (process
+                        séparé). Le resolver JDBC-PostgreSQL démarre un container Testcontainers
+                        et fournit datasources.default.url/username/password pendant les tests.
+                    -->
+                    <testResourcesDependencies>
+                        <dependency>
+                            <groupId>io.micronaut.testresources</groupId>
+                            <artifactId>micronaut-test-resources-jdbc-postgresql</artifactId>
+                        </dependency>
+                    </testResourcesDependencies>
                     <aotDependencies>
                         <dependency>
                             <groupId>io.micronaut.security</groupId>
