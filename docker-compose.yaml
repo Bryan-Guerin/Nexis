@@ -1,46 +1,50 @@
-# Déploiement « classique » : Postgres + application all-in-one (front + back)
-# derrière un reverse-proxy Caddy (HTTPS automatique).
+# Déploiement : application all-in-one (front + back) en conteneur, branchée sur le
+# PostgreSQL qui tourne en SERVICE SYSTÈME sur l'hôte (hors Docker, persistant).
+# Reverse-proxy Caddy optionnel (profil "https").
 #
-#   docker compose up -d --build        # build local de l'image + démarrage
+#   docker compose up -d                # démarre l'app (pull de l'image)
 #   docker compose logs -f app
-#   docker compose down                 # (ajouter -v pour effacer la base + certifs)
+#   docker compose down                 # arrête l'app (la base hôte n'est pas touchée)
 #
 # Les secrets/paramètres se règlent dans un fichier .env (voir .env.example).
 
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: nexis
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    volumes:
-      - nexis-db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d nexis"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   app:
     # Image publiée sur Docker Hub par la CI. Sur le VPS on la « pull » (pas de build).
     # En local, docker-compose.override.yaml ajoute `build: .` pour construire à la place.
     image: ${NEXIS_IMAGE:-bryanguerin/nexis:latest}
-    depends_on:
-      db:
-        condition: service_healthy
+    # Tourne avec l'UID/GID de ton user Debian (nexis) pour que les logs écrits dans
+    # le volume monté lui appartiennent. Récupère-les avec `id -u` / `id -g`.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # Permet au conteneur de joindre le PostgreSQL qui tourne en service sur l'hôte
+    # (hors Docker) : host.docker.internal pointe vers la passerelle de l'hôte.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # Empêche le chargement du profil "dev" (localhost) : seules les variables
       # DATASOURCES_DEFAULT_* ci-dessous font foi en production.
       MICRONAUT_ENVIRONMENTS: prod
-      DATASOURCES_DEFAULT_URL: jdbc:postgresql://db:5432/nexis
-      DATASOURCES_DEFAULT_USERNAME: ${POSTGRES_USER:-postgres}
-      DATASOURCES_DEFAULT_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # PostgreSQL = service système sur l'hôte (pas un conteneur). On le joint via
+      # host.docker.internal. Les identifiants doivent correspondre au user/base créés
+      # sur l'hôte (POSTGRES_USER / POSTGRES_PASSWORD du .env).
+      DATASOURCES_DEFAULT_URL: jdbc:postgresql://host.docker.internal:5432/nexis
+      DATASOURCES_DEFAULT_USERNAME: ${POSTGRES_USER:-nexis}
+      DATASOURCES_DEFAULT_PASSWORD: ${POSTGRES_PASSWORD:?définissez le mot de passe du user nexis dans .env}
       # Secret JWT HS256 — OBLIGATOIRE, ≥ 32 caractères. Le `:?` fait échouer
       # le démarrage si la variable n'est pas définie (pas de défaut faible en prod).
       JWT_GENERATOR_SIGNATURE_SECRET: ${JWT_GENERATOR_SIGNATURE_SECRET:?définissez un secret fort dans .env}
-      JAVA_OPTS: ${JAVA_OPTS:-}
+      # Config externalisée (montée depuis l'hôte) : surcharge l'application.properties
+      # packagé sans rebuild. Les variables d'env ci-dessus restent prioritaires.
+      MICRONAUT_CONFIG_FILES: /config/application.properties
+      # -Dlog4j2.configurationFile : config de log externe ; -DLOG_DIR : dossier logs.
+      JAVA_OPTS: -Dlog4j2.configurationFile=/config/log4j2.xml -DLOG_DIR=/logs ${JAVA_OPTS:-}
+    volumes:
+      # Config externalisée (lecture seule). Les fichiers DOIVENT exister sur l'hôte
+      # avant le démarrage (sinon Docker crée des dossiers à la place des fichiers).
+      - /opt/volumes/nexis/application.properties:/config/application.properties:ro
+      - /opt/volumes/nexis/log4j2.xml:/config/log4j2.xml:ro
+      # Logs persistés sur l'hôte (lecture/écriture).
+      - /opt/volumes/nexis/logs:/logs
     # /health (Micronaut Management) : healthcheck applicatif → DOWN si la DB tombe.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
@@ -79,6 +83,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  nexis-db:
   caddy-data:
   caddy-config:
