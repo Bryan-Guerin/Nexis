@@ -9,6 +9,10 @@
   let error   = $state('')
   let reloadTimer = null
 
+  // Logo caserne (paramétrable par instance : fichier déposé dans le volume,
+  // servi sur /branding/sp-logo.png). Masqué si aucun fichier n'est présent.
+  let showLogo = $state(true)
+
   // Prise de garde rapide
   let gardeDuree = $state(2)        // heures
   let gardeError = $state('')
@@ -103,7 +107,14 @@
 
 <div class="page">
   <div class="page-header">
-    <h2>Sapeurs-Pompiers — Tableau de bord</h2>
+    <div style="display:flex;align-items:center;gap:14px">
+      {#if showLogo}
+        <img src="/branding/sp-logo.png" alt="Logo caserne"
+             style="height:46px;width:auto;max-width:160px;object-fit:contain"
+             onerror={() => showLogo = false} />
+      {/if}
+      <h2>Sapeurs-Pompiers — Tableau de bord</h2>
+    </div>
     <button class="btn-ghost" onclick={load}>Actualiser</button>
   </div>
 

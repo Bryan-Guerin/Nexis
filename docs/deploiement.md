@@ -34,8 +34,13 @@ GitHub Actions (build) ──push──► Docker Hub ◄──pull── VPS
 /opt/volumes/nexis/             ← données persistées (config + logs)
 ├── application.properties      (surcharges runtime, sans rebuild)
 ├── log4j2.xml                  (copié du repo — niveaux de log modifiables à chaud)
+├── branding/                   (logos paramétrables par instance — ex: sp-logo.png)
 └── logs/                       (rempli par l'application)
 ```
+
+> 🎨 **Branding** : dépose le logo de la caserne dans `/opt/volumes/nexis/branding/sp-logo.png`.
+> Il est servi sur `/branding/sp-logo.png` et s'affiche sur le tableau de bord SP. Aucun
+> fichier = aucun logo affiché (pas d'erreur). Modifiable à chaud, sans rebuild ni redéploiement.
 
 > ⚠️ Ne **jamais** copier `docker-compose.override.yaml` sur le VPS : il force un build local
 > au lieu du pull de l'image.
@@ -69,8 +74,10 @@ docker ps                         # doit marcher sans sudo
 ### 2.2 Arborescence
 ```bash
 mkdir -p /home/nexis/nexis
-sudo mkdir -p /opt/volumes/nexis/logs
+sudo mkdir -p /opt/volumes/nexis/logs /opt/volumes/nexis/branding
 sudo chown -R nexis:nexis /opt/volumes/nexis
+# (optionnel) déposer le logo de la caserne :
+#   cp mon-logo.png /opt/volumes/nexis/branding/sp-logo.png
 ```
 
 ### 2.3 Partager /home/nexis avec un autre user admin (ex: debian) — optionnel
@@ -171,25 +178,26 @@ docker compose logs -f app    # Flyway doit appliquer les migrations dans la bas
 ```
 Accès : **http://IP_DU_VPS:8080**
 
-### 2.10 Créer le premier administrateur
-Aucun utilisateur n'est seedé. Générer un hash bcrypt puis l'insérer dans la base hôte.
-```bash
-sudo apt install -y apache2-utils
-htpasswd -bnBC 12 "" 'TonMotDePasseAdmin' | tr -d ':\n' | sed 's/\$2y\$/\$2a\$/'
-```
-Puis :
-```bash
-sudo -u postgres psql -d nexis
-```
-```sql
-INSERT INTO ref_user (username, password_hash, enabled)
-VALUES ('admin', '$2a$12$colle-ton-hash-ici', true);
+### 2.10 Premier administrateur (auto-seed)
+L'admin est **créé automatiquement** au 1er démarrage **si la base ne contient aucun
+utilisateur**, avec des identifiants **en dur** :
 
-INSERT INTO ref_user_role (user_id, role_id)
-SELECT u.id, r.id FROM ref_user u, ref_role r
-WHERE u.username = 'admin' AND r.code = 'ROLE_SYSTEM';
+| Identifiant | Mot de passe |
+|---|---|
+| `admin` | `root` |
+
+> 🔐 **À FAIRE dès la première connexion** : menu utilisateur (haut droite) →
+> « Modifier mon mot de passe ». Le mot de passe `root` est volontairement trivial et
+> ne doit pas rester en place.
+
+Idempotent : dès qu'un utilisateur existe, le seed ne fait plus rien. Pour créer un admin
+**a posteriori** sur une base déjà peuplée, voir la création manuelle en annexe (§7).
+
+### 2.11 Initialiser le référentiel SP (optionnel)
+Grades, fonctions et objets d'inventaire par défaut. Re-jouable sans risque (`ON CONFLICT`).
+```bash
+sudo -u postgres psql -d nexis -f scripts/seed_sp_referentiel.sql
 ```
-Connexion : `admin` / `TonMotDePasseAdmin`.
 
 ---
 
@@ -240,6 +248,44 @@ docker compose up -d --build
 
 ---
 
+## 7. Annexe — créer un admin manuellement (base déjà peuplée)
+L'auto-seed (§2.10) ne s'applique que sur une base vide. Pour ajouter un admin ensuite :
+```bash
+sudo apt install -y apache2-utils
+htpasswd -bnBC 12 "" 'TonMotDePasse' | tr -d ':\n' | sed 's/\$2y\$/\$2a\$/'   # → hash $2a$...
+sudo -u postgres psql -d nexis
+```
+```sql
+INSERT INTO ref_user (username, password_hash, enabled)
+VALUES ('admin2', '$2a$12$colle-ton-hash-ici', true);
+
+INSERT INTO ref_user_role (user_id, role_id)
+SELECT u.id, r.id FROM ref_user u, ref_role r
+WHERE u.username = 'admin2' AND r.code = 'ROLE_SYSTEM';
+```
+
+---
+
+## Sauvegarde de la base
+La base vit sur l'hôte → sauvegarde indépendante de Docker. Script fourni
+(`scripts/nexis-backup.sh`) : dump compressé daté, **conserve les 3 dernières** sur le VPS.
+```bash
+sudo mkdir -p /opt/scripts
+sudo cp scripts/nexis-backup.sh /opt/scripts/nexis-backup.sh
+sudo chmod +x /opt/scripts/nexis-backup.sh
+sudo crontab -e
+# Ajouter (tous les jours à 3 h) :
+0 3 * * * /opt/scripts/nexis-backup.sh
+```
+Restauration :
+```bash
+gunzip -c /opt/backups/nexis_2026-06-09.sql.gz | sudo -u postgres psql -d nexis
+```
+> Sauvegardes persistées sur le VPS uniquement (pas de copie hors-site automatisée).
+> Si possible, télécharge ponctuellement un dump en local (`scp`) pour parer à une perte du VPS.
+
+---
+
 ## Configuration externalisée — comment ça marche
 - `MICRONAUT_CONFIG_FILES=/config/application.properties` → Micronaut charge la config externe
   **en plus** du packagé, avec priorité supérieure. Les variables d'env (`DATASOURCES_*`,
@@ -252,7 +298,8 @@ docker compose up -d --build
 ## Santé & exploitation
 - `GET /health` : statut appli + DB (200 UP / 503 DOWN). Sert au `HEALTHCHECK` Docker.
 - `docker compose ps` : voir l'état (healthy).
-- Logs applicatifs : `/opt/volumes/nexis/logs/nexis.log` (rotation quotidienne + 10 Mo, 30 archives).
+- Logs applicatifs : `/opt/volumes/nexis/logs/nexis.log` (jour en cours) + archives `nexis-AAAA-MM-JJ.log.gz`.
+  Rotation : **1 fichier/jour**, rétention **10 jours OU 2 Go cumulés** (le premier seuil atteint).
 - **La base est sur l'hôte** : `docker compose down` (même avec `-v`) **ne la touche pas**.
   Sauvegarde : `sudo -u postgres pg_dump nexis > nexis_$(date +%F).sql`.
 - ⚠️ `docker compose down -v` efface uniquement les volumes Docker restants (certificats

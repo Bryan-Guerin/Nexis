@@ -12,15 +12,25 @@
             <PatternLayout pattern="${PATTERN}"/>
         </Console>
 
+        <!-- 1 fichier de log par jour. Rétention : 10 jours OU 2 Go cumulés (le 1er atteint). -->
         <RollingFile name="File"
                      fileName="${LOG_DIR}/nexis.log"
-                     filePattern="${LOG_DIR}/nexis-%d{yyyy-MM-dd}-%i.log.gz">
+                     filePattern="${LOG_DIR}/nexis-%d{yyyy-MM-dd}.log.gz">
             <PatternLayout pattern="${PATTERN}"/>
             <Policies>
-                <TimeBasedTriggeringPolicy />
-                <SizeBasedTriggeringPolicy size="10MB"/>
+                <!-- modulate : bascule à minuit pile -->
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
             </Policies>
-            <DefaultRolloverStrategy max="30"/>
+            <DefaultRolloverStrategy>
+                <Delete basePath="${LOG_DIR}" maxDepth="1">
+                    <IfFileName glob="nexis-*.log.gz">
+                        <IfAny>
+                            <IfLastModified age="10d"/>
+                            <IfAccumulatedFileSize exceeds="2 GB"/>
+                        </IfAny>
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
         </RollingFile>
     </Appenders>
 

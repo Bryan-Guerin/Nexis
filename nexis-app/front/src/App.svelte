@@ -3,6 +3,7 @@
     import Router from 'svelte-spa-router'
     import {authToken} from './shared/stores.js'
     import {realtime} from './shared/realtime.js'
+    import {titleForHash} from './shared/pageTitle.js'
     import Toasts from './shared/Toasts.svelte'
     import Layout from './shell/Layout.svelte'
     import Login from './auth/Login.svelte'
@@ -56,6 +57,11 @@
     if ($authToken) realtime.connect()
     else realtime.disconnect()
   })
+
+  // Titre de l'onglet = "Nexis — <page courante>"
+  let routeHash = $state(window.location.hash)
+  window.addEventListener('hashchange', () => { routeHash = window.location.hash })
+  $effect(() => { document.title = titleForHash(routeHash) })
 </script>
 
 {#if $authToken}

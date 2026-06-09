@@ -45,6 +45,9 @@ services:
       - /opt/volumes/nexis/log4j2.xml:/config/log4j2.xml:ro
       # Logs persistés sur l'hôte (lecture/écriture).
       - /opt/volumes/nexis/logs:/logs
+      # Branding paramétrable (logo caserne SP…) servi sur /branding/** par l'app.
+      # Dépose tes images dans /opt/volumes/nexis/branding/ (ex: sp-logo.png).
+      - /opt/volumes/nexis/branding:/branding:ro
     # /health (Micronaut Management) : healthcheck applicatif → DOWN si la DB tombe.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
