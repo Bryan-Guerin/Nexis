@@ -1,8 +1,6 @@
 = La liste TODO du seigneur
 
 Ajouter rôle Staff en read only global
-
-
 Ajouter module DIR ?
 
 ---
@@ -13,17 +11,11 @@ Ajouter module DIR ?
 Ajout page de gestion du profil du joueur (ou pop-up, utile pour changer le MDP) => Problème au changement MDP par user. Reset MDP peut être OK. j'ai mot de passe invalide ou réponse vide.
 
 
-
 Ajouter un ordre dans les grades => Trier par grade les effectifs / prioriser moins gradé convenant au poste.
 => Ajouter "supprimer" sur les fonctions SP. Si suppression, indiquer confirmation et faire une cascade pour supprimer les postes. Suppression impossible si véhicule utilisé. Je connais un mécanisme de deletionListener qui se fait par un pattern décoration et des appels via injection de service
 
-État véhicule => renommer statut véhicule
-
 Faire le dispatch pour affecter les effectifs à un véhicule.
 Créer la partie intervention (rôle CODIS pour déclenchement / forcer ?)
-Créer fiche de paie pour tous (taux horaire sur grade ?)
-
-
 
 Détail de la liste SP ne marche pas + erreur JS lorsque validation nouvel effectif. Le nouvel effectif est bien créé et visible derrière la pop up, mais la pop up ne se masque pas. Le bouton annuler ne la masque pas non plus.
 
