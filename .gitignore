@@ -26,3 +26,6 @@ node/
 
 # Secrets de déploiement (docker-compose) — ne jamais committer
 .env
+
+# Sortie d'outils d'analyse locale
+graphify-out/

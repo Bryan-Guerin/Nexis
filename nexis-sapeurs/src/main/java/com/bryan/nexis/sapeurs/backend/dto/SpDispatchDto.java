@@ -17,5 +17,6 @@ public record SpDispatchDto(
         List<SpDispatchMembreDto> equipe
 ) {
     @Serdeable
-    public record SpDispatchMembreDto(UUID membreId, String matricule, String username, String grade, UUID posteId, String fonctionLabel) {}
+    public record SpDispatchMembreDto(UUID membreId, String matricule, String username, String gradeCode,
+                                      String grade, String nomComplet, UUID posteId, String fonctionLabel) {}
 }

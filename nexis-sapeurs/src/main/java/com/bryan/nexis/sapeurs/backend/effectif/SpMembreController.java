@@ -113,7 +113,7 @@ public class SpMembreController {
     @Secured("ROLE_ADMIN_SP")
     @Status(HttpStatus.CREATED)
     SpMembreDto createMembre(@Body CreateSpMembreRequest req) {
-        return membreService.create(req.userId(), req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet());
+        return membreService.create(req.userId(), req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet(), req.telephone());
     }
 
     /** Détail d'un effectif (chargé à la demande au clic). */
@@ -127,7 +127,7 @@ public class SpMembreController {
     @Patch("/membres/{id}")
     @Secured("ROLE_ADMIN_SP")
     SpMembreDto updateMembre(UUID id, @Body UpdateSpMembreRequest req) {
-        return membreService.update(id, req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet());
+        return membreService.update(id, req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet(), req.telephone());
     }
 
     // ── Planning ─────────────────────────────────────────────────────────────

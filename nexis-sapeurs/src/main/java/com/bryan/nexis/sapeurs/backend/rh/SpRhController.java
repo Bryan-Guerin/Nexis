@@ -4,9 +4,11 @@ import com.bryan.nexis.core.backend.NotationService;
 import com.bryan.nexis.core.backend.dto.CreateNotationRequest;
 import com.bryan.nexis.core.backend.dto.NotationDto;
 import com.bryan.nexis.sapeurs.backend.dto.CreateRelanceRequest;
+import com.bryan.nexis.sapeurs.backend.dto.CreateSanctionRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpGradeDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpPaieSemaineDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpRelanceDto;
+import com.bryan.nexis.sapeurs.backend.dto.SpSanctionDto;
 import com.bryan.nexis.sapeurs.backend.effectif.SpGradeService;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
@@ -29,15 +31,17 @@ public class SpRhController {
     private final SpGradeService   gradeService;
     private final NotationService  notationService;
     private final SpRelanceService relanceService;
+    private final SpSanctionService sanctionService;
     private final SecurityService  securityService;
 
     public SpRhController(SpPaieService paieService, SpGradeService gradeService,
                           NotationService notationService, SpRelanceService relanceService,
-                          SecurityService securityService) {
+                          SpSanctionService sanctionService, SecurityService securityService) {
         this.paieService     = paieService;
         this.gradeService    = gradeService;
         this.notationService = notationService;
         this.relanceService  = relanceService;
+        this.sanctionService = sanctionService;
         this.securityService = securityService;
     }
 
@@ -103,5 +107,24 @@ public class SpRhController {
     @Status(HttpStatus.NO_CONTENT)
     void supprimerRelance(@PathVariable UUID id) {
         relanceService.supprimer(id);
+    }
+
+    // ── Sanctions disciplinaires ──────────────────────────────────────────────
+
+    @Get("/membres/{membreId}/sanctions")
+    List<SpSanctionDto> sanctions(@PathVariable UUID membreId) {
+        return sanctionService.listForMembre(membreId);
+    }
+
+    @Post("/membres/{membreId}/sanctions")
+    @Status(HttpStatus.CREATED)
+    SpSanctionDto creerSanction(@PathVariable UUID membreId, @Body CreateSanctionRequest req) {
+        return sanctionService.create(membreId, req.type(), req.motif(), req.dateSanction());
+    }
+
+    @Delete("/sanctions/{id}")
+    @Status(HttpStatus.NO_CONTENT)
+    void supprimerSanction(@PathVariable UUID id) {
+        sanctionService.supprimer(id);
     }
 }

@@ -42,8 +42,8 @@
     a.enCours === b.enCours ? (new Date(b.debut) - new Date(a.debut)) : (a.enCours ? -1 : 1)
   ))
 
-  // Recherche / archive
-  let filtreStatut = $state('TOUTES')   // TOUTES | EN_COURS | CLOTUREES
+  // Recherche / archive — par défaut, on n'affiche que les interventions en cours
+  let filtreStatut = $state('EN_COURS')   // TOUTES | EN_COURS | CLOTUREES
   let recherche    = $state('')
   let affichees = $derived(sorted.filter(i => {
     if (filtreStatut === 'EN_COURS' && !i.enCours) return false
@@ -88,6 +88,7 @@
     if (!form.motif.trim()) { createError = 'Motif requis'; return }
     if (!form.natureId) { createError = 'La nature est obligatoire'; return }
     if (!avertirNonArmes(createSel)) return
+    if (!(await avertirDesaffectation(createSel))) return
     try {
       await api.post('/sp/interventions', {
         motif: form.motif,
@@ -123,6 +124,18 @@
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
     if (nonArmes.length === 0) return true
     return window.confirm(`⚠ ${nonArmes.map(v => v.libelle).join(', ')} non armé(s) (poste obligatoire non couvert).\nEngager quand même ?`)
+  }
+
+  // Au déclenchement, les effectifs sur poste NON obligatoire des engins seront désaffectés :
+  // on prévient le dispatcher avec la liste avant de valider.
+  async function avertirDesaffectation(ids) {
+    if (!ids || ids.length === 0) return true
+    let preview = []
+    try { preview = await api.post('/sp/interventions/preview-desaffectation', { vehiculeIds: ids }) }
+    catch { preview = [] }
+    if (!preview || preview.length === 0) return true
+    const lignes = preview.map(p => `• ${p.gradeCode} ${p.nom} — ${p.fonction} (${p.vehicule})`).join('\n')
+    return window.confirm(`Au déclenchement, ces effectifs sur un poste NON obligatoire seront désaffectés :\n\n${lignes}\n\nDéclencher quand même ?`)
   }
 
   async function submitRenfort(inter) {

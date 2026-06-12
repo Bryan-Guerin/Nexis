@@ -70,6 +70,18 @@ public class SpInventaireService {
         itemRepo.deleteById(itemId);
     }
 
+    /** Réordonne le modèle d'inventaire d'un type : position = index dans la liste fournie. */
+    @Transactional
+    public void reorderItems(List<UUID> orderedIds) {
+        for (int i = 0; i < orderedIds.size(); i++) {
+            var id = orderedIds.get(i);
+            var item = itemRepo.findById(id)
+                    .orElseThrow(() -> new NoSuchElementException("Item d'inventaire introuvable : " + id));
+            item.setPosition(i);
+            itemRepo.update(item);
+        }
+    }
+
     // ── Vérifications (checklist + historique + disponibilité) ───────────────
     @Transactional
     public List<SpVerificationDto> listVerifications(UUID vehiculeId) {

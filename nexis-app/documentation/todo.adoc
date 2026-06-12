@@ -5,6 +5,14 @@ Ajouter module DIR ?
 
 ---
 
+== À traiter prochainement (rapide)
+
+* Disponible Radio → clôture l'intervention : quand le dernier véhicule engagé passe
+  « Disponible » (statut), clôturer automatiquement l'intervention. (cf. ligne plus bas
+  « Lorsque l'ensemble des véhicules… »). Comportement exact à préciser (auto vs bouton).
+
+---
+
 == Retouches
 
 
@@ -78,3 +86,41 @@ Ajoutes en de tout niveau, info / debug voir trace à quelques endroits (je n'en
 HF si jamais faire du web hook pour notif discord
 Envoie MP pour BIP
 Envoie dans un canal des interventions en cours (vignette discord + lien vers l'intervention ?)
+
+
+---
+
+TODO Correctifs :
+
+écran véhicules : Afficher la colonne label (code du véhicule), afficher code du type de véhicule (au lieu du nom)
+
+Dispatch : Revoir affichage des effectifs (à gauche) : Grade (code), Nom RP.
+A l'init de la page, décaler la scroll bar vers la droite (pour ne plus être placé à 6h).
+
+----
+
+Affichage liste effectif :
+
+trier par grade, afficher le matricule dans le détail, palcer le nom en entête du détail
+Ajouter numéro de téléphone sur les effectifs
+
+Affichage Tableau de bord :
+Section De garde, afficher code du grade + nom / prénom
+
+Ajouter une section événement, les admin peuvent les créer (titre + texte libre + date). Chaque effectif peut annoncer sa présence ou son absence (oui / non). Il faut un écran événement accessible admin pour les créer et voir la liste des présent / absent déclarés.
+
+Ajouter une section pour les fréquences radio (boutn + pour admin, une desc + un champ pour la freq (format 150.1)
+
+Bouger les boutons de redirections vers les autres écran (tout en bas de la page) et le palcer dans la barre de prise de garde.
+
+
+
+
+Effectif :
+Ajouter un bloc Sanction en dessous de information (garder qualification à droite, flex pour avoir un bloc ((info / sanction) | qualification)
+
+
+Autoriser les doubles affectation : un effectif sur plusieurs véhicules (exemple FSR + VTU)
+Rendre véhicule non armé si effectif est sur inter + sur un post obligatoire du véhicule à déclencher.
+Départ combiné, effectif à un poste non obligatoire, alors le désaffecté au déclenchement (avec pop up au moment de faire péter l'inter).
+

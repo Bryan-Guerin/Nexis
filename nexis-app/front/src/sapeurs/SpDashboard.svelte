@@ -2,12 +2,26 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
+    import {currentUser} from '../shared/stores.js'
 
     let stats   = $state(null)
   let journal = $state([])
   let statuts = $state([])          // statuts planning (pour la prise de garde rapide)
   let error   = $state('')
   let reloadTimer = null
+
+  let isAdmin = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
+
+  // Fréquences radio (affichées à tous, gérées par les admins)
+  let frequences = $state([])
+  let freqForm   = $state({ description: '', frequence: '' })
+  let freqError  = $state('')
+
+  // Événements à venir / en cours
+  let evenements = $state([])
+  function fmtEvt(iso) {
+    return new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  }
 
   // Logo caserne (paramétrable par instance : fichier déposé dans le volume,
   // servi sur /branding/sp-logo.png). Masqué si aucun fichier n'est présent.
@@ -36,12 +50,16 @@
   async function load() {
     error = ''
     try {
-      const [s, j, st, sc] = await Promise.all([
+      const [s, j, st, sc, fq, ev] = await Promise.all([
         api.get('/sp/dashboard'),
         api.get('/sp/journal?limit=8'),
         api.get('/sp/planning/statuts').catch(() => []),
         api.get('/sp/planning/me/service-courant').catch(() => ({ categorie: null })),
+        api.get('/sp/frequences').catch(() => []),
+        api.get('/sp/evenements').catch(() => []),
       ])
+      frequences = fq ?? []
+      evenements = ev ?? []
       // Robustesse : les collections vides peuvent être omises du JSON
       stats = {
         ...s,
@@ -50,6 +68,27 @@
       }
       journal = j ?? []; statuts = st ?? []; monService = sc?.categorie ?? null
     } catch (e) { error = e.message }
+  }
+
+  async function declarerPresence(evId, present) {
+    try {
+      await api.put(`/sp/evenements/${evId}/reponse?present=${present}`)
+      evenements = await api.get('/sp/evenements').catch(() => evenements)
+    } catch (e) { error = e.message }
+  }
+
+  async function addFrequence() {
+    freqError = ''
+    if (!freqForm.description.trim() || !freqForm.frequence.trim()) { freqError = 'Description et fréquence requises'; return }
+    try {
+      const created = await api.post('/sp/frequences', { description: freqForm.description, frequence: freqForm.frequence })
+      frequences = [...frequences, created]
+      freqForm = { description: '', frequence: '' }
+    } catch (e) { freqError = e.message }
+  }
+  async function deleteFrequence(id) {
+    try { await api.delete(`/sp/frequences/${id}`); frequences = frequences.filter(f => f.id !== id) }
+    catch (e) { freqError = e.message }
   }
 
   async function prendreGarde() {
@@ -174,7 +213,40 @@
         <span class="gq-hint">Quart d'heure entamé = compté (début 15h55 → 15h45)</span>
       {/if}
       {#if gardeError}<span class="inline-error">{gardeError}</span>{/if}
+
+      <!-- Accès rapide aux autres écrans (déplacé depuis le bas de page) -->
+      <div class="quick-links">
+        <a href="#/sp/dispatch" class="quick-link">Dispatch →</a>
+        <a href="#/sp/interventions" class="quick-link">Interventions →</a>
+        <a href="#/sp/vehicules" class="quick-link">Véhicules →</a>
+        <a href="#/sp/effectifs" class="quick-link">Effectifs →</a>
+      </div>
     </section>
+
+    <!-- Événements à venir / en cours -->
+    {#if evenements.length > 0}
+      <section class="panel">
+        <h3>Événements</h3>
+        <div class="evt-list">
+          {#each evenements as ev (ev.id)}
+            <div class="evt">
+              <div class="evt-head">
+                <span class="evt-titre">{ev.titre}</span>
+                <span class="evt-date">{fmtEvt(ev.date)}</span>
+              </div>
+              {#if ev.texte}<p class="evt-texte">{ev.texte}</p>{/if}
+              <div class="evt-foot">
+                <span class="evt-counts" title="Présents · Absents déclarés">✅ {ev.nbPresents} · ❌ {ev.nbAbsents}</span>
+                <div class="evt-actions">
+                  <button class="evt-btn oui" class:on={ev.maPresence === true} onclick={() => declarerPresence(ev.id, true)}>Présent</button>
+                  <button class="evt-btn non" class:on={ev.maPresence === false} onclick={() => declarerPresence(ev.id, false)}>Absent</button>
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     <div class="cols">
       <!-- Flotte par état -->
@@ -204,12 +276,37 @@
         {:else}
           <div class="chips">
             {#each stats.garde as m (m.matricule)}
-              <span class="chip"><span class="garde-dot"></span>{m.matricule} · {m.username} <span class="chip-grade">{m.grade}</span></span>
+              <span class="chip"><span class="garde-dot"></span><span class="chip-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
             {/each}
           </div>
         {/if}
       </section>
     </div>
+
+    <!-- Fréquences radio -->
+    {#if frequences.length > 0 || isAdmin}
+      <section class="panel">
+        <h3>Fréquences radio</h3>
+        <div class="freq-list">
+          {#each frequences as f (f.id)}
+            <div class="freq-row">
+              <span class="freq-desc">{f.description}</span>
+              <span class="freq-val">{f.frequence}</span>
+              {#if isAdmin}<button class="rm-btn" title="Supprimer" onclick={() => deleteFrequence(f.id)}>×</button>{/if}
+            </div>
+          {/each}
+          {#if frequences.length === 0}<p class="muted small">Aucune fréquence configurée.</p>{/if}
+        </div>
+        {#if isAdmin}
+          <div class="freq-add">
+            <input type="text" bind:value={freqForm.description} placeholder="Description (ex: Tactique 1)" />
+            <input type="text" bind:value={freqForm.frequence} placeholder="150.1" style="width:90px" />
+            <button class="btn-ghost-sm" onclick={addFrequence}>+ Ajouter</button>
+          </div>
+          {#if freqError}<span class="inline-error">{freqError}</span>{/if}
+        {/if}
+      </section>
+    {/if}
 
     <div class="cols">
       <!-- Engins engagés -->
@@ -307,12 +404,6 @@
       {/if}
     </section>
 
-    <div class="quick-links">
-      <a href="#/sp/dispatch" class="quick-link">Dispatch →</a>
-      <a href="#/sp/interventions" class="quick-link">Interventions →</a>
-      <a href="#/sp/vehicules" class="quick-link">Véhicules →</a>
-      <a href="#/sp/effectifs" class="quick-link">Effectifs →</a>
-    </div>
   {/if}
 </div>
 
@@ -378,6 +469,32 @@
   .act-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .act-who { color: var(--color-muted); white-space: nowrap; }
 
-  .quick-links { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-  .quick-link { color: var(--accent); text-decoration: none; font-size: 13px; }
+  /* Dans la barre de garde : poussés à droite */
+  .garde-quick .quick-links { display: flex; gap: 12px; margin: 0 0 0 auto; flex-wrap: wrap; }
+  .quick-link { color: var(--accent); text-decoration: none; font-size: 13px; white-space: nowrap; }
+
+  /* Événements */
+  .evt-list { display: flex; flex-direction: column; gap: 10px; }
+  .evt { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; }
+  .evt-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .evt-titre { font-size: 14px; font-weight: 600; }
+  .evt-date { font-size: 11px; color: var(--color-muted); white-space: nowrap; text-transform: capitalize; }
+  .evt-texte { font-size: 12px; color: var(--color-muted); margin: 6px 0 0; white-space: pre-wrap; }
+  .evt-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+  .evt-counts { font-size: 12px; color: var(--color-muted); }
+  .evt-actions { display: flex; gap: 6px; }
+  .evt-btn { font-size: 12px; padding: 4px 12px; border-radius: var(--radius); border: 1px solid var(--color-border); background: none; color: var(--color-muted); cursor: pointer; transition: all .12s; }
+  .evt-btn.oui.on { border-color: var(--color-success); color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); font-weight: 600; }
+  .evt-btn.non.on { border-color: var(--color-danger); color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 14%, transparent); font-weight: 600; }
+
+  /* Fréquences radio */
+  .freq-list { display: flex; flex-direction: column; gap: 6px; }
+  .freq-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .freq-desc { flex: 1; font-size: 13px; }
+  .freq-val { font-family: monospace; font-weight: 700; color: var(--accent); font-size: 14px; }
+  .freq-add { display: flex; gap: 8px; margin-top: 10px; }
+  .freq-add input { flex: 1; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
+  .freq-add input:focus { border-color: var(--accent); }
+  .freq-row .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
+  .freq-row .rm-btn:hover { color: var(--color-danger); }
 </style>

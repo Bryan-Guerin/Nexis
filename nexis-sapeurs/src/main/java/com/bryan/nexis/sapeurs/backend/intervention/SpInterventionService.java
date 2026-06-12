@@ -6,9 +6,11 @@ import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.CreateSpInterventionRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpInterventionDto;
 import com.bryan.nexis.sapeurs.backend.vehicule.SpVehiculeAffectationService;
+import com.bryan.nexis.sapeurs.backend.dto.DesaffectationPreviewDto;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVehicule;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeStatut;
+import com.bryan.nexis.sapeurs.datamodel.SpVehiculeTypePoste;
 import com.bryan.nexis.sapeurs.datarepository.*;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.data.model.Sort;
@@ -19,10 +21,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Singleton
 public class SpInterventionService {
@@ -36,6 +42,7 @@ public class SpInterventionService {
     private final SpNatureInterventionRepository natureRepo;
     private final SpVehiculeAffectationService   affectationService;   // bip
     private final SpVehiculeAffectationRepository affectationRepo;     // contrôle équipier
+    private final SpVehiculeTypePosteRepository   posteRepo;           // postes obligatoires
     private final SpVehiculeStatutRepository     statutRepo;           // statut "Déclenché" (premier)
     private final SpVehiculeEtatRepository       etatRepo;             // état "Indisponible"
     private final JournalService                 journalService;       // main courante
@@ -44,7 +51,7 @@ public class SpInterventionService {
 
     public SpInterventionService(SpInterventionRepository interventionRepo, SpVehiculeRepository vehiculeRepo,
                                  SpNatureInterventionRepository natureRepo, SpVehiculeAffectationService affectationService,
-                                 SpVehiculeAffectationRepository affectationRepo,
+                                 SpVehiculeAffectationRepository affectationRepo, SpVehiculeTypePosteRepository posteRepo,
                                  SpVehiculeStatutRepository statutRepo, SpVehiculeEtatRepository etatRepo,
                                  JournalService journalService,
                                  ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
@@ -53,11 +60,93 @@ public class SpInterventionService {
         this.natureRepo         = natureRepo;
         this.affectationService = affectationService;
         this.affectationRepo    = affectationRepo;
+        this.posteRepo          = posteRepo;
         this.statutRepo         = statutRepo;
         this.etatRepo           = etatRepo;
         this.journalService     = journalService;
         this.events             = events;
         this.securityService    = securityService;
+    }
+
+    /**
+     * Membres actuellement engagés sur une intervention OUVERTE via un véhicule AUTRE que celui exclu.
+     * Sert au calcul d'armement : un membre occupé ailleurs ne couvre plus un poste obligatoire.
+     */
+    @Transactional
+    public Set<UUID> membresOccupesSurAutreIntervention(UUID vehiculeIdExclu) {
+        var enginsEngages = interventionRepo.findByFinIsNull().stream()
+                .flatMap(i -> i.getEngins().stream())
+                .map(SpVehicule::getId)
+                .filter(vid -> !vid.equals(vehiculeIdExclu))
+                .collect(Collectors.toSet());
+        return enginsEngages.stream()
+                .flatMap(vid -> affectationRepo.findByVehiculeIdAndFinIsNull(vid).stream())
+                .map(a -> a.getMembre().getId())
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Aperçu des effectifs qui seraient désaffectés au déclenchement : ceux qui tiennent un poste
+     * NON obligatoire d'un engin sélectionné tout en étant occupés ailleurs (intervention en cours
+     * ou autre véhicule du même départ combiné). Un équipier disponible n'est jamais retiré.
+     * NB : dans le cas « non obligatoire des deux côtés », il en gardera un en réalité — l'aperçu
+     * peut donc sur-avertir, ce qui reste préférable à l'inverse.
+     */
+    @Transactional
+    public List<DesaffectationPreviewDto> previewDesaffectationNonObligatoire(List<UUID> vehiculeIds) {
+        var result = new ArrayList<DesaffectationPreviewDto>();
+        if (vehiculeIds == null) return result;
+        for (var vid : vehiculeIds) {
+            var v = vehiculeRepo.findById(vid).orElse(null);
+            if (v == null) continue;
+            var oblig = obligPosteIds(v);
+            if (oblig.isEmpty()) continue;   // aucun poste obligatoire → on ne désaffecte personne
+            // Occupés ailleurs = inters ouvertes existantes + autres engins du même départ
+            var occupes = new HashSet<>(membresOccupesSurAutreIntervention(vid));
+            for (var autre : vehiculeIds) {
+                if (autre.equals(vid)) continue;
+                affectationRepo.findByVehiculeIdAndFinIsNull(autre)
+                        .forEach(a -> occupes.add(a.getMembre().getId()));
+            }
+            for (var a : affectationRepo.findByVehiculeIdAndFinIsNull(vid)) {
+                if (a.getPoste() != null && !oblig.contains(a.getPoste().getId())
+                        && occupes.contains(a.getMembre().getId())) {
+                    var m = a.getMembre();
+                    result.add(new DesaffectationPreviewDto(v.getLibelle(), m.getGrade().getCode(),
+                            m.getNomComplet() != null ? m.getNomComplet() : m.getUser().getUsername(),
+                            a.getPoste().getFonction().getLabel()));
+                }
+            }
+        }
+        return result;
+    }
+
+    private Set<UUID> obligPosteIds(SpVehicule v) {
+        return posteRepo.findByVehiculeTypeId(v.getType().getId()).stream()
+                .filter(SpVehiculeTypePoste::isObligatoire)
+                .map(SpVehiculeTypePoste::getId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Désaffecte, au déclenchement, les équipiers sur poste NON obligatoire d'un engin qui sont
+     * occupés ailleurs (autre intervention en cours — y compris celle qu'on vient de créer, pour
+     * les autres engins du départ combiné). Un équipier disponible part normalement avec l'engin.
+     * Appelé APRÈS la sauvegarde de l'intervention : elle compte donc dans le calcul d'occupation.
+     */
+    private void desaffecterPostesNonObligatoires(List<SpVehicule> engins, String reference) {
+        var now = Instant.now();
+        for (var engin : engins) {
+            var oblig = obligPosteIds(engin);
+            if (oblig.isEmpty()) continue;   // aucun poste obligatoire → on ne désaffecte personne
+            var occupes = membresOccupesSurAutreIntervention(engin.getId());
+            for (var a : affectationRepo.findByVehiculeIdAndFinIsNull(engin.getId())) {
+                if (a.getPoste() != null && !oblig.contains(a.getPoste().getId())
+                        && occupes.contains(a.getMembre().getId())) {
+                    affectationService.cloturer(a.getId(), now);
+                }
+            }
+        }
     }
 
     private String actor() { return securityService.username().orElse(null); }
@@ -175,6 +264,9 @@ public class SpInterventionService {
                 "Intervention ouverte : " + saved.getMotif(),
                 Map.of("interventionId", saved.getId().toString()), actor()).withReference(saved.getCode()));
 
+        // D'abord libérer les équipiers occupés ailleurs (poste non obligatoire) : ils ne doivent
+        // pas recevoir le bip de départ d'un engin avec lequel ils ne partent pas.
+        desaffecterPostesNonObligatoires(engins, saved.getCode());
         engager(engins, saved);
         log.info("Intervention {} créée par {} (nature={}, {} engin(s))", saved.getCode(), actor(),
                 saved.getNature() != null ? saved.getNature().getCode() : "?", engins.size());

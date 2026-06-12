@@ -50,6 +50,10 @@ public class SpMembre {
     @Column(name = "nom_complet", length = 100)
     private String nomComplet;
 
+    /** Numéro de téléphone (optionnel, 10 chiffres). */
+    @Column(name = "telephone", length = 10)
+    private String telephone;
+
     /** Date d'entrée dans la caserne (= création de l'effectif). */
     @Column(name = "date_integration", nullable = false, updatable = false)
     private Instant dateIntegration = Instant.now();
@@ -84,6 +88,7 @@ public class SpMembre {
     public String getMatricule()                        { return matricule; }
     public boolean isActif()                            { return actif; }
     public String getNomComplet()                       { return nomComplet; }
+    public String getTelephone()                        { return telephone; }
     public Instant getDateIntegration()                 { return dateIntegration; }
     public Instant getDateDernierePromotion()           { return dateDernierePromotion; }
     public Set<SpMembreQualification> getQualifications() { return qualifications; }
@@ -93,6 +98,7 @@ public class SpMembre {
     public void setGrade(SpGrade grade)                             { this.grade = grade; }
     public void setActif(boolean actif)                             { this.actif = actif; }
     public void setNomComplet(String nomComplet)                    { this.nomComplet = nomComplet; }
+    public void setTelephone(String telephone)                      { this.telephone = telephone; }
     public void setNumeroCasier(int numeroCasier)                   { this.numeroCasier = numeroCasier; }
     public void setDateDernierePromotion(Instant d)                 { this.dateDernierePromotion = d; }
 

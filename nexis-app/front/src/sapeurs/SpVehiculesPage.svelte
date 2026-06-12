@@ -206,6 +206,28 @@
     } catch (e) { error = e.message }
   }
 
+  // ── Réordonnancement du modèle d'inventaire (glisser-déposer, persisté à la fin) ──
+  let invDrag = $state({ typeId: null, index: null })
+
+  function invDragStart(typeId, i) { invDrag = { typeId, index: i } }
+
+  function invDragOver(e, typeId, i) {
+    e.preventDefault()
+    if (invDrag.typeId !== typeId || invDrag.index === null || invDrag.index === i) return
+    const arr = [...(inventaire[typeId] ?? [])]
+    const [moved] = arr.splice(invDrag.index, 1)
+    arr.splice(i, 0, moved)
+    inventaire = { ...inventaire, [typeId]: arr }
+    invDrag = { typeId, index: i }
+  }
+
+  async function invDragEnd(typeId) {
+    if (invDrag.typeId !== typeId) { invDrag = { typeId: null, index: null }; return }
+    invDrag = { typeId: null, index: null }
+    try { await api.put(`/sp/vehicules/types/${typeId}/inventaire/order`, { ids: (inventaire[typeId] ?? []).map(i => i.id) }) }
+    catch (e) { error = e.message }
+  }
+
   // ── Vérification d'inventaire d'un véhicule ───────────────────────────────────
   async function openVerif(v) {
     verifVeh = v; verifError = ''
@@ -390,10 +412,20 @@
 
             <!-- Inventaire -->
             <div class="sub">
-              <span class="sub-h">Inventaire (modèle)</span>
+              <span class="sub-h">Inventaire (modèle) <span class="hint">— glisser pour réordonner</span></span>
               <ul class="inv-list">
-                {#each inventaire[t.id] ?? [] as it (it.id)}
-                  <li><span>{it.objetLabel} <span class="qty">×{it.quantite}</span></span><button class="rm-btn" title="Supprimer" onclick={() => deleteItem(t.id, it.id)}>×</button></li>
+                {#each inventaire[t.id] ?? [] as it, i (it.id)}
+                  <li
+                    class:dragging={invDrag.typeId === t.id && invDrag.index === i}
+                    draggable="true"
+                    ondragstart={() => invDragStart(t.id, i)}
+                    ondragover={(e) => invDragOver(e, t.id, i)}
+                    ondragend={() => invDragEnd(t.id)}
+                  >
+                    <span class="handle" title="Glisser pour déplacer">⠿</span>
+                    <span>{it.objetLabel} <span class="qty">×{it.quantite}</span></span>
+                    <button class="rm-btn" title="Supprimer" onclick={() => deleteItem(t.id, it.id)}>×</button>
+                  </li>
                 {/each}
                 {#if (inventaire[t.id] ?? []).length === 0}<li class="muted small">Aucun item</li>{/if}
               </ul>
@@ -520,7 +552,11 @@
   .nb { font-weight: 600; color: var(--accent); font-size: 11px; }
 
   .inv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-  .inv-list li { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 4px 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .inv-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); cursor: grab; }
+  .inv-list li.dragging { opacity: .5; border-color: var(--accent); }
+  .inv-list li > span:not(.handle) { flex: 1; }
+  .inv-list .handle { flex: 0 0 auto; color: var(--color-muted); cursor: grab; user-select: none; font-size: 12px; }
+  .hint { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; color: var(--color-muted); }
   .inv-add { display: flex; gap: 8px; }
   .inv-add input { flex: 1; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 4px; }

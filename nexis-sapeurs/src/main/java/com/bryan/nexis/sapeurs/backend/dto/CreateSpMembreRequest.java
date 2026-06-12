@@ -11,5 +11,6 @@ public record CreateSpMembreRequest(
         UUID gradeId,
         String contrat,      // "SPP" ou "SPV"
         int numeroCasier,    // 0–30
-        @Nullable String nomComplet
+        @Nullable String nomComplet,
+        @Nullable String telephone
 ) {}
