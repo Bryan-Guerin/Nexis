@@ -77,14 +77,21 @@ public class SpVehiculeService {
                 .toList();
     }
 
-    /** Un véhicule est « armé » si chaque poste obligatoire de son type est occupé ; à défaut, dès 1 équipier. */
+    /**
+     * Un véhicule est « armé » si chaque poste obligatoire de son type est occupé par un équipier
+     * réellement disponible ; à défaut, dès 1 équipier. Un membre déjà engagé sur une intervention
+     * en cours via un AUTRE véhicule ne compte pas (il est occupé ailleurs).
+     */
     @Transactional
     public boolean estArme(SpVehicule v) {
         var crew = affectationRepo.findByVehiculeIdAndFinIsNull(v.getId());
+        var occupes = interventionService.membresOccupesSurAutreIntervention(v.getId());
         var oblig = posteRepo.findByVehiculeTypeId(v.getType().getId()).stream()
                 .filter(SpVehiculeTypePoste::isObligatoire).toList();
-        if (oblig.isEmpty()) return !crew.isEmpty();
-        return oblig.stream().allMatch(p -> crew.stream().anyMatch(a -> a.getPoste() != null && a.getPoste().getId().equals(p.getId())));
+        if (oblig.isEmpty()) return crew.stream().anyMatch(a -> !occupes.contains(a.getMembre().getId()));
+        return oblig.stream().allMatch(p -> crew.stream().anyMatch(a ->
+                a.getPoste() != null && a.getPoste().getId().equals(p.getId())
+                        && !occupes.contains(a.getMembre().getId())));
     }
 
     @Transactional

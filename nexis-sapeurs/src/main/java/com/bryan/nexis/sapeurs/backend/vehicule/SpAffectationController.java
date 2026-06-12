@@ -35,4 +35,10 @@ public class SpAffectationController {
     SpVehiculeAffectationDto cloturer(UUID id, @QueryValue Instant fin) {
         return affectationService.cloturer(id, fin);
     }
+
+    /** Désaffecte tout le personnel embarqué de tous les véhicules. Renvoie le nombre désaffecté. */
+    @Put("/affectations/desaffecter-tout")
+    int desaffecterTout() {
+        return affectationService.cloturerToutes(Instant.now());
+    }
 }

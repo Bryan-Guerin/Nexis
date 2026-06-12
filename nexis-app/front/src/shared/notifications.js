@@ -32,6 +32,7 @@ const RULES = [
   { type: 'ETAT_VEHICULE',  icon: '⚠️', audience: isAdmin,    test: ev => ['INDISPONIBLE', 'MAINTENANCE'].includes(ev.payload?.etat) },
   { type: 'INVENTAIRE',     icon: '📋', audience: isAdmin,    test: ev => ev.payload?.conforme === 'false' },
   { type: 'DESAFFECTATION', icon: '🚪', audience: () => true, test: ev => ev.payload?.membreUsername === username() },
+  { type: 'GARDE_FIN_INTERVENTION', icon: '⏰', audience: () => true, test: ev => ev.payload?.membreUsername === username() },
 ]
 
 function push(items) {

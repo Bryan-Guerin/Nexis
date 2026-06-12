@@ -42,6 +42,13 @@
     catch (e) { error = e.message }
   }
 
+  async function desaffecterTout() {
+    if (!window.confirm('Désaffecter TOUT le personnel embarqué de tous les véhicules ?')) return
+    error = ''
+    try { await api.put('/sp/affectations/desaffecter-tout'); await load() }
+    catch (e) { error = e.message }
+  }
+
   // ── Armement / engagement d'un véhicule ─────────────────────────────────────
   let engageVeh   = $state(null)
   let postes      = $state([])
@@ -51,7 +58,11 @@
   let engageError = $state('')
 
   let engageCurrent = $derived(engageVeh ? (vehicules.find(x => x.id === engageVeh.id) ?? engageVeh) : null)
-  let busyMembreIds = $derived(new Set(activeAff.map(a => a.membreId)))
+  // Double affectation autorisée : on n'exclut que les effectifs déjà sur CE véhicule
+  // (un effectif peut être engagé sur un autre véhicule, ex. FSR + VTU).
+  let busyMembreIds = $derived(new Set(
+    activeAff.filter(a => engageVeh && a.vehiculeId === engageVeh.id).map(a => a.membreId)
+  ))
 
   async function openEngage(v) {
     engageVeh = v; engageError = ''; addSel = {}
@@ -114,7 +125,10 @@
 <div class="page">
   <div class="page-header">
     <h2>Dispatch — Sapeurs-Pompiers</h2>
-    <button class="btn-ghost" onclick={load}>Actualiser</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-ghost" onclick={desaffecterTout}>Tout désaffecter</button>
+      <button class="btn-ghost" onclick={load}>Actualiser</button>
+    </div>
   </div>
 
   {#if loading}
@@ -128,7 +142,7 @@
       {#if enServiceMembres.length > 0}
         <div class="garde-list">
           {#each enServiceMembres as m (m.id)}
-            <span class="garde-chip">{m.matricule} · {m.username} <span class="g-grade">{m.grade}</span></span>
+            <span class="garde-chip"><span class="g-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
           {/each}
         </div>
       {:else}
@@ -162,10 +176,10 @@
               {#each v.equipe as m (m.membreId)}
                 <li class="crew-member">
                   {#if enServiceSet.has(m.membreId)}<span class="garde-dot" title="De garde"></span>{/if}
-                  <span class="crew-matricule">{m.matricule}</span>
-                  <span class="crew-name">{m.username}</span>
+                  <span class="crew-grade">{m.gradeCode}</span>
+                  <span class="crew-name">{m.nomComplet || m.username}</span>
                   <div class="crew-right">
-                    <span class="crew-grade">{m.grade}</span>
+                    <span class="crew-matricule">{m.matricule}</span>
                     <span class="crew-fonction">{m.fonctionLabel}</span>
                   </div>
                 </li>
@@ -215,8 +229,8 @@
               <ul class="poste-crew">
                 {#each occ as a (a.id)}
                   <li>
-                    <span class="crew-matricule">{membreById(a.membreId)?.matricule ?? '—'}</span>
-                    <span class="crew-name">{membreById(a.membreId)?.username ?? ''}</span>
+                    <span class="crew-grade">{membreById(a.membreId)?.gradeCode ?? ''}</span>
+                    <span class="crew-name">{membreById(a.membreId)?.nomComplet || membreById(a.membreId)?.username || '—'}</span>
                     <button class="rm-btn" title="Retirer" onclick={() => retirer(a)}>×</button>
                   </li>
                 {/each}
@@ -227,7 +241,7 @@
               <div class="poste-add">
                 <select bind:value={addSel[p.id]}>
                   <option value="">— ajouter un effectif —</option>
-                  {#each elig as m (m.id)}<option value={m.id}>{m.matricule} · {m.username}</option>{/each}
+                  {#each elig as m (m.id)}<option value={m.id}>{m.gradeCode} {m.nomComplet || m.username}</option>{/each}
                 </select>
                 <button class="btn-primary" disabled={!addSel[p.id]} onclick={() => affecterPoste(p)}>Affecter</button>
               </div>

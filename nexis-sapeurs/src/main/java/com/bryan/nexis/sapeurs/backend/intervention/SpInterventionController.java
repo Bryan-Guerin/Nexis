@@ -33,6 +33,12 @@ public class SpInterventionController {
         return service.create(req);
     }
 
+    /** Aperçu des effectifs sur poste non obligatoire qui seraient désaffectés au déclenchement. */
+    @Post("/interventions/preview-desaffectation")
+    List<DesaffectationPreviewDto> previewDesaffectation(@Body AddEnginsRequest req) {
+        return service.previewDesaffectationNonObligatoire(req.vehiculeIds());
+    }
+
     /** Main courante de l'intervention (événements reliés à son code). */
     @Get("/interventions/{id}/journal")
     List<JournalEntryDto> journal(UUID id) {
