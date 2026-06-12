@@ -72,6 +72,9 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.VPS_PATH }}
-            docker compose pull app
+            # Le profil actif (ex. https → inclut Caddy) est fixé par COMPOSE_PROFILES
+            # dans le .env du VPS : les commandes ci-dessous le prennent en compte sans flag.
+            docker compose pull
+            docker compose down --remove-orphans
             docker compose up -d
             docker image prune -f

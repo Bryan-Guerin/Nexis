@@ -203,7 +203,9 @@ sudo -u postgres psql -d nexis -f scripts/seed_sp_referentiel.sql
 
 ## 3. Déploiement continu
 - **Push sur `main`** → image `:latest` reconstruite et poussée, puis le job `deploy` se
-  connecte en SSH et exécute `docker compose pull app && up -d` dans `VPS_PATH`.
+  connecte en SSH et exécute, dans `VPS_PATH` :
+  `docker compose pull && docker compose down --remove-orphans && docker compose up -d`.
+  Le profil actif (Caddy/https) est pris depuis `COMPOSE_PROFILES` du `.env` du VPS.
 - **Release versionnée** : `git tag v0.1.0 && git push --tags` → image taguée `0.1.0` / `0.1` / `latest`.
 
 ---
@@ -214,7 +216,9 @@ Prérequis : un enregistrement **DNS A** `pompier → IP_VPS` (le sous-domaine p
 différent de la machine du domaine principal), propagation vérifiée (`ping pompier.serveur.fr`).
 
 1. Copier le `Caddyfile` du repo dans `/home/nexis/nexis/`.
-2. Dans `.env` : renseigner `NEXIS_DOMAIN=pompier.serveur.fr` et `ACME_EMAIL=...`.
+2. Dans `.env` : renseigner `NEXIS_DOMAIN=pompier.serveur.fr`, `ACME_EMAIL=...` **et
+   `COMPOSE_PROFILES=https`** (active Caddy pour toutes les commandes `docker compose`,
+   y compris le déploiement auto — pas besoin de `--profile https`).
 3. Ouvrir 80/443 :
    ```bash
    sudo iptables -A INPUT -p tcp --dport 80  -j ACCEPT
@@ -222,11 +226,15 @@ différent de la machine du domaine principal), propagation vérifiée (`ping po
    sudo netfilter-persistent save
    ```
 4. Couper l'exposition directe : commenter le bloc `ports:` du service `app` dans le compose.
-5. Démarrer avec le profil https :
+5. Démarrer :
    ```bash
-   docker compose --profile https up -d
+   docker compose down --remove-orphans
+   docker compose up -d
    ```
    Caddy obtient le certificat Let's Encrypt automatiquement → **https://pompier.serveur.fr**.
+
+> ℹ️ Le `down --remove-orphans` avant chaque `up` évite les erreurs réseau Docker
+> (`network ... not found`) après des changements de compose/profil.
 
 ---
 
