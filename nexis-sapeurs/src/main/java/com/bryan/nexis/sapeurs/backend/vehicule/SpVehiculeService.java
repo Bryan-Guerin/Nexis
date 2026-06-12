@@ -184,9 +184,10 @@ public class SpVehiculeService {
         interventionService.codeInterventionEnCours(id).ifPresent(ev::withReference);
         events.publishEvent(ev);
 
-        // Si le véhicule redevient disponible, clôturer les interventions dont tous les engins le sont
-        if ("DISPONIBLE".equals(cible.getEtat().getCode())) {
-            interventionService.clotureSiEnginsDisponibles(id);
+        // Statut validant la clôture → clôturer les interventions dont tous les engins valident.
+        // (« Disponible radio » non coché libère le véhicule sans fermer l'intervention.)
+        if (cible.isClotureIntervention()) {
+            interventionService.clotureSiEnginsValident(id);
         }
 
         return SpVehiculeDto.from(updated);

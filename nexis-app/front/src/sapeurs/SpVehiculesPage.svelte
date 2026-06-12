@@ -302,13 +302,14 @@
     <input class="veh-search" type="search" bind:value={recherche} placeholder="Rechercher (libellé, immat, type, centre)…" />
     <table>
       <thead>
-        <tr><th>Immat.</th><th>Type</th><th>Statut (RP)</th><th>État (système)</th><th>Centre</th><th>Eau</th><th>Commentaire</th><th></th></tr>
+        <tr><th>Libellé</th><th>Immat.</th><th>Type</th><th>Statut (RP)</th><th>État (système)</th><th>Centre</th><th>Eau</th><th>Commentaire</th><th></th></tr>
       </thead>
       <tbody>
         {#each vehiculesFiltres as v (v.id)}
           <tr>
+            <td><strong>{v.libelle}</strong></td>
             <td class="mono">{v.immatriculation ?? '—'}</td>
-            <td class="muted">{v.type.label}</td>
+            <td class="muted">{v.type.code}</td>
             <td>
               <span class="etat-dot" style="background:{v.statut.couleur}"></span>
               <select value={v.statut.id} onchange={e => changeStatut(v, e.target.value)} class="etat-select" title="Transition avant uniquement">

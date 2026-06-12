@@ -15,9 +15,9 @@ import java.util.Optional;
 
 import static com.bryan.nexis.sapeurs.TestFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * Mécanique intervention : calcul des membres occupés (support de l'armement),
@@ -122,10 +122,11 @@ class SpInterventionServiceTest {
         assertThat(preview).isEmpty();
     }
 
-    // ── Clôture automatique ───────────────────────────────────────────────────
+    // ── Clôture automatique (pilotée par la case « clôture intervention » du statut) ──
 
     @Test
-    void clotureAuto_quandTousLesEnginsSontDisponibles() {
+    void clotureAuto_quandTousLesEnginsOntUnStatutValidantLaCloture() {
+        statutDispo.setClotureIntervention(true);
         var inter = intervention("Feu", fpt, vsav);
         when(interventionRepo.findByFinIsNull()).thenReturn(List.of(inter));
         when(interventionRepo.findById(inter.getId())).thenReturn(Optional.of(inter));
@@ -133,19 +134,92 @@ class SpInterventionServiceTest {
         when(statutRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(statutDispo));
         when(etatRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(etatDispo));
 
-        service.clotureSiEnginsDisponibles(fpt.getId());
+        service.clotureSiEnginsValident(fpt.getId());
 
         assertThat(inter.getFin()).isNotNull();
     }
 
     @Test
-    void pasDeClotureAuto_siUnEnginNestPasDisponible() {
-        vsav.setEtat(etat("INDISPONIBLE"));
+    void pasDeClotureAuto_siUnStatutNeValidePasLaCloture() {
+        // « Disponible radio » : véhicule libéré (état DISPONIBLE) mais case non cochée
+        statutDispo.setClotureIntervention(false);
         var inter = intervention("Feu", fpt, vsav);
         when(interventionRepo.findByFinIsNull()).thenReturn(List.of(inter));
 
-        service.clotureSiEnginsDisponibles(fpt.getId());
+        service.clotureSiEnginsValident(fpt.getId());
 
         assertThat(inter.getFin()).isNull();
+    }
+
+    @Test
+    void clotureConserveLeStatutFinalChoisiParLequipage() {
+        // Bug constaté : véhicule passé en INVENTAIRE (statut validant) était réinitialisé
+        // DISPONIBLE par la clôture. Le statut validant choisi doit être conservé.
+        var statutInventaire = statut("INVENTAIRE", etat("INVENTAIRE"));
+        statutInventaire.setClotureIntervention(true);
+        statutDispo.setClotureIntervention(true);
+        fpt.setStatut(statutInventaire);
+        var inter = intervention("Feu", fpt, vsav);
+        when(interventionRepo.findByFinIsNull()).thenReturn(List.of(inter));
+        when(interventionRepo.findById(inter.getId())).thenReturn(Optional.of(inter));
+        when(interventionRepo.update(any(SpIntervention.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(statutRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(statutDispo));
+        when(etatRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(etatDispo));
+
+        service.clotureSiEnginsValident(fpt.getId());
+
+        assertThat(inter.getFin()).isNotNull();
+        assertThat(fpt.getStatut().getCode()).isEqualTo("INVENTAIRE");   // pas écrasé en DISPONIBLE
+        verify(vehiculeRepo, never()).update(fpt);
+    }
+
+    // ── Blocage du départ (poste obligatoire tenu par un effectif déjà parti) ──
+
+    @Test
+    void departBloque_quandPosteObligatoireTenuParEffectifDejaEngage() {
+        var posteCa = poste(typeFpt, fonction("CATE"), 1, true);
+        var ancienne = intervention("Feu", vsav);          // jean est parti avec le VSAV
+        var nouvelle = intervention("AVP");
+        when(interventionRepo.findByFinIsNull()).thenReturn(List.of(ancienne, nouvelle));
+        when(interventionRepo.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+        when(vehiculeRepo.findById(fpt.getId())).thenReturn(Optional.of(fpt));
+        when(posteRepo.findByVehiculeTypeId(typeFpt.getId())).thenReturn(List.of(posteCa));
+        when(affectationRepo.findByVehiculeIdAndFinIsNull(fpt.getId()))
+                .thenReturn(List.of(affectation(fpt, jean, posteCa)));     // poste obligatoire du FPT
+        when(affectationRepo.findByVehiculeIdAndFinIsNull(vsav.getId()))
+                .thenReturn(List.of(affectation(vsav, jean, null)));
+        when(affectationRepo.findByMembreIdAndFinIsNull(jean.getId()))
+                .thenReturn(List.of(affectation(vsav, jean, null), affectation(fpt, jean, posteCa)));
+
+        assertThatThrownBy(() -> service.addEngins(nouvelle.getId(), List.of(fpt.getId())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("poste obligatoire CATE")
+                .hasMessageContaining(ancienne.getCode());
+
+        assertThat(nouvelle.getEngins()).isEmpty();   // aucun engagement effectué
+    }
+
+    // ── Réengagement (départ depuis « disponible radio ») ─────────────────────
+
+    @Test
+    void reengagement_detacheLeVehiculeDeLancienneIntervention_etLaClotureSiVide() {
+        var ancienne = intervention("Feu", fpt);     // fpt encore rattaché (dispo radio)
+        var nouvelle = intervention("AVP");
+        when(interventionRepo.findByFinIsNull()).thenReturn(List.of(ancienne, nouvelle));
+        when(interventionRepo.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+        when(interventionRepo.findById(ancienne.getId())).thenReturn(Optional.of(ancienne));
+        when(interventionRepo.update(any(SpIntervention.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(vehiculeRepo.findById(fpt.getId())).thenReturn(Optional.of(fpt));
+        when(posteRepo.findByVehiculeTypeId(typeFpt.getId())).thenReturn(List.of());
+        when(affectationRepo.findByVehiculeIdAndFinIsNull(fpt.getId())).thenReturn(List.of());
+        when(statutRepo.listOrderByPositionAsc()).thenReturn(List.of());
+        when(statutRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(statutDispo));
+        when(etatRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(etatDispo));
+
+        service.addEngins(nouvelle.getId(), List.of(fpt.getId()));
+
+        assertThat(ancienne.getEngins()).isEmpty();             // détaché de l'ancienne
+        assertThat(ancienne.getFin()).isNotNull();              // ancienne clôturée (plus d'engin)
+        assertThat(nouvelle.getEngins()).extracting("id").containsExactly(fpt.getId());
     }
 }
