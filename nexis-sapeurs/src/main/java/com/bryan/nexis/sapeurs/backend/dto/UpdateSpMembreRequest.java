@@ -13,5 +13,6 @@ public record UpdateSpMembreRequest(
         UUID gradeId,        // null = inchangé
         String contrat,      // null = inchangé ; sinon "SPP" ou "SPV"
         Integer numeroCasier,// null = inchangé
-        String nomComplet    // null = inchangé
+        String nomComplet,   // null = inchangé
+        String telephone     // null = inchangé
 ) {}

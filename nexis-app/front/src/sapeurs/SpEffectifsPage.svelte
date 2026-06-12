@@ -83,13 +83,46 @@
     catch (e) { relError = e.message }
   }
 
+  // ── Sanctions (RH/admin) ────────────────────────────────────────────────────
+  let sanctions = $state([])
+  let sancForm  = $state({ type: '', motif: '', dateSanction: '' })
+  let sancError = $state('')
+  async function loadSanctions(m) {
+    sanctions = canManageNotation && m ? await api.get(`/sp/rh/membres/${m.id}/sanctions`).catch(() => []) : []
+  }
+  async function createSanction() {
+    sancError = ''
+    if (!sancForm.motif.trim())   { sancError = 'Motif requis'; return }
+    if (!sancForm.dateSanction)   { sancError = 'Date requise'; return }
+    try {
+      await api.post(`/sp/rh/membres/${selectedId}/sanctions`,
+        { type: sancForm.type || null, motif: sancForm.motif, dateSanction: sancForm.dateSanction })
+      sancForm = { type: '', motif: '', dateSanction: '' }
+      await loadSanctions(selected)
+    } catch (e) { sancError = e.message }
+  }
+  async function supprimerSanction(s) {
+    if (!window.confirm('Supprimer cette sanction ?')) return
+    try { await api.delete(`/sp/rh/sanctions/${s.id}`); await loadSanctions(selected) }
+    catch (e) { sancError = e.message }
+  }
+
   // ── Recherche + sélection / détail ─────────────────────────────────────────
   let recherche = $state('')
-  let membresFiltres = $derived(membres.filter(m => {
-    const q = recherche.trim().toLowerCase()
-    if (!q) return true
-    return [m.matricule, m.username, m.grade, m.contrat].filter(Boolean).some(s => s.toLowerCase().includes(q))
-  }))
+  // Tri par grade (du plus gradé au moins gradé — l'ordre est croissant sur l'indice),
+  // puis par nom. L'indice de grade vient du référentiel `grades`.
+  let gradeOrdre = $derived(new Map(grades.map(g => [g.id, g.ordre ?? 0])))
+  let membresFiltres = $derived(
+    membres
+      .filter(m => {
+        const q = recherche.trim().toLowerCase()
+        if (!q) return true
+        return [m.matricule, m.username, m.nomComplet, m.grade, m.contrat].filter(Boolean).some(s => s.toLowerCase().includes(q))
+      })
+      .sort((a, b) =>
+        (gradeOrdre.get(b.gradeId) ?? 0) - (gradeOrdre.get(a.gradeId) ?? 0)
+        || (a.nomComplet || a.username).localeCompare(b.nomComplet || b.username))
+  )
   let selectedId = $state(null)
   // Détail chargé à la demande (GET dédié) — toujours frais, indépendant de la liste.
   let selected   = $state(null)
@@ -112,6 +145,8 @@
   // ── État inline d'édition (admin) ────────────────────────────────────────
   let editName        = $state(false)
   let editNameVal     = $state('')
+  let editTel         = $state(false)
+  let editTelVal      = $state('')
   let editGrade       = $state(false)
   let editGradeId     = $state('')
   let editContrat     = $state(false)
@@ -125,7 +160,7 @@
 
   // ── Modal création membre ────────────────────────────────────────────────
   let showCreate   = $state(false)
-  let createForm   = $state({ userId: '', gradeId: '', contrat: 'SPV', numeroCasier: 0, nomComplet: '' })
+  let createForm   = $state({ userId: '', gradeId: '', contrat: 'SPV', numeroCasier: 0, nomComplet: '', telephone: '' })
   let createError  = $state('')
   let showNewUser  = $state(false)
   let newUserForm  = $state({ username: '', password: '' })
@@ -151,6 +186,7 @@
   async function select(m) {
     selectedId   = m.id
     editName     = false
+    editTel      = false
     editGrade    = false
     editContrat  = false
     editCasier   = false
@@ -173,6 +209,7 @@
     }
     loadNotations(selected)
     loadRelancesMembre(selected)
+    loadSanctions(selected)
   }
 
   /** Recharge le détail du membre sélectionné depuis le back + met la liste à jour. */
@@ -189,6 +226,15 @@
       const updated = await api.patch(`/sp/membres/${selectedId}`, { nomComplet: editNameVal })
       refreshMembre(updated)
       editName = false
+    } catch (e) { saveError = e.message }
+  }
+
+  async function saveTelephone() {
+    saveError = ''
+    try {
+      const updated = await api.patch(`/sp/membres/${selectedId}`, { telephone: editTelVal })
+      refreshMembre(updated)
+      editTel = false
     } catch (e) { saveError = e.message }
   }
 
@@ -266,16 +312,17 @@
       const created = await api.post('/sp/membres', createForm)
       membres = [...membres, created]
       showCreate = false
-      createForm = { userId: '', gradeId: '', contrat: 'SPV', numeroCasier: freeCasiers[0] ?? 0, nomComplet: '' }
+      createForm = { userId: '', gradeId: '', contrat: 'SPV', numeroCasier: freeCasiers[0] ?? 0, nomComplet: '', telephone: '' }
       select(created)
     } catch (e) { createError = e.message }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function openEdit(field) {
-    editName = false; editGrade = false; editContrat = false; editCasier = false
+    editName = false; editGrade = false; editContrat = false; editCasier = false; editTel = false
     saveError = ''
     if (field === 'name')    { editName = true;    editNameVal  = selected.nomComplet ?? '' }
+    if (field === 'tel')     { editTel = true;     editTelVal   = selected.telephone ?? '' }
     if (field === 'grade')   { editGrade = true;   editGradeId  = selected.gradeId }
     if (field === 'contrat') { editContrat = true }
     if (field === 'casier')  { editCasier = true;  editCasierVal = selected.numeroCasier }
@@ -289,7 +336,7 @@
   <div class="page-header">
     <h2>Effectifs — Sapeurs-Pompiers</h2>
     {#if isAdmin}
-      <button class="btn-primary" onclick={() => { createForm = { userId: '', gradeId: '', contrat: 'SPV', numeroCasier: freeCasiers[0] ?? 0, nomComplet: '' }; showCreate = true; createError = ''; showNewUser = false }}>
+      <button class="btn-primary" onclick={() => { createForm = { userId: '', gradeId: '', contrat: 'SPV', numeroCasier: freeCasiers[0] ?? 0, nomComplet: '', telephone: '' }; showCreate = true; createError = ''; showNewUser = false }}>
         + Ajouter un membre
       </button>
     {/if}
@@ -342,14 +389,13 @@
         <!-- En-tête fiche -------------------------------------------------- -->
         <div class="detail-header">
           <div class="dh-main">
-            <span class="dh-matricule">{selected.matricule}</span>
+            <span class="dh-title">{selected.nomComplet || selected.username}</span>
             <span class="contrat-pill lg" class:spp={selected.contrat === 'SPP'} class:spv={selected.contrat === 'SPV'}>
               {selected.contrat === 'SPP' ? 'Professionnel' : 'Volontaire'}
             </span>
           </div>
           <div class="dh-sub">
             <span class="dh-grade">{selected.grade}</span>
-            {#if selected.nomComplet}<span class="dh-name">{selected.nomComplet}</span>{/if}
             <span class="dh-username">@{selected.username}</span>
             <span class="badge" class:badge-actif={selected.actif} class:badge-inactif={!selected.actif}>
               {selected.actif ? 'Actif' : 'Inactif'}
@@ -364,11 +410,18 @@
         <!-- Informations + Qualifications côte à côte ---------------------- -->
         <div class="detail-cols">
 
+        <div class="col-left">
         <!-- Section informations ------------------------------------------- -->
         <div class="detail-section">
           <h3>Informations</h3>
 
           <div class="info-grid">
+
+            <!-- Matricule -->
+            <div class="info-row">
+              <span class="info-label">Matricule</span>
+              <span class="info-value mono">{selected.matricule}</span>
+            </div>
 
             <!-- Nom / Prénom -->
             <div class="info-row">
@@ -383,6 +436,24 @@
                 <span class="info-value">
                   {selected.nomComplet || '—'}
                   {#if isAdmin}<button class="btn-edit" onclick={() => openEdit('name')} title="Modifier">✎</button>{/if}
+                </span>
+              {/if}
+            </div>
+
+            <!-- Téléphone -->
+            <div class="info-row">
+              <span class="info-label">Téléphone</span>
+              {#if editTel && isAdmin}
+                <div class="inline-edit">
+                  <input type="tel" maxlength="10" bind:value={editTelVal} placeholder="0612345678"
+                         oninput={e => editTelVal = e.target.value.replace(/\D/g, '').slice(0, 10)} />
+                  <button class="btn-save" onclick={saveTelephone}>✓</button>
+                  <button class="btn-cancel" onclick={() => editTel = false}>✕</button>
+                </div>
+              {:else}
+                <span class="info-value">
+                  {selected.telephone || '—'}
+                  {#if isAdmin}<button class="btn-edit" onclick={() => openEdit('tel')} title="Modifier">✎</button>{/if}
                 </span>
               {/if}
             </div>
@@ -472,6 +543,33 @@
 
           </div>
         </div>
+
+        <!-- Section sanctions (RH / admin) ---------------------------------- -->
+        {#if canManageNotation}
+          <div class="detail-section">
+            <div class="detail-section-head">
+              <h3>Sanctions <span class="hab-count">({sanctions.length})</span></h3>
+            </div>
+            {#if sancError}<p class="inline-error" style="margin:8px 16px">{sancError}</p>{/if}
+            <div class="rel-list">
+              {#each sanctions as s (s.id)}
+                <div class="rel-item">
+                  <span class="rel-texte">{#if s.type}<strong>{s.type} — </strong>{/if}{s.motif}</span>
+                  <span class="rel-ech">{fmtDate(s.dateSanction)}</span>
+                  <button class="rm-btn" title="Supprimer" onclick={() => supprimerSanction(s)}>×</button>
+                </div>
+              {/each}
+              {#if sanctions.length === 0}<p class="muted small">Aucune sanction</p>{/if}
+              <div class="rel-add">
+                <input type="text" bind:value={sancForm.type} placeholder="Type (ex: Avertissement)" style="max-width:170px" />
+                <input type="text" bind:value={sancForm.motif} placeholder="Motif" />
+                <input type="date" bind:value={sancForm.dateSanction} title="Date de la sanction" />
+                <button class="btn-ghost-sm" onclick={createSanction}>Ajouter</button>
+              </div>
+            </div>
+          </div>
+        {/if}
+        </div><!-- /col-left -->
 
         <!-- Section qualifications (collapsible) ----------------------------- -->
         <div class="detail-section">
@@ -649,6 +747,12 @@
           <input type="text" maxlength="100" bind:value={createForm.nomComplet} placeholder="ex: Jean Dupont" />
         </label>
 
+        <!-- Téléphone -->
+        <label class="field-label">Téléphone <span class="muted small">(optionnel)</span>
+          <input type="tel" maxlength="10" bind:value={createForm.telephone} placeholder="0612345678"
+                 oninput={e => createForm.telephone = e.target.value.replace(/\D/g, '').slice(0, 10)} />
+        </label>
+
         <!-- Grade -->
         <label class="field-label">Grade
           <select bind:value={createForm.gradeId} required>
@@ -738,12 +842,16 @@
 
   /* Informations + Qualifications côte à côte (notations en pleine largeur dessous) */
   .detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  /* Colonne gauche = Informations + Sanctions empilées ; colonne droite = Qualifications */
+  .col-left { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
   @media (max-width: 920px) { .detail-cols { grid-template-columns: 1fr; } }
   .empty-detail { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-muted); font-size: 13px; }
 
   .detail-header { display: flex; flex-direction: column; gap: 6px; }
   .dh-main { display: flex; align-items: center; gap: 12px; }
   .dh-matricule { font-family: monospace; font-size: 28px; font-weight: 700; letter-spacing: 1px; }
+  .dh-title { font-size: 26px; font-weight: 700; letter-spacing: .3px; }
+  .info-value.mono { font-family: monospace; }
   .dh-sub  { display: flex; align-items: center; gap: 10px; }
   .dh-grade { font-size: 14px; font-weight: 600; color: var(--accent); }
   .dh-name { font-size: 14px; font-weight: 600; color: var(--color-text); }

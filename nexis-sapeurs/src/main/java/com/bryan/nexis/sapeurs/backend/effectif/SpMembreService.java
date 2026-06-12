@@ -64,7 +64,7 @@ public class SpMembreService {
     // ── Création ─────────────────────────────────────────────────────────────
 
     @Transactional
-    public SpMembreDto create(UUID userId, UUID gradeId, String contrat, int numeroCasier, String nomComplet) {
+    public SpMembreDto create(UUID userId, UUID gradeId, String contrat, int numeroCasier, String nomComplet, String telephone) {
         var user  = userRepo.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("Utilisateur introuvable : " + userId));
         var grade = gradeRepo.findById(gradeId)
@@ -75,16 +75,18 @@ public class SpMembreService {
 
         var membre = new SpMembre(user, grade, contrat, numeroCasier, nextCompteur);
         if (nomComplet != null && !nomComplet.isBlank()) membre.setNomComplet(nomComplet.trim());
+        if (telephone != null && !telephone.isBlank())   membre.setTelephone(telephone.trim());
         return SpMembreDto.from(membreRepo.save(membre));
     }
 
     // ── Mise à jour (admin) ───────────────────────────────────────────────────
 
     @Transactional
-    public SpMembreDto update(UUID id, UUID gradeId, String contrat, Integer numeroCasier, String nomComplet) {
+    public SpMembreDto update(UUID id, UUID gradeId, String contrat, Integer numeroCasier, String nomComplet, String telephone) {
         var membre = membreRepo.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + id));
         if (nomComplet != null) membre.setNomComplet(nomComplet.isBlank() ? null : nomComplet.trim());
+        if (telephone != null) membre.setTelephone(telephone.isBlank() ? null : telephone.trim());
 
         if (gradeId != null && !gradeId.equals(membre.getGrade().getId())) {
             var grade = gradeRepo.findById(gradeId)
