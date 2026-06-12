@@ -1,66 +1,72 @@
-## Micronaut 5.0.0 Documentation
+# Nexis
 
-- [User Guide](https://docs.micronaut.io/5.0.0/guide/index.html)
-- [API Reference](https://docs.micronaut.io/5.0.0/api/index.html)
-- [Configuration Reference](https://docs.micronaut.io/5.0.0/guide/configurationreference.html)
-- [Micronaut Guides](https://guides.micronaut.io/index.html)
+Plateforme de gestion des services d'urgence pour serveur RP (Arma) : effectifs, véhicules,
+planning de garde, dispatch, interventions et main courante — en temps réel (WebSocket).
 
----
+Faction **Sapeurs-Pompiers** opérationnelle ; faction **Gendarmerie** en chantier.
 
-- [Micronaut Maven Plugin documentation](https://micronaut-projects.github.io/micronaut-maven-plugin/latest/)
+## Stack
 
-## Feature test-resources documentation
+| Couche | Technologie |
+|---|---|
+| Backend | Java 25 · Micronaut 5 (HTTP Netty, Security JWT, Data JPA/Hibernate, WebSocket) |
+| Base de données | PostgreSQL · migrations Flyway (`nexis-app/src/main/resources/db/migration`) |
+| Frontend | Svelte 5 (runes) · Vite · `svelte-spa-router` — servi par le backend (fat jar all-in-one) |
+| Build | Maven multi-module (wrapper `./mvnw`) · frontend-maven-plugin |
+| Déploiement | Docker (image unique) · Caddy (HTTPS) · GitHub Actions (CI + CD vers Docker Hub + VPS) |
 
-- [Micronaut Test Resources documentation](https://micronaut-projects.github.io/micronaut-test-resources/latest/guide/)
+## Modules
 
-## Feature assertj documentation
+```
+nexis-core         Socle transverse : utilisateurs/rôles (hiérarchie), journal, notation, bus temps réel
+nexis-security     Authentification (BCrypt + JWT), provider Micronaut Security
+nexis-gendarmerie  Domaine GN (en chantier)
+nexis-sapeurs      Domaine SP : effectifs, véhicules, planning, dispatch, interventions, RH/paie, inventaire…
+nexis-app          Module exécutable : Application, configuration, migrations Flyway, front compilé
+```
 
-- [https://assertj.github.io/doc/](https://assertj.github.io/doc/)
+Convention de nommage : `{Module}{Entité}{Couche}` — ex. `SpInterventionController`, `SpMembreService`.
 
-## Feature security-jwt documentation
+## Démarrage en développement
 
-- [Micronaut Security JWT documentation](https://micronaut-projects.github.io/micronaut-security/latest/guide/index.html)
+Prérequis : JDK 25+, PostgreSQL local (base `nexis`), Docker (pour les tests d'intégration).
 
-## Feature http-server-jdk documentation
+```bash
+# Backend (profil dev par défaut → jdbc:postgresql://localhost:5432/nexis)
+./mvnw -pl nexis-app -am mn:run -Denforcer.skip=true
 
-- [Micronaut Built-In Java HTTP Server Runtime documentation](https://micronaut-projects.github.io/micronaut-servlet/latest/guide/#httpServer)
+# Frontend en mode dev (proxy /api → localhost:8080)
+cd nexis-app/front && npm install && npm run dev
+```
 
+Au premier démarrage sur une base vide, un administrateur **admin / root** est créé
+automatiquement (⚠️ changer le mot de passe dès la première connexion). Le référentiel SP
+(grades, fonctions, objets d'inventaire) peut être initialisé via `scripts/seed_sp_referentiel.sql`.
 
-- [https://docs.oracle.com/javase/8/docs/jre/api/net/httpserver/spec/com/sun/net/httpserver/HttpServer.html](https://docs.oracle.com/javase/8/docs/jre/api/net/httpserver/spec/com/sun/net/httpserver/HttpServer.html)
+## Tests
 
-## Feature jdbc-hikari documentation
+```bash
+# Tests unitaires (règles métier dispatch, sécurité…)
+./mvnw -pl nexis-sapeurs -am test -Denforcer.skip=true
 
-- [Micronaut Hikari JDBC Connection Pool documentation](https://micronaut-projects.github.io/micronaut-sql/latest/guide/index.html#jdbc)
+# Suite complète, y compris l'intégration (PostgreSQL Testcontainers — Docker requis)
+./mvnw verify -Denforcer.skip=true
+```
 
-## Feature serialization-jackson documentation
+## Build & déploiement
 
-- [Micronaut Serialization Jackson Core documentation](https://micronaut-projects.github.io/micronaut-serialization/latest/guide/)
+```bash
+./mvnw -pl nexis-app -am package -Denforcer.skip=true   # fat jar (front inclus)
+docker compose up -d --build                            # stack locale complète
+```
 
-## Feature micronaut-aot documentation
+- **CI** (`.github/workflows/ci.yml`) : build + tests sur chaque push/PR vers `main`.
+- **CD** (`.github/workflows/release.yml`) : push sur `main` ou tag `vX.Y.Z` → image Docker Hub
+  → déploiement SSH sur le VPS.
+- Runbook complet (VPS, base hôte, HTTPS, sauvegardes, branding) : **[docs/deploiement.md](docs/deploiement.md)**.
 
-- [Micronaut AOT documentation](https://micronaut-projects.github.io/micronaut-aot/latest/guide/)
+## Documentation
 
-## Feature flyway documentation
-
-- [Micronaut Flyway Database Migration documentation](https://micronaut-projects.github.io/micronaut-flyway/latest/guide/index.html)
-
-
-- [https://flywaydb.org/](https://flywaydb.org/)
-
-## Feature websocket documentation
-
-- [Micronaut Websocket documentation](https://docs.micronaut.io/latest/guide/#websocket)
-
-## Feature maven-enforcer-plugin documentation
-
-- [https://maven.apache.org/enforcer/maven-enforcer-plugin/](https://maven.apache.org/enforcer/maven-enforcer-plugin/)
-
-## Feature hibernate-jpa documentation
-
-- [Micronaut Hibernate JPA documentation](https://micronaut-projects.github.io/micronaut-sql/latest/guide/index.html#hibernate)
-
-## Feature mockito documentation
-
-- [https://site.mockito.org](https://site.mockito.org)
-
-
+- [docs/deploiement.md](docs/deploiement.md) — installation et exploitation production
+- [docs/notifications.md](docs/notifications.md) — règles du centre de notifications temps réel
+- [nexis-app/documentation/todo.adoc](nexis-app/documentation/todo.adoc) — backlog de travail
