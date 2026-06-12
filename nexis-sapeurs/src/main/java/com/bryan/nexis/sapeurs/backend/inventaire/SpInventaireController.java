@@ -2,6 +2,7 @@ package com.bryan.nexis.sapeurs.backend.inventaire;
 
 import com.bryan.nexis.sapeurs.backend.dto.CreateInventaireItemRequest;
 import com.bryan.nexis.sapeurs.backend.dto.CreateVerificationRequest;
+import com.bryan.nexis.sapeurs.backend.dto.ReorderRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpInventaireItemDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVerificationDto;
 import io.micronaut.http.HttpStatus;
@@ -39,6 +40,13 @@ public class SpInventaireController {
     @Status(HttpStatus.NO_CONTENT)
     void deleteItem(UUID itemId) {
         service.deleteItem(itemId);
+    }
+
+    @Put("/vehicules/types/{typeId}/inventaire/order")
+    @Secured("ROLE_ADMIN_SP")
+    @Status(HttpStatus.NO_CONTENT)
+    void reorderItems(UUID typeId, @Body ReorderRequest req) {
+        service.reorderItems(req.ids());
     }
 
     // ── Vérifications d'un véhicule (checklist + historique) ──────────────────
