@@ -27,7 +27,7 @@ public record SpDashboardDto(
 
     /** Membre actuellement de garde (nominatif). */
     @Serdeable
-    public record GardeMembre(String matricule, String username, String grade) {}
+    public record GardeMembre(String matricule, String username, String gradeCode, String grade, String nomComplet) {}
 
     /** Engin engagé sur une intervention, avec son statut RP. */
     @Serdeable

@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
 
     // Catégories de configuration (chacune = une "enum" ordonnée)
   const CATEGORIES = [
@@ -12,6 +13,7 @@
     { key: 'centres',   label: 'Centres',        list: '/sp/centres',   order: '/sp/centres/order',   kind: 'codelabel', deletable: true },
     { key: 'natures',   label: 'Natures intervention', list: '/sp/natures', order: '/sp/natures/order', kind: 'codelabel' },
     { key: 'objets',    label: 'Objets inventaire', list: '/sp/objets-inventaire', order: '/sp/objets-inventaire/order', kind: 'codelabel', deletable: true },
+    { key: 'evenements', label: 'Événements', kind: 'evenements' },
   ]
 
   const CATEGORIES_SERVICE = ['GARDE', 'ASTREINTE', 'AUTRE']
@@ -38,6 +40,8 @@
   })
 
   async function load() {
+    // Les catégories à pane custom (ex. Événements) gèrent leurs propres données.
+    if (!cat.list) { items = []; loading = false; return }
     loading = true; error = ''; resetForm()
     try { items = await api.get(cat.list) }
     catch (e) { error = e.message; items = [] }
@@ -132,6 +136,9 @@
 
     <!-- Détail de la catégorie -->
     <div class="detail-pane">
+      {#if cat.kind === 'evenements'}
+        <SpEvenementsAdmin />
+      {:else}
       <h3>{cat.label} <span class="hint">— glisser-déposer pour réordonner</span></h3>
 
       {#if error}<p class="inline-error">{error}</p>{/if}
@@ -203,6 +210,7 @@
           </div>
           <button type="submit" class="btn-primary">Ajouter</button>
         </form>
+      {/if}
       {/if}
     </div>
   </div>

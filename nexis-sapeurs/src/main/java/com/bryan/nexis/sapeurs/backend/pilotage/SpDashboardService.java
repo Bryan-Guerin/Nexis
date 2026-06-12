@@ -67,7 +67,8 @@ public class SpDashboardService {
         var garde = enServiceIds.stream()
                 .map(membreRepo::findById)
                 .filter(java.util.Optional::isPresent).map(java.util.Optional::get)
-                .map(m -> new GardeMembre(m.getMatricule(), m.getUser().getUsername(), m.getGrade().getLabel()))
+                .map(m -> new GardeMembre(m.getMatricule(), m.getUser().getUsername(),
+                        m.getGrade().getCode(), m.getGrade().getLabel(), m.getNomComplet()))
                 .toList();
 
         // ── Engins engagés (sur intervention en cours) + ensemble des ids engagés ──
