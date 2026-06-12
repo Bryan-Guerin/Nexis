@@ -14,6 +14,22 @@
 
     let { children } = $props()
 
+  // ── Menu latéral rétractable ────────────────────────────────────────────────
+  // Desktop : ancré (pousse le contenu). Mobile (≤768px) : overlay au-dessus.
+  // État mémorisé en localStorage ; défaut = ouvert sur grand écran, fermé sur mobile.
+  function initialNavOpen() {
+    try {
+      const saved = localStorage.getItem('nav_open')
+      if (saved !== null) return saved === '1'
+    } catch { /* ignore */ }
+    return window.innerWidth > 768
+  }
+  let navOpen = $state(initialNavOpen())
+  function toggleNav() {
+    navOpen = !navOpen
+    try { localStorage.setItem('nav_open', navOpen ? '1' : '0') } catch { /* ignore */ }
+  }
+
   // ── Profil / avatar ─────────────────────────────────────────────────────────
   const AVATARS = ['🧑‍🚒', '👨‍🚒', '👩‍🚒', '🚒', '🚑', '🦺', '⛑️', '🔥', '🧯', '🚓', '👮', '🐶']
   let avatar      = $state('')
@@ -30,7 +46,10 @@
     const off = realtime.on(ev => {
       if (ev.type === 'BIP') declenchePager(ev)
     })
-    return () => { off(); stopBipLoop(); clearInterval(pagerTimer) }
+    // Sur mobile, refermer le menu overlay après une navigation
+    const closeOnNav = () => { if (window.innerWidth <= 768) navOpen = false }
+    window.addEventListener('hashchange', closeOnNav)
+    return () => { off(); stopBipLoop(); clearInterval(pagerTimer); window.removeEventListener('hashchange', closeOnNav) }
   })
 
   // Centre de notifications (cloche)
@@ -137,7 +156,10 @@
 
 <div class="layout">
   <header>
-    <span class="brand">NEXIS</span>
+    <div class="header-left">
+      <button class="nav-toggle" onclick={toggleNav} aria-label="Afficher/masquer le menu" aria-expanded={navOpen}>☰</button>
+      <button class="brand" onclick={toggleNav} title="Afficher/masquer le menu">NEXIS</button>
+    </div>
     <div class="user-area">
       {#if $currentUser}
         <div class="notif-wrap">
@@ -186,10 +208,13 @@
     </div>
   </header>
 
-  <div class="body">
+  <div class="body" class:nav-hidden={!navOpen}>
     <aside>
       <Nav />
     </aside>
+    {#if navOpen}
+      <button class="nav-backdrop" aria-label="Fermer le menu" onclick={toggleNav}></button>
+    {/if}
     <main class={theme}>
       {@render children()}
     </main>
@@ -256,11 +281,23 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  .header-left { display: flex; align-items: center; gap: 10px; }
+
+  .nav-toggle {
+    background: transparent; border: 1px solid var(--color-border);
+    border-radius: var(--radius); color: var(--color-text);
+    font-size: 16px; line-height: 1; padding: 4px 9px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .nav-toggle:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
   .brand {
+    background: none; border: none; cursor: pointer;
     font-weight: 700;
     font-size: 15px;
     letter-spacing: 3px;
     color: var(--color-primary);
+    padding: 0;
   }
 
   .user-area { position: relative; display: flex; align-items: center; gap: 12px; }
@@ -388,16 +425,52 @@
     display: grid;
     grid-template-columns: var(--nav-width) 1fr;
     overflow: hidden;
+    transition: grid-template-columns 0.18s ease;
   }
+  /* Desktop : menu rétracté → la colonne se replie, le contenu prend toute la largeur */
+  .body.nav-hidden { grid-template-columns: 0 1fr; }
 
   aside {
     background: var(--color-surface);
     border-right: 1px solid var(--color-border);
     overflow-y: auto;
+    overflow-x: hidden;
   }
+  .body.nav-hidden aside { border-right: none; }
 
   main {
     overflow-y: auto;
     padding: 24px;
+  }
+
+  /* Backdrop : affiché uniquement en mode overlay (mobile) */
+  .nav-backdrop { display: none; }
+
+  /* ── Mobile : menu en overlay au-dessus du contenu (pas de recalcul de layout) ── */
+  @media (max-width: 768px) {
+    .body,
+    .body.nav-hidden { grid-template-columns: 1fr; }   /* le contenu occupe toujours toute la largeur */
+
+    aside {
+      position: fixed;
+      top: var(--header-h); left: 0; bottom: 0;
+      width: min(82vw, 300px);
+      z-index: 200;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+      box-shadow: 0 0 28px rgba(0, 0, 0, 0.45);
+      border-right: 1px solid var(--color-border);
+    }
+    .body:not(.nav-hidden) aside { transform: translateX(0); }
+
+    .nav-backdrop {
+      display: block;
+      position: fixed;
+      top: var(--header-h); left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      border: none; z-index: 199;
+    }
+
+    main { padding: 16px; }
   }
 </style>

@@ -19,6 +19,7 @@
   // ── Constantes de mise en page ──────────────────────────────────────────────
   const PX_M     = 1.2        // pixels par minute (axe horizontal)
   const H_START  = 6          // heure de début (06:00)
+  const SCROLL_H = 18         // au chargement, on cadre sur 18:00 (plage de jeu 18h→6h)
   const TOTAL_M  = 24 * 60    // fenêtre : 24 h
   const COL_W    = 196        // largeur de la colonne membre (px)
   const ROW_H    = 36         // hauteur d'une ligne membre (px)
@@ -31,6 +32,16 @@
   let loading    = $state(true)
   let error      = $state('')
   let currentDay = $state(today())
+
+  // Conteneur scrollable du calendrier : on cadre l'affichage sur 18h au 1er rendu
+  let calOuter   = $state(null)
+  let centered   = false
+  $effect(() => {
+    if (!loading && calOuter && !centered) {
+      centered = true
+      calOuter.scrollLeft = (SCROLL_H - H_START) * 60 * PX_M
+    }
+  })
 
   // Statuts de planning configurés (référentiel de la faction)
   let statuts = $state([])
@@ -176,7 +187,7 @@
   {:else}
 
     <!-- ── Calendrier ─────────────────────────────────────────────────────── -->
-    <div class="cal-outer">
+    <div class="cal-outer" bind:this={calOuter}>
       <div class="cal-inner" style="min-width:{COL_W + TRACK_W}px">
 
         <!-- En-tête horaire (sticky top) -->
