@@ -34,12 +34,22 @@ public class SpVehiculeStatutService {
     }
 
     @Transactional
-    public SpVehiculeStatutDto create(String code, String label, String couleur, UUID etatId) {
+    public SpVehiculeStatutDto create(String code, String label, String couleur, UUID etatId, boolean clotureIntervention) {
         var etat = etatRepo.findById(etatId)
                 .orElseThrow(() -> new NoSuchElementException("État véhicule introuvable : " + etatId));
         var statut = new SpVehiculeStatut(code, label, couleur, etat);
         statut.setPosition((int) repo.count());
+        statut.setClotureIntervention(clotureIntervention);
         return SpVehiculeStatutDto.from(repo.save(statut));
+    }
+
+    /** Bascule la case « clôture intervention » d'un statut. */
+    @Transactional
+    public SpVehiculeStatutDto toggleClotureIntervention(UUID id) {
+        var statut = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Statut véhicule introuvable : " + id));
+        statut.setClotureIntervention(!statut.isClotureIntervention());
+        return SpVehiculeStatutDto.from(repo.update(statut));
     }
 
     @Transactional

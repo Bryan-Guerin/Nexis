@@ -8,10 +8,10 @@ import java.util.UUID;
 /** Statut RP du véhicule, avec l'état maître qu'il applique. */
 @Serdeable
 public record SpVehiculeStatutDto(UUID id, String code, String label, String couleur, int position,
-                                  boolean parDefaut, SpVehiculeEtatDto etat) {
+                                  boolean parDefaut, boolean clotureIntervention, SpVehiculeEtatDto etat) {
 
     public static SpVehiculeStatutDto from(SpVehiculeStatut s) {
         return new SpVehiculeStatutDto(s.getId(), s.getCode(), s.getLabel(), s.getCouleur(), s.getPosition(),
-                s.isParDefaut(), SpVehiculeEtatDto.from(s.getEtat()));
+                s.isParDefaut(), s.isClotureIntervention(), SpVehiculeEtatDto.from(s.getEtat()));
     }
 }
