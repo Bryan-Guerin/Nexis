@@ -7,120 +7,24 @@ Ajouter module DIR ?
 
 == À traiter prochainement (rapide)
 
-* Disponible Radio → clôture l'intervention : quand le dernier véhicule engagé passe
-  « Disponible » (statut), clôturer automatiquement l'intervention. (cf. ligne plus bas
-  « Lorsque l'ensemble des véhicules… »). Comportement exact à préciser (auto vs bouton).
-
----
-
-== Retouches
-
-
-Ajout page de gestion du profil du joueur (ou pop-up, utile pour changer le MDP) => Problème au changement MDP par user. Reset MDP peut être OK. j'ai mot de passe invalide ou réponse vide.
-
-
-Ajouter un ordre dans les grades => Trier par grade les effectifs / prioriser moins gradé convenant au poste.
-=> Ajouter "supprimer" sur les fonctions SP. Si suppression, indiquer confirmation et faire une cascade pour supprimer les postes. Suppression impossible si véhicule utilisé. Je connais un mécanisme de deletionListener qui se fait par un pattern décoration et des appels via injection de service
-
-Faire le dispatch pour affecter les effectifs à un véhicule.
-Créer la partie intervention (rôle CODIS pour déclenchement / forcer ?)
-
-Détail de la liste SP ne marche pas + erreur JS lorsque validation nouvel effectif. Le nouvel effectif est bien créé et visible derrière la pop up, mais la pop up ne se masque pas. Le bouton annuler ne la masque pas non plus.
-
----
-
-Problème sur le dispatch. Un effectif de garde n'est pas compté comme en service. Je pense que c'est à cause du fuseau horaire
-
-### Idées à la con :
-
-Ajout statut de dispo / indispo sur les membres (si engagé sur un véhicule, impossible de l'engager sur un autre)
-
-Ajouter dans les énumérations une possiblité d'indiquer défaut. Cela permet de garantir l'existence de certaines (comme statut véhicule 'Engagé' qui est le statut à placer dès que le véhicule est déclenché sur une intervention)
-
-Pour la main courante, je veux le code de l'intervention afin de la relier à cette dernière. J'aimerai un affichage de la main courante de l'intervention dans l'onglet intervention. Je pense à un double clique sur l'intervention pour voir le détail.
-
-Pour les interventions, je veux les champs nature : INC, SAP, AVP, DIV, NRBC (enum configurable, t'as les champs par défaut).
-Requérant, un champ texte saisie libre, longueur 40 char max.
-Numéro de téléphone de l'appelant. (10 int)
-Localisation champ texte libre (adresse, description du lieu)
-Commune texte libre 40 char max
-Coordonnées (ou code postal) 6 int, ce sera les coordonnées arma 3. Formatter avec un espace comme ça "060 150"
-
-Intervention :
-Le motif est obligatoire
-Dans coordonnées je ne veux du texte et je veux que l'affichage dans le champ ajoute un espace au bout de 3 digit (simplicité de lecture, comme pour saisir une date avec les /)
-
-Dans configuration : Supprimer la section Etat véhicule (je ne veux pas qu'ils soit modifiable, ce sont des états système, donc on les garde pour le système). Pour les statuts, ajouter la suppression. Si le statut est utilisé par un véhicule, alors appliquer le statut par défaut. Impossible de supprimer le statut par défaut.
-
-
-Intervention sur inter (FTP + VSAV, VSAV dispo VSAV engagé sur inter 2 alors que FTP toujours sur inter 1.)
-
-Création intervention
-Je peux engagé un véhicule avec un état indisponible. PAS BON, il ne doit pas être proposé dans la liste. Aussi, pour être proposé, il doit avoir au moins un effectif affecté.
-
-Lorsque l'ensemble des véhicules d'une intervention sont à l'état disponible (par la modification de statut) Alors, l'intervention doit être cloturée.
-
-
-
-Idées (pour plus tard) : Amélioration du module intervention -> Meilleurs propositions de véhicule en fonction de la nature
-
-
-
-Tester fermeture auto, test du double engagement. je pense que la fk intervention / véhicule n'est pas bonne. Il faut que ce soit moins solide que ça, ou alors pas persisté sur les anciennes (bascule de fk à simplement code pour historique). Soucis : les véhicules peuvent être affiché comme indispo / en intervention sur les anciennes interventions. C'est un non sens.
-
-
-ICI :
-
-Planning :
-Possibilité de basculer sa garde d'asteinte à garde :
-Le reste du créneau passe en garde (minimum 1h de temps, donc si trop court, création de 1h)
-On peut rebasculer en astreinte le temps restant d'une garde (sans rallonger). C'est pour les volontaires.
-
-Lorsqu'un effectif quitte son service ou le commence, il est sur le quart d'heure entamé. Le problème est, lorsqu'il termine son service à 15h03, il encore de garde jusque 15h15 et donc disponible pour dispatch; ça me pose problème. Solution ajouter un bool de dispo ? (si fin de garde prématurée, alors indispo). Pas besoin d'afficher ce champ (si c'est la solution retenue).
-
-Aussi, de manière générale, je trouve qu'il y a peu de log côté serveur, peux tu en ajouter un peu partout où ça le mérite.
-Ajoutes en de tout niveau, info / debug voir trace à quelques endroits (je n'en vois pas)
-
-
 ---
 HF si jamais faire du web hook pour notif discord
 Envoie MP pour BIP
 Envoie dans un canal des interventions en cours (vignette discord + lien vers l'intervention ?)
 
-
 ---
 
 TODO Correctifs :
 
-écran véhicules : Afficher la colonne label (code du véhicule), afficher code du type de véhicule (au lieu du nom)
+Autoriser les doubles affectation : un effectif sur plusieurs véhicules (exemple FSR + VTU) => OK
 
-Dispatch : Revoir affichage des effectifs (à gauche) : Grade (code), Nom RP.
-A l'init de la page, décaler la scroll bar vers la droite (pour ne plus être placé à 6h).
-
-----
-
-Affichage liste effectif :
-
-trier par grade, afficher le matricule dans le détail, palcer le nom en entête du détail
-Ajouter numéro de téléphone sur les effectifs
-
-Affichage Tableau de bord :
-Section De garde, afficher code du grade + nom / prénom
-
-Ajouter une section événement, les admin peuvent les créer (titre + texte libre + date). Chaque effectif peut annoncer sa présence ou son absence (oui / non). Il faut un écran événement accessible admin pour les créer et voir la liste des présent / absent déclarés.
-
-Ajouter une section pour les fréquences radio (boutn + pour admin, une desc + un champ pour la freq (format 150.1)
-
-Bouger les boutons de redirections vers les autres écran (tout en bas de la page) et le palcer dans la barre de prise de garde.
-
-
-
-
-Effectif :
-Ajouter un bloc Sanction en dessous de information (garder qualification à droite, flex pour avoir un bloc ((info / sanction) | qualification)
-
-
-Autoriser les doubles affectation : un effectif sur plusieurs véhicules (exemple FSR + VTU)
 Rendre véhicule non armé si effectif est sur inter + sur un post obligatoire du véhicule à déclencher.
-Départ combiné, effectif à un poste non obligatoire, alors le désaffecté au déclenchement (avec pop up au moment de faire péter l'inter).
+Si départ combiné (départ des 2 véhicules sur lesquels un effectif est affecté). On fait partir le premier véhicule puis on regarde au moment du départ du second :
+Si effectif à un poste non obligatoire, alors le désaffecte et on autorise le déclenchement (avec pop up d'information).
+
+Si effectif sur un poste obligatoire, on bloque le départ (personnel déjà parti sur la première intervention) et message d'avertissement indiquant le véhicule / poste et intervention qui bloque l'effectif.
+
+J'ai fais un test de fermeture. J'ai un statut disponible relié à disponible. Et un statut inventaire relié à un statut inventaire. Véhicule 1 statut disponible. Lorsque je passe le véhicule de sur les lieux à inventaire (statut qui autorise la fermeture), l'intervention se termine mais mon véhicule est passé en disponible et n'est pas resté en INVENTAIRE.
+
+Je ne sais pas trop ce qui a fait ça, mais je n'ai pas assez de logs, doc peux en ajouter ?
 
