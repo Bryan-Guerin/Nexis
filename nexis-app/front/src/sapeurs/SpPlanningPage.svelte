@@ -15,4 +15,5 @@
   selfPath="/sp/planning/me"
   {canManageGarde}
   gardeBase="/sp"
+  mePath="/sp/membres/me"
 />
