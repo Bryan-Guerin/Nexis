@@ -126,6 +126,7 @@
 
   function heure(iso) { return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
   function depuis(iso) {
+    // @ts-ignore
     const min = Math.floor((Date.now() - new Date(iso)) / 60000)
     if (min < 1) return "à l'instant"
     if (min < 60) return `il y a ${min} min`
@@ -223,30 +224,57 @@
       </div>
     </section>
 
-    <!-- Événements à venir / en cours -->
-    {#if evenements.length > 0}
-      <section class="panel">
-        <h3>Événements</h3>
-        <div class="evt-list">
-          {#each evenements as ev (ev.id)}
-            <div class="evt">
-              <div class="evt-head">
-                <span class="evt-titre">{ev.titre}</span>
-                <span class="evt-date">{fmtEvt(ev.date)}</span>
-              </div>
-              {#if ev.texte}<p class="evt-texte">{ev.texte}</p>{/if}
-              <div class="evt-foot">
-                <span class="evt-counts" title="Présents · Absents déclarés">✅ {ev.nbPresents} · ❌ {ev.nbAbsents}</span>
-                <div class="evt-actions">
-                  <button class="evt-btn oui" class:on={ev.maPresence === true} onclick={() => declarerPresence(ev.id, true)}>Présent</button>
-                  <button class="evt-btn non" class:on={ev.maPresence === false} onclick={() => declarerPresence(ev.id, false)}>Absent</button>
+    <div class="cols">
+        <!-- Événements à venir / en cours -->
+        {#if evenements.length > 0}
+          <section class="panel">
+            <h3>Événements</h3>
+            <div class="evt-list">
+              {#each evenements as ev (ev.id)}
+                <div class="evt">
+                  <div class="evt-head">
+                    <span class="evt-titre">{ev.titre}</span>
+                    <span class="evt-date">{fmtEvt(ev.date)}</span>
+                  </div>
+                  {#if ev.texte}<p class="evt-texte">{ev.texte}</p>{/if}
+                  <div class="evt-foot">
+                    <span class="evt-counts" title="Présents · Absents déclarés">✅ {ev.nbPresents} · ❌ {ev.nbAbsents}</span>
+                    <div class="evt-actions">
+                      <button class="evt-btn oui" class:on={ev.maPresence === true} onclick={() => declarerPresence(ev.id, true)}>Présent</button>
+                      <button class="evt-btn non" class:on={ev.maPresence === false} onclick={() => declarerPresence(ev.id, false)}>Absent</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              {/each}
             </div>
-          {/each}
-        </div>
-      </section>
-    {/if}
+          </section>
+        {/if}
+
+        <!-- Fréquences radio -->
+        {#if frequences.length > 0 || isAdmin}
+          <section class="panel">
+            <h3>Fréquences radio</h3>
+            <div class="freq-list">
+              {#each frequences as f (f.id)}
+                <div class="freq-row">
+                  <span class="freq-desc">{f.description}</span>
+                  <span class="freq-val">{f.frequence}</span>
+                  {#if isAdmin}<button class="rm-btn" title="Supprimer" onclick={() => deleteFrequence(f.id)}>×</button>{/if}
+                </div>
+              {/each}
+              {#if frequences.length === 0}<p class="muted small">Aucune fréquence configurée.</p>{/if}
+            </div>
+            {#if isAdmin}
+              <div class="freq-add">
+                <input type="text" bind:value={freqForm.description} placeholder="Description (ex: Tactique 1)" />
+                <input type="text" bind:value={freqForm.frequence} placeholder="150.1" style="width:90px" />
+                <button class="btn-ghost-sm" onclick={addFrequence}>+ Ajouter</button>
+              </div>
+              {#if freqError}<span class="inline-error">{freqError}</span>{/if}
+            {/if}
+          </section>
+        {/if}
+    </div>
 
     <div class="cols">
       <!-- Flotte par état -->
@@ -282,31 +310,6 @@
         {/if}
       </section>
     </div>
-
-    <!-- Fréquences radio -->
-    {#if frequences.length > 0 || isAdmin}
-      <section class="panel">
-        <h3>Fréquences radio</h3>
-        <div class="freq-list">
-          {#each frequences as f (f.id)}
-            <div class="freq-row">
-              <span class="freq-desc">{f.description}</span>
-              <span class="freq-val">{f.frequence}</span>
-              {#if isAdmin}<button class="rm-btn" title="Supprimer" onclick={() => deleteFrequence(f.id)}>×</button>{/if}
-            </div>
-          {/each}
-          {#if frequences.length === 0}<p class="muted small">Aucune fréquence configurée.</p>{/if}
-        </div>
-        {#if isAdmin}
-          <div class="freq-add">
-            <input type="text" bind:value={freqForm.description} placeholder="Description (ex: Tactique 1)" />
-            <input type="text" bind:value={freqForm.frequence} placeholder="150.1" style="width:90px" />
-            <button class="btn-ghost-sm" onclick={addFrequence}>+ Ajouter</button>
-          </div>
-          {#if freqError}<span class="inline-error">{freqError}</span>{/if}
-        {/if}
-      </section>
-    {/if}
 
     <div class="cols">
       <!-- Engins engagés -->
