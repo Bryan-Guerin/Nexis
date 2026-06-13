@@ -6,11 +6,17 @@ import io.micronaut.data.jpa.repository.JpaRepository;
 import io.micronaut.data.model.Page;
 import io.micronaut.data.model.Pageable;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
 public interface JournalRepository extends JpaRepository<JournalEvenement, UUID> {
     Page<JournalEvenement> findByFaction(String faction, Pageable pageable);
     Page<JournalEvenement> findByFactionIsNull(Pageable pageable);
-    java.util.List<JournalEvenement> findByReferenceOrderByCreeLeAsc(String reference);
+    List<JournalEvenement> findByReferenceOrderByCreeLeAsc(String reference);
+
+    /** Événements d'une faction sur une plage [from, to[ — main courante par jour. */
+    List<JournalEvenement> findByFactionAndCreeLeGreaterThanEqualAndCreeLeLessThanOrderByCreeLeDesc(
+            String faction, Instant from, Instant to);
 }

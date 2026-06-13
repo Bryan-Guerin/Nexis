@@ -7,6 +7,7 @@ import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.security.annotation.Secured;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,13 +17,24 @@ import java.util.Optional;
 public class SpJournalController {
 
     private final JournalService journalService;
+    private final SpActeurNommage nommage;
 
-    public SpJournalController(JournalService journalService) {
+    public SpJournalController(JournalService journalService, SpActeurNommage nommage) {
         this.journalService = journalService;
+        this.nommage = nommage;
     }
 
+    /**
+     * Main courante. Avec {@code from} + {@code to} : événements du jour demandé
+     * (pagination par jour, évite de tout charger). Sinon : derniers {@code limit}.
+     */
     @Get("/journal")
-    List<JournalEntryDto> mainCourante(@QueryValue Optional<Integer> limit) {
-        return journalService.recentByFaction("SP", limit.orElse(200));
+    List<JournalEntryDto> mainCourante(@QueryValue Optional<Instant> from,
+                                       @QueryValue Optional<Instant> to,
+                                       @QueryValue Optional<Integer> limit) {
+        var base = (from.isPresent() && to.isPresent())
+                ? journalService.byFactionBetween("SP", from.get(), to.get())
+                : journalService.recentByFaction("SP", limit.orElse(200));
+        return nommage.enrichir(base);
     }
 }

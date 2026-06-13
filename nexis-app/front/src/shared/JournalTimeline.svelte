@@ -8,12 +8,25 @@
     import {api} from './api.js'
     import {realtime} from './realtime.js'
 
-    let { path, title } = $props()
+    let { path, title, byDay = false } = $props()
 
   let entries = $state([])
   let loading = $state(true)
   let error   = $state('')
   let reloadTimer = null
+
+  // Navigation par jour (byDay) : on ne charge qu'un jour à la fois (pas de SELECT *).
+  let currentDay = $state(startOfToday())
+  function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
+  function dayBounds(d) {
+    const start = new Date(d); start.setHours(0, 0, 0, 0)
+    const end = new Date(start); end.setDate(end.getDate() + 1)
+    return { from: start.toISOString(), to: end.toISOString() }
+  }
+  function fmtJour(d) { return d.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) }
+  let estAujourdhui = $derived(currentDay.getTime() >= startOfToday().getTime())
+  function prevDay() { const d = new Date(currentDay); d.setDate(d.getDate() - 1); currentDay = d; load() }
+  function nextDay() { if (estAujourdhui) return; const d = new Date(currentDay); d.setDate(d.getDate() + 1); currentDay = d; load() }
 
   // Filtres
   const MAX_INLINE = 8   // au-delà, on bascule sur un menu déroulant « + Type »
@@ -77,7 +90,14 @@
 
   async function load() {
     loading = true; error = ''
-    try { entries = await api.get(path) }
+    try {
+      if (byDay) {
+        const { from, to } = dayBounds(currentDay)
+        entries = await api.get(`${path}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+      } else {
+        entries = await api.get(path)
+      }
+    }
     catch (e) { error = e.message }
     finally { loading = false }
   }
@@ -119,11 +139,19 @@
           </details>
         {/if}
       </div>
-      <div class="dates">
-        <label>Du <input type="date" bind:value={dateFrom} /></label>
-        <label>au <input type="date" bind:value={dateTo} /></label>
-        {#if filtresActifs}<button class="btn-ghost-sm" onclick={resetFiltres}>Réinitialiser</button>{/if}
-      </div>
+      {#if byDay}
+        <div class="day-nav">
+          <button class="btn-ghost" onclick={prevDay}>‹</button>
+          <span class="day-label">{fmtJour(currentDay)}</span>
+          <button class="btn-ghost" onclick={nextDay} disabled={estAujourdhui}>›</button>
+        </div>
+      {:else}
+        <div class="dates">
+          <label>Du <input type="date" bind:value={dateFrom} /></label>
+          <label>au <input type="date" bind:value={dateTo} /></label>
+          {#if filtresActifs}<button class="btn-ghost-sm" onclick={resetFiltres}>Réinitialiser</button>{/if}
+        </div>
+      {/if}
     </div>
 
     <div class="timeline">
@@ -132,7 +160,7 @@
           <span class="t">{fmt(e.creeLe)}</span>
           <span class="badge" style="background:color-mix(in srgb, {typeInfo(e.type).c} 15%, transparent); color:{typeInfo(e.type).c}">{typeInfo(e.type).l}</span>
           <span class="msg">{e.message}</span>
-          {#if e.acteurUsername}<span class="who">{e.acteurUsername}</span>{/if}
+          {#if e.acteurNom || e.acteurUsername}<span class="who">{e.acteurNom || e.acteurUsername}</span>{/if}
         </div>
       {/each}
       {#if filtered.length === 0}
@@ -164,6 +192,9 @@
   .dd-item { text-align: left; background: none; border: none; color: var(--color-text); font-size: 12px; padding: 5px 8px; border-radius: var(--radius); cursor: pointer; }
   .dd-item:hover { background: var(--color-border); }
   .dd-empty { font-size: 11px; color: var(--color-muted); padding: 5px 8px; }
+
+  .day-nav { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+  .day-label { font-size: 13px; font-weight: 500; min-width: 220px; text-align: center; text-transform: capitalize; }
 
   .dates { flex-shrink: 0; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--color-muted); }
   .dates input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
