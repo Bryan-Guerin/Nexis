@@ -104,13 +104,13 @@
   async function demarrerGarde(m) {
     error = ''
     const h = gardeDuree[m.id] ?? 4
-    try { await api.post(`${gardeBase}/planning/membres/${m.id}/prendre-garde?heures=${h}`); await load(); await loadEnService() }
+    try { await api.post(`${gardeBase}/planning/membres/${m.id}/prendre-garde?heures=${h}`); await load(true); await loadEnService() }
     catch (e) { error = e.message }
   }
   async function terminerGarde(m) {
     if (!window.confirm(`Terminer la garde de ${m.nomComplet || m.username} ?`)) return
     error = ''
-    try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(); await loadEnService() }
+    try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(true); await loadEnService() }
     catch (e) { error = e.message }
   }
 
@@ -172,7 +172,7 @@
         await api.put(modifUrl(d.membreId, d.id),
           { statutId: d.statutId, debut: minToIso(d.debutMin), fin: minToIso(d.finMin), notes: null })
       }
-      await load(); await loadEnService()
+      await load(true); await loadEnService()
     } catch (e) { error = e.message }
   }
   function addDragListeners() { window.addEventListener('pointermove', onDragMove); window.addEventListener('pointerup', onDragUp) }
@@ -190,12 +190,12 @@
   function ouvrirPopover(d) { popover = { membreId: d.membreId, id: d.id, statutId: d.statutId, debut: minToIso(d.dStart), fin: minToIso(d.fStart) } }
   async function changerStatut(statutId) {
     const p = popover; popover = null
-    try { await api.put(modifUrl(p.membreId, p.id), { statutId, debut: p.debut, fin: p.fin, notes: null }); await load(); await loadEnService() }
+    try { await api.put(modifUrl(p.membreId, p.id), { statutId, debut: p.debut, fin: p.fin, notes: null }); await load(true); await loadEnService() }
     catch (e) { error = e.message }
   }
   async function supprimerPlage() {
     const p = popover; popover = null
-    try { await api.delete(modifUrl(p.membreId, p.id)); await load(); await loadEnService() }
+    try { await api.delete(modifUrl(p.membreId, p.id)); await load(true); await loadEnService() }
     catch (e) { error = e.message }
   }
 
@@ -207,8 +207,10 @@
     try { const me = await api.get(mePath); meId = me?.id ?? null } catch { /* pas d'effectif lié */ }
   }
 
-  async function load() {
-    loading = true; error = ''
+  // silent = recharge sans démonter le calendrier (préserve la position de scroll après une maj).
+  async function load(silent = false) {
+    if (!silent) loading = true
+    error = ''
     try {
       ;[membres, planning, statuts] = await Promise.all([
         api.get(`${membresPath}?actif=true`),
@@ -217,7 +219,7 @@
       ])
       if (canManageGarde) gardeDuree = Object.fromEntries(membres.map(m => [m.id, gardeDuree[m.id] ?? 4]))
     } catch (e) { error = e.message }
-    finally    { loading = false }
+    finally    { if (!silent) loading = false }
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
@@ -277,7 +279,7 @@
         notes:   fNotes || null,
       })
       showForm = false
-      await load()
+      await load(true)
     } catch (e) { fError = e.message }
     finally    { fBusy = false }
   }
@@ -324,9 +326,9 @@
 
             <!-- Cellule membre (sticky left) -->
             <div class="member-cell" style="width:{COL_W}px; height:{ROW_H}px">
-              <span class="m-grade">{m.grade}</span>
-              <span class="m-name">{m.username}</span>
-              <span class="m-mat">{m.matricule}</span>
+              <span class="m-grade">{m.gradeCode}</span>
+              <span class="m-name">{m.nomComplet}</span>
+<!--              <span class="m-mat">{m.matricule}</span>-->
               {#if canManageGarde}
                 {#if enService.has(m.id)}
                   <button class="g-btn stop" title="Terminer la garde" onclick={() => terminerGarde(m)}>⏹</button>
