@@ -1,65 +1,65 @@
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+Guidelines pour réduire erreurs LLM. Fusionner avec instructions projet.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+**Tradeoff:** biais prudence > vitesse. Tâches triviales : juge.
 
 ## 1. Think Before Coding
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**Pas d'hypothèse cachée. Surface tradeoffs.**
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+Avant de coder :
+- Énonce tes hypothèses. Incertain → demande.
+- Plusieurs interprétations → présente-les, ne choisis pas en silence.
+- Approche plus simple existe → dis-le, pushback.
+- Pas clair → stop, nomme le flou, demande.
 
 ## 2. Simplicity First
 
-**Minimum code that solves the problem. Nothing speculative.**
+**Code minimum qui résout. Rien de spéculatif.**
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- Pas de feature non demandée.
+- Pas d'abstraction pour usage unique.
+- Pas de "flexibilité"/"configurabilité" non demandée.
+- Pas de gestion d'erreur pour cas impossibles.
+- 200 lignes possibles en 50 → réécris.
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+Test : "un senior dirait-il que c'est sur-compliqué ?" Oui → simplifie.
 
 ## 3. Surgical Changes
 
-**Touch only what you must. Clean up only your own mess.**
+**Touche que le nécessaire. Nettoie que ton propre bazar.**
 
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+Édition de code existant :
+- N'"améliore" pas code/commentaires/format adjacents.
+- Ne refactore pas ce qui marche.
+- Respecte le style existant.
+- Code mort non lié → mentionne, ne supprime pas.
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+Orphelins créés par tes changements :
+- Retire imports/vars/fonctions que TES changements rendent inutiles.
+- Ne supprime pas le code mort préexistant sauf demande.
 
-The test: Every changed line should trace directly to the user's request.
+Test : chaque ligne changée trace à la demande user.
 
 ## 4. Goal-Driven Execution
 
-**Define success criteria. Loop until verified.**
+**Définis critères de succès. Boucle jusqu'à vérifié.**
 
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
+Tâches → buts vérifiables :
+- "Add validation" → "tests inputs invalides, puis les faire passer"
+- "Fix the bug" → "test qui reproduit, puis le faire passer"
+- "Refactor X" → "tests verts avant et après"
 
-For multi-step tasks, state a brief plan:
+Multi-étapes → plan bref :
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
 3. [Step] → verify: [check]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+Critères forts = boucle autonome. Critères faibles ("make it work") = clarifications constantes.
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**Ça marche si :** moins de changements inutiles dans diffs, moins de réécritures pour sur-complication, questions de clarification avant l'implémentation et non après l'erreur.
