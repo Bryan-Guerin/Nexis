@@ -3,28 +3,30 @@
 Ajouter rôle Staff en read only global
 Ajouter module DIR ?
 
----
-
 == À traiter prochainement (rapide)
 
----
-HF si jamais faire du web hook pour notif discord
-Envoie MP pour BIP
-Envoie dans un canal des interventions en cours (vignette discord + lien vers l'intervention ?)
 
----
+== RoadMap non ordonnée, non figée
 
-TODO Correctifs :
+Non ordonnée, non figée, plus bloc note que road map officielle :)
 
-Autoriser les doubles affectation : un effectif sur plusieurs véhicules (exemple FSR + VTU) => OK
+=== V1.3
+Tests SpPlanningService + chasse au bug timezone suspecté (garde pas comptée "en service").
 
-Rendre véhicule non armé si effectif est sur inter + sur un post obligatoire du véhicule à déclencher.
-Si départ combiné (départ des 2 véhicules sur lesquels un effectif est affecté). On fait partir le premier véhicule puis on regarde au moment du départ du second :
-Si effectif à un poste non obligatoire, alors le désaffecte et on autorise le déclenchement (avec pop up d'information).
+Dispatch : Prise de service en interactif pour effectif + dispatch (possible sur les autres)
 
-Si effectif sur un poste obligatoire, on bloque le départ (personnel déjà parti sur la première intervention) et message d'avertissement indiquant le véhicule / poste et intervention qui bloque l'effectif.
+Forcer effectif à un poste (dispatch)
+Propositions d'engins par nature d'intervention (dispatcher).
 
-J'ai fais un test de fermeture. J'ai un statut disponible relié à disponible. Et un statut inventaire relié à un statut inventaire. Véhicule 1 statut disponible. Lorsque je passe le véhicule de sur les lieux à inventaire (statut qui autorise la fermeture), l'intervention se termine mais mon véhicule est passé en disponible et n'est pas resté en INVENTAIRE.
+Stats / export (CSV interventions, paie).
 
-Je ne sais pas trop ce qui a fait ça, mais je n'ai pas assez de logs, doc peux en ajouter ?
+=== V1.x
 
+Rôle Staff read-only global
+
+=== Un jour peut être
+
+Webhooks Discord (BIP en MP, canal interventions en cours)
+Historique interventions sain : snapshot véhicule (libellé/code figés) à la clôture → un véhicule n'apparaît plus "en inter" sur une inter close. Bug de fond.
+
+Application mobile / Front bien plus compatible sur téléphone (pour les PC qui ont du mal à faire retour windows)
