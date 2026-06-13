@@ -99,8 +99,12 @@ public class SpMembreController {
 
     @Get("/membres")
     List<SpMembreDto> listMembres(@QueryValue Optional<Boolean> actif) {
-        return actif.map(a -> a ? membreService.listActifs() : membreService.listAll())
-                    .orElseGet(membreService::listAll);
+        return actif.filter(a -> a).map(a -> membreService.listActifs()).orElseGet(membreService::listAll);
+    }
+
+    @Get("/membres/grade")
+    List<SpMembreDto> listMembresOrderByGrade() {
+        return membreService.listAllOrderByGrade();
     }
 
     /** Membres actuellement en service (plage GARDE couvrant maintenant). */
@@ -128,6 +132,13 @@ public class SpMembreController {
     @Secured("ROLE_ADMIN_SP")
     SpMembreDto updateMembre(UUID id, @Body UpdateSpMembreRequest req) {
         return membreService.update(id, req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet(), req.telephone());
+    }
+
+    /** Radie (actif=false) ou réintègre un effectif. Désactive/réactive le compte lié. */
+    @Put("/membres/{id}/actif")
+    @Secured("ROLE_ADMIN_SP")
+    SpMembreDto setActif(UUID id, @QueryValue boolean actif) {
+        return membreService.setActif(id, actif);
     }
 
     // ── Planning ─────────────────────────────────────────────────────────────

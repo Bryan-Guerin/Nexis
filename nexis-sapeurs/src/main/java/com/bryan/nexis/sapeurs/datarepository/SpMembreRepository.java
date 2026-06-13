@@ -18,6 +18,8 @@ public interface SpMembreRepository extends JpaRepository<SpMembre, UUID> {
 
     List<SpMembre> findByGradeId(UUID gradeId);
 
+    List<SpMembre> findAllOrderByGradePositionDesc();
+
     /** Retourne le plus grand numéro de compteur existant, ou 351 si aucun membre. */
     @Query("SELECT COALESCE(MAX(m.numeroCompteur), 351) FROM SpMembre m")
     int findMaxNumeroCompteur();

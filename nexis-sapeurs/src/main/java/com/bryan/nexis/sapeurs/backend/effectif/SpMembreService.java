@@ -43,6 +43,12 @@ public class SpMembreService {
     }
 
     @Transactional
+    public List<SpMembreDto> listAllOrderByGrade() {
+        // Order by grade position descending
+        return membreRepo.findAllOrderByGradePositionDesc().stream().map(SpMembreDto::from).toList();
+    }
+
+    @Transactional
     public List<SpMembreDto> listActifs() {
         return membreRepo.findByActif(true).stream().map(SpMembreDto::from).toList();
     }
@@ -101,6 +107,22 @@ public class SpMembreService {
             membre.setNumeroCasier(numeroCasier);
         }
 
+        return SpMembreDto.from(membreRepo.update(membre));
+    }
+
+    /**
+     * Radie ({@code actif=false}) ou réintègre un effectif. Le compte utilisateur lié est
+     * désactivé/réactivé en conséquence (blocage du login). Soft-delete : l'historique
+     * (qualifications, sanctions, notations, affectations) est conservé.
+     */
+    @Transactional
+    public SpMembreDto setActif(UUID id, boolean actif) {
+        var membre = membreRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + id));
+        membre.setActif(actif);
+        var user = membre.getUser();
+        user.setEnabled(actif);
+        userRepo.update(user);
         return SpMembreDto.from(membreRepo.update(membre));
     }
 
