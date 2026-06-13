@@ -48,8 +48,9 @@ public class SpPaieService {
         BigDecimal total = BigDecimal.ZERO;
         var lignes = new java.util.ArrayList<Ligne>();
         for (var membre : membres.values()) {
-            double hG = heures(gardeMin.getOrDefault(membre.getId(), 0L));
-            double hA = heures(astreinteMin.getOrDefault(membre.getId(), 0L));
+            // Arrondi au quart d'heure supérieur sur le TOTAL hebdomadaire (par catégorie).
+            double hG = heures(ceilQuarter(gardeMin.getOrDefault(membre.getId(), 0L)));
+            double hA = heures(ceilQuarter(astreinteMin.getOrDefault(membre.getId(), 0L)));
             BigDecimal tauxG = membre.getGrade().getTauxHoraire();
             BigDecimal tauxA = membre.getGrade().getTauxAstreinte();
             BigDecimal montant = tauxG.multiply(BigDecimal.valueOf(hG))
@@ -67,13 +68,20 @@ public class SpPaieService {
     private void cumuler(java.util.List<com.bryan.nexis.sapeurs.datamodel.SpPlanning> plages, Instant start, Instant end,
                          Map<UUID, Long> minutesParMembre, Map<UUID, SpMembre> membres) {
         for (var p : plages) {
+            // Temps en service réel : jusqu'au départ effectif (quitteLe) si renseigné, sinon la fin.
+            Instant finEff = p.getQuitteLe() != null && p.getQuitteLe().isBefore(p.getFin()) ? p.getQuitteLe() : p.getFin();
             Instant d = p.getDebut().isAfter(start) ? p.getDebut() : start;
-            Instant f = p.getFin().isBefore(end) ? p.getFin() : end;
+            Instant f = finEff.isBefore(end) ? finEff : end;
             long minutes = Math.max(0, Duration.between(d, f).toMinutes());
             if (minutes == 0) continue;
             minutesParMembre.merge(p.getMembre().getId(), minutes, Long::sum);
             membres.putIfAbsent(p.getMembre().getId(), p.getMembre());
         }
+    }
+
+    /** Arrondit un total de minutes au quart d'heure supérieur (payes « rondes » à la semaine). */
+    private static long ceilQuarter(long minutes) {
+        return ((minutes + 14) / 15) * 15;
     }
 
     private static double heures(long minutes) { return Math.round(minutes / 60.0 * 100.0) / 100.0; }

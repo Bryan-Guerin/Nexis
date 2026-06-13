@@ -38,10 +38,22 @@ public abstract class AbstractPlanningService<P extends AbstractPlanning> {
 
     @Transactional
     public PlanningDto create(UUID membreId, UUID statutId, Instant debut, Instant fin, String notes) {
-        if (!findOverlapping(membreId, debut, fin).isEmpty()) {
-            throw new IllegalStateException("Conflit de planning : une plage existe déjà sur ce créneau.");
+        // Chevauchement avec des plages du MÊME statut → on les fusionne en une seule plage étendue
+        // (« prolonger la période »). Si le créneau est déjà couvert (ne déborde pas), on ne fait rien.
+        var memeStatut = findOverlapping(membreId, debut, fin).stream()
+                .filter(p -> p.getStatutView().getId().equals(statutId))
+                .toList();
+        Instant d = debut, f = fin;
+        for (P p : memeStatut) {
+            if (p.getDebut().isBefore(d)) d = p.getDebut();
+            if (p.getFin().isAfter(f))    f = p.getFin();
         }
-        P saved = repo().save(build(membreId, statutId, debut, fin, notes));
+        // Déjà entièrement couvert par une plage unique inchangée → no-op.
+        if (memeStatut.size() == 1 && d.equals(memeStatut.get(0).getDebut()) && f.equals(memeStatut.get(0).getFin())) {
+            return PlanningDto.from(memeStatut.get(0));
+        }
+        for (P p : memeStatut) repo().delete(p);   // absorbées dans la plage fusionnée
+        P saved = repo().save(build(membreId, statutId, d, f, notes));
         onCreated(saved);   // ex. publier un événement temps réel (dans la transaction → diffusé après commit)
         return PlanningDto.from(saved);
     }
@@ -49,35 +61,25 @@ public abstract class AbstractPlanningService<P extends AbstractPlanning> {
     /** Hook après création (dans la transaction). Par défaut sans effet ; surchargé par les modules. */
     protected void onCreated(P planning) {}
 
+    /** Tolérance de déclaration rétroactive : 30 minutes de retard maximum. */
+    private static final long RETARD_MAX_MS = 30L * 60_000L;
+
     /**
-     * Déclaration par le membre lui-même. Principe « quart d'heure entamé = quart d'heure payé » :
-     * le début est arrondi au quart d'heure <em>inférieur</em> (15h55 → 15h45) et la fin au quart
-     * <em>supérieur</em>. Le début ne peut pas être placé avant le quart d'heure courant (non rétroactif
-     * au-delà de l'entamé) : un début passé est ramené à maintenant avant arrondi.
+     * Déclaration d'une plage. Le début ne peut pas être placé à plus de 30 min dans le passé
+     * (un début null vaut maintenant). Pas d'arrondi : début et fin sont pris tels quels.
      */
     @Transactional
     public PlanningDto declareSelf(UUID membreId, UUID statutId, Instant debut, Instant fin, String notes) {
-        Instant base = (debut == null || debut.isBefore(Instant.now())) ? Instant.now() : debut;
-        Instant debutSnap = floorToQuarter(base);
-        if (fin == null) throw new IllegalArgumentException("La fin est obligatoire.");
-        Instant finSnap = ceilToQuarter(fin);
-        if (!finSnap.isAfter(debutSnap)) {
-            throw new IllegalArgumentException("La fin doit être postérieure au début (" + debutSnap + ").");
+        Instant now = Instant.now();
+        Instant deb = debut == null ? now : debut;
+        if (deb.isBefore(now.minusMillis(RETARD_MAX_MS))) {
+            throw new IllegalArgumentException("Déclaration impossible dans le passé (plus de 30 min de retard).");
         }
-        return create(membreId, statutId, debutSnap, finSnap, notes);
-    }
-
-    /** Arrondit un instant au quart d'heure inférieur (les bornes :00/:15/:30/:45 sont conservées). */
-    public static Instant floorToQuarter(Instant t) {
-        long quarter = 15L * 60_000L;
-        return Instant.ofEpochMilli((t.toEpochMilli() / quarter) * quarter);
-    }
-
-    /** Arrondit un instant au quart d'heure supérieur (les bornes :00/:15/:30/:45 sont conservées). */
-    public static Instant ceilToQuarter(Instant t) {
-        long quarter = 15L * 60_000L;
-        long ms = t.toEpochMilli();
-        return Instant.ofEpochMilli(((ms + quarter - 1) / quarter) * quarter);
+        if (fin == null) throw new IllegalArgumentException("La fin est obligatoire.");
+        if (!fin.isAfter(deb)) {
+            throw new IllegalArgumentException("La fin doit être postérieure au début.");
+        }
+        return create(membreId, statutId, deb, fin, notes);
     }
 
     /** Membres actuellement en service (plage GARDE couvrant l'instant présent). */

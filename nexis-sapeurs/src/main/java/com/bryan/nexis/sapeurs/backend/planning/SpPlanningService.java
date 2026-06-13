@@ -72,9 +72,8 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         var now = Instant.now();
         var plage = planningRepo.findMembreCouvrant(membreId, TypeService.GARDE, now).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Aucune garde en cours à terminer."));
-        // Quart d'heure entamé = compté complet (paie) ; mais plus dispatchable dès maintenant.
-        Instant fin = ceilToQuarter(now);
-        plage.setFin(fin.isAfter(plage.getDebut()) ? fin : plage.getFin());
+        // Fin = maintenant (plus de quart d'heure entamé) ; quitteLe trace le départ effectif.
+        plage.setFin(now.isAfter(plage.getDebut()) ? now : plage.getFin());
         plage.setQuitteLe(now);
         var saved = planningRepo.update(plage);
         log.info("Fin de garde anticipée : membre={} fin payée={} quitte={}", membreId, plage.getFin(), now);
@@ -93,7 +92,7 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         var now = Instant.now();
         var astreinte = planningRepo.findMembreCouvrant(membreId, TypeService.ASTREINTE, now).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Aucune astreinte en cours."));
-        Instant split = floorToQuarter(now);
+        Instant split = now;
         Instant minFin = split.plusMillis(UNE_HEURE_MS);
         Instant gardeFin = astreinte.getFin().isAfter(minFin) ? astreinte.getFin() : minFin;   // min 1 h
         if (split.isAfter(astreinte.getDebut())) { astreinte.setFin(split); planningRepo.update(astreinte); }
@@ -114,7 +113,7 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         var now = Instant.now();
         var garde = planningRepo.findMembreCouvrant(membreId, TypeService.GARDE, now).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Aucune garde en cours."));
-        Instant split = ceilToQuarter(now);
+        Instant split = now;
         Instant gardeFin = garde.getFin();
         if (!split.isBefore(gardeFin)) {
             throw new IllegalStateException("Garde trop courte pour basculer en astreinte (elle se termine bientôt).");
