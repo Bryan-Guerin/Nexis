@@ -1,5 +1,6 @@
 package com.bryan.nexis.backend;
 
+import io.micronaut.core.annotation.Nullable;
 import com.bryan.nexis.core.datamodel.RefUser;
 import com.bryan.nexis.core.datarepository.RefUserRepository;
 import io.micronaut.core.order.Ordered;
@@ -30,6 +31,7 @@ public class ActiveAccountFilter implements Ordered {
     }
 
     @RequestFilter
+    @Nullable
     public HttpResponse<?> onRequest(HttpRequest<?> request) {
         String username = request.getAttribute(HttpAttributes.PRINCIPAL, Principal.class)
                 .map(Principal::getName).orElse(null);
