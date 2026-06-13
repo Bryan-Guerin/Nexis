@@ -54,6 +54,18 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         return null;
     }
 
+    /**
+     * Démarre une garde « maintenant » pour un membre (action dispatch). Durée par défaut bornée
+     * en heures ; même arrondi/non-rétroactivité que l'auto-déclaration.
+     */
+    @Transactional
+    public PlanningDto prendreGardePour(UUID membreId, int heures) {
+        int h = Math.max(1, heures);
+        var statut = premierStatut(TypeService.GARDE);
+        var now = Instant.now();
+        return declareSelf(membreId, statut.getId(), now, now.plusMillis(h * UNE_HEURE_MS), null);
+    }
+
     /** Termine la garde en cours du membre (fin arrondie au quart sup., départ effectif = maintenant). */
     @Transactional
     public PlanningDto terminerGardeEnCours(UUID membreId) {

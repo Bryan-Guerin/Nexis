@@ -164,6 +164,21 @@ public class SpMembreController {
         return planningService.create(membreId, req.statutId(), req.debut(), req.fin(), req.notes());
     }
 
+    // ── Gestion des gardes par le dispatch (démarrer / terminer pour autrui) ──────
+
+    @Post("/planning/membres/{membreId}/prendre-garde")
+    @Secured("ROLE_SP_DISPATCH")
+    @Status(HttpStatus.CREATED)
+    PlanningDto prendreGardePour(UUID membreId, @QueryValue(defaultValue = "4") int heures) {
+        return planningService.prendreGardePour(membreId, heures);
+    }
+
+    @Put("/planning/membres/{membreId}/terminer-garde")
+    @Secured("ROLE_SP_DISPATCH")
+    PlanningDto terminerGardePour(UUID membreId) {
+        return planningService.terminerGardeEnCours(membreId);
+    }
+
     // ── Qualifications (fonctions du membre) ──────────────────────────────────
 
     @Post("/membres/{membreId}/qualifications/{fonctionId}")
