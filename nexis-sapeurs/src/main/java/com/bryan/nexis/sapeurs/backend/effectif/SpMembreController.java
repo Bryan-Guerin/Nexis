@@ -179,6 +179,46 @@ public class SpMembreController {
         return planningService.terminerGardeEnCours(membreId);
     }
 
+    // ── Édition interactive du planning (drag & drop) ─────────────────────────────
+
+    /** Modifie une de SES plages (déplacement / redimensionnement). */
+    @Put("/planning/me/{id}")
+    PlanningDto modifierMaPlage(Authentication auth, UUID id, @Body CreateSpPlanningRequest req) {
+        var me = membreService.findByUsername(auth.getName());
+        return planningService.modifier(id, req.statutId(), req.debut(), req.fin(), me.id());
+    }
+
+    /** Supprime une de SES plages. */
+    @Delete("/planning/me/{id}")
+    @Status(HttpStatus.NO_CONTENT)
+    void supprimerMaPlage(Authentication auth, UUID id) {
+        var me = membreService.findByUsername(auth.getName());
+        planningService.supprimer(id, me.id());
+    }
+
+    /** Déclare une plage pour un effectif (dispatch). */
+    @Post("/planning/membres/{membreId}")
+    @Secured("ROLE_SP_DISPATCH")
+    @Status(HttpStatus.CREATED)
+    PlanningDto declarerPour(UUID membreId, @Body CreateSpPlanningRequest req) {
+        return planningService.declarerPour(membreId, req.statutId(), req.debut(), req.fin());
+    }
+
+    /** Modifie n'importe quelle plage (dispatch). */
+    @Put("/planning/{id}")
+    @Secured("ROLE_SP_DISPATCH")
+    PlanningDto modifierPlage(UUID id, @Body CreateSpPlanningRequest req) {
+        return planningService.modifier(id, req.statutId(), req.debut(), req.fin(), null);
+    }
+
+    /** Supprime n'importe quelle plage (dispatch). */
+    @Delete("/planning/{id}")
+    @Secured("ROLE_SP_DISPATCH")
+    @Status(HttpStatus.NO_CONTENT)
+    void supprimerPlage(UUID id) {
+        planningService.supprimer(id, null);
+    }
+
     // ── Qualifications (fonctions du membre) ──────────────────────────────────
 
     @Post("/membres/{membreId}/qualifications/{fonctionId}")

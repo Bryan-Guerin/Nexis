@@ -128,6 +128,48 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         return PlanningDto.from(saved);
     }
 
+    /** Déclaration d'une plage pour un membre par le dispatch (drag & drop). */
+    @Transactional
+    public PlanningDto declarerPour(UUID membreId, UUID statutId, Instant debut, Instant fin) {
+        return declareSelf(membreId, statutId, debut, fin, null);
+    }
+
+    /**
+     * Modifie une plage (déplacement / redimensionnement / changement de statut). Réécrit la plage
+     * (delete + create) afin de réappliquer la fusion des chevauchements du même statut.
+     * {@code exigeMembreId} non null = contrôle de propriété (un effectif n'édite que ses plages).
+     */
+    @Transactional
+    public PlanningDto modifier(UUID id, UUID statutId, Instant debut, Instant fin, UUID exigeMembreId) {
+        var plage = planningRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Plage de planning introuvable : " + id));
+        verifierProprietaire(plage, exigeMembreId);
+        if (debut == null || fin == null) throw new IllegalArgumentException("Début et fin requis.");
+        if (!fin.isAfter(debut)) throw new IllegalArgumentException("La fin doit être postérieure au début.");
+        UUID membreId = plage.getMembre().getId();
+        UUID sId = statutId != null ? statutId : plage.getStatut().getId();
+        planningRepo.delete(plage);
+        return create(membreId, sId, debut, fin, null);
+    }
+
+    /** Supprime une plage. {@code exigeMembreId} non null = contrôle de propriété. */
+    @Transactional
+    public void supprimer(UUID id, UUID exigeMembreId) {
+        var plage = planningRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Plage de planning introuvable : " + id));
+        verifierProprietaire(plage, exigeMembreId);
+        planningRepo.delete(plage);
+        events.publishEvent(RealtimeEvent.faction(RealtimeEvent.PLANNING, "SP",
+                plage.getMembre() + " — créneau supprimé",
+                Map.of("membreId", plage.getMembre().getId().toString()), plage.getMembreUsername()));
+    }
+
+    private void verifierProprietaire(SpPlanning plage, UUID exigeMembreId) {
+        if (exigeMembreId != null && !plage.getMembre().getId().equals(exigeMembreId)) {
+            throw new IllegalStateException("Action non autorisée : créneau d'un autre effectif.");
+        }
+    }
+
     private SpPlanningStatut premierStatut(TypeService categorie) {
         return statutRepo.findAll().stream().filter(s -> s.getCategorie() == categorie)
                 .min(Comparator.comparingInt(SpPlanningStatut::getPosition))
