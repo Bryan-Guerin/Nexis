@@ -1,19 +1,23 @@
 package com.bryan.nexis.sapeurs.backend.effectif;
 
 import com.bryan.nexis.core.datarepository.RefUserRepository;
+import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreDto;
 import com.bryan.nexis.sapeurs.datamodel.SpMembre;
 import com.bryan.nexis.sapeurs.datamodel.SpMembreQualification;
 import com.bryan.nexis.sapeurs.datarepository.SpFonctionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpGradeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreRepository;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.security.utils.SecurityService;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Singleton
@@ -24,15 +28,18 @@ public class SpMembreService {
     private final SpGradeRepository    gradeRepo;
     private final SpFonctionRepository fonctionRepo;
     private final SecurityService      securityService;
+    private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpMembreService(SpMembreRepository membreRepo, RefUserRepository userRepo,
                            SpGradeRepository gradeRepo, SpFonctionRepository fonctionRepo,
-                           SecurityService securityService) {
+                           SecurityService securityService,
+                           ApplicationEventPublisher<RealtimeEvent> events) {
         this.membreRepo   = membreRepo;
         this.userRepo     = userRepo;
         this.gradeRepo    = gradeRepo;
         this.fonctionRepo = fonctionRepo;
         this.securityService = securityService;
+        this.events       = events;
     }
 
     // ── Lecture ──────────────────────────────────────────────────────────────
@@ -40,6 +47,12 @@ public class SpMembreService {
     @Transactional
     public List<SpMembreDto> listAll() {
         return membreRepo.findAll().stream().map(SpMembreDto::from).toList();
+    }
+
+    @Transactional
+    public List<SpMembreDto> listAllOrderByGrade() {
+        // Order by grade position descending
+        return membreRepo.findAllOrderByGradePositionDesc().stream().map(SpMembreDto::from).toList();
     }
 
     @Transactional
@@ -102,6 +115,28 @@ public class SpMembreService {
         }
 
         return SpMembreDto.from(membreRepo.update(membre));
+    }
+
+    /**
+     * Radie ({@code actif=false}) ou réintègre un effectif. Le compte utilisateur lié est
+     * désactivé/réactivé en conséquence (blocage du login). Soft-delete : l'historique
+     * (qualifications, sanctions, notations, affectations) est conservé.
+     */
+    @Transactional
+    public SpMembreDto setActif(UUID id, boolean actif) {
+        var membre = membreRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + id));
+        membre.setActif(actif);
+        var user = membre.getUser();
+        user.setEnabled(actif);
+        userRepo.update(user);
+        var saved = membreRepo.update(membre);
+        // Radiation : déconnexion immédiate côté client (le filtre serveur bloque déjà l'API).
+        if (!actif) {
+            events.publishEvent(RealtimeEvent.users("COMPTE_DESACTIVE", "SP", Set.of(user.getUsername()),
+                    "Votre compte a été désactivé.", Map.of(), securityService.username().orElse(null)));
+        }
+        return SpMembreDto.from(saved);
     }
 
     // ── Qualifications (fonctions du membre) ──────────────────────────────────

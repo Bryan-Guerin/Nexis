@@ -46,6 +46,7 @@ public class SpInterventionService {
     private final SpVehiculeStatutRepository     statutRepo;           // statut "Déclenché" (premier)
     private final SpVehiculeEtatRepository       etatRepo;             // état "Indisponible"
     private final JournalService                 journalService;       // main courante
+    private final com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage; // login → nom RP
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final SecurityService                securityService;
 
@@ -54,6 +55,7 @@ public class SpInterventionService {
                                  SpVehiculeAffectationRepository affectationRepo, SpVehiculeTypePosteRepository posteRepo,
                                  SpVehiculeStatutRepository statutRepo, SpVehiculeEtatRepository etatRepo,
                                  JournalService journalService,
+                                 com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage,
                                  ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
@@ -61,6 +63,7 @@ public class SpInterventionService {
         this.affectationService = affectationService;
         this.affectationRepo    = affectationRepo;
         this.posteRepo          = posteRepo;
+        this.nommage            = nommage;
         this.statutRepo         = statutRepo;
         this.etatRepo           = etatRepo;
         this.journalService     = journalService;
@@ -129,6 +132,41 @@ public class SpInterventionService {
     }
 
     /**
+     * Bloque le départ si un poste OBLIGATOIRE d'un engin est tenu par un effectif déjà engagé
+     * sur une autre intervention (départ combiné : le premier véhicule est parti avec lui).
+     * Le message indique le véhicule, le poste et l'intervention bloquante.
+     */
+    private void verifierEquipageObligatoireDisponible(List<SpVehicule> engins) {
+        for (var engin : engins) {
+            var oblig = obligPosteIds(engin);
+            if (oblig.isEmpty()) continue;
+            var occupes = membresOccupesSurAutreIntervention(engin.getId());
+            for (var a : affectationRepo.findByVehiculeIdAndFinIsNull(engin.getId())) {
+                if (a.getPoste() != null && oblig.contains(a.getPoste().getId())
+                        && occupes.contains(a.getMembre().getId())) {
+                    String interBloquante = codeInterventionDuMembre(a.getMembre().getId());
+                    log.info("Départ de {} bloqué : {} (poste obligatoire {}) déjà engagé sur {}",
+                            engin, a.getMembre(), a.getPoste().getFonction().getCode(), interBloquante);
+                    throw new IllegalStateException("Départ de " + engin + " impossible : "
+                            + a.getMembre() + " (poste obligatoire " + a.getPoste().getFonction().getCode()
+                            + ") est déjà engagé sur " + interBloquante + ".");
+                }
+            }
+        }
+    }
+
+    /** Code de l'intervention ouverte sur laquelle ce membre est engagé (via ses affectations). */
+    private String codeInterventionDuMembre(UUID membreId) {
+        var sesVehicules = affectationRepo.findByMembreIdAndFinIsNull(membreId).stream()
+                .map(a -> a.getVehicule().getId())
+                .collect(Collectors.toSet());
+        return interventionRepo.findByFinIsNull().stream()
+                .filter(i -> i.getEngins().stream().anyMatch(e -> sesVehicules.contains(e.getId())))
+                .map(SpIntervention::getCode)
+                .findFirst().orElse("une intervention en cours");
+    }
+
+    /**
      * Désaffecte, au déclenchement, les équipiers sur poste NON obligatoire d'un engin qui sont
      * occupés ailleurs (autre intervention en cours — y compris celle qu'on vient de créer, pour
      * les autres engins du départ combiné). Un équipier disponible part normalement avec l'engin.
@@ -171,7 +209,7 @@ public class SpInterventionService {
     public List<JournalEntryDto> mainCourante(UUID interventionId) {
         var inter = interventionRepo.findById(interventionId)
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + interventionId));
-        return journalService.byReference(inter.getCode());
+        return nommage.enrichir(journalService.byReference(inter.getCode()));
     }
 
     /** Ajoute une note de main courante. Réservé à un équipier de l'intervention (ou admin SP). */
@@ -257,6 +295,8 @@ public class SpInterventionService {
         inter.setVehiculeImplique(req.vehiculeImplique());
 
         var engins = req.vehiculeIds() == null ? List.<SpVehicule>of() : req.vehiculeIds().stream().map(this::vehicule).toList();
+        // Bloque AVANT toute écriture : poste obligatoire tenu par un effectif déjà parti.
+        verifierEquipageObligatoireDisponible(engins);
         inter.getEngins().addAll(engins);
         var saved = interventionRepo.save(inter);
 
@@ -264,6 +304,8 @@ public class SpInterventionService {
                 "Intervention ouverte : " + saved.getMotif(),
                 Map.of("interventionId", saved.getId().toString()), actor()).withReference(saved.getCode()));
 
+        // Réengagement : détache les engins encore rattachés à une intervention ouverte (dispo radio).
+        detacherDesInterventionsPrecedentes(engins, saved);
         // D'abord libérer les équipiers occupés ailleurs (poste non obligatoire) : ils ne doivent
         // pas recevoir le bip de départ d'un engin avec lequel ils ne partent pas.
         desaffecterPostesNonObligatoires(engins, saved.getCode());
@@ -306,10 +348,19 @@ public class SpInterventionService {
         if (v == null) return;
         boolean engageAilleurs = interventionRepo.findByFinIsNull().stream()
                 .anyMatch(o -> o.getEngins().stream().anyMatch(e -> e.getId().equals(vehiculeId)));
-        if (engageAilleurs) return;
+        if (engageAilleurs) {
+            log.debug("Retrait de {} : conservé tel quel (engagé sur une autre intervention)", v);
+            return;
+        }
+        // Statut validant la clôture = état final choisi par l'équipage : ne pas l'écraser.
+        if (v.getStatut() != null && v.getStatut().isClotureIntervention()) {
+            log.debug("Retrait de {} : conservé en {} (statut validant la clôture)", v, v.getStatut().getCode());
+            return;
+        }
         var dispoStatut = statutRepo.findByCode("DISPONIBLE").orElse(null);
         var dispoEtat   = etatRepo.findByCode("DISPONIBLE").orElse(null);
         if (dispoStatut == null || dispoEtat == null || dispoStatut.getId().equals(v.getStatut().getId())) return;
+        log.info("Retrait de {} : réinitialisé {} → {}", v, v.getStatut().getCode(), dispoStatut.getCode());
         v.setStatut(dispoStatut);
         v.setEtat(dispoEtat);
         vehiculeRepo.update(v);
@@ -330,10 +381,16 @@ public class SpInterventionService {
                 .filter(vid -> inter.getEngins().stream().noneMatch(e -> e.getId().equals(vid)))
                 .map(this::vehicule)
                 .toList();
+        // Bloque AVANT toute écriture : poste obligatoire tenu par un effectif déjà parti.
+        verifierEquipageObligatoireDisponible(toAdd);
         inter.getEngins().addAll(toAdd);
         var saved = interventionRepo.update(inter);
 
         if (!toAdd.isEmpty()) {
+            detacherDesInterventionsPrecedentes(toAdd, inter);
+            // Libère les équipiers sur poste non obligatoire déjà engagés ailleurs (ex. effectif B
+            // tenant un poste obligatoire d'un autre engin) → ils ne partent pas et ne sont pas bipés.
+            desaffecterPostesNonObligatoires(toAdd, inter.getCode());
             events.publishEvent(RealtimeEvent.faction(RealtimeEvent.INTERVENTION_RENFORT, "SP",
                     "Renfort sur intervention : " + inter.getMotif(),
                     Map.of("interventionId", id.toString()), actor()).withReference(inter.getCode()));
@@ -358,16 +415,51 @@ public class SpInterventionService {
         return SpInterventionDto.from(inter);
     }
 
-    /** Clôture les interventions ouvertes contenant ce véhicule dont TOUS les engins sont disponibles. */
+    /**
+     * Clôture les interventions ouvertes contenant ce véhicule dont TOUS les engins portent
+     * un statut validant la clôture (case « clôture intervention » du statut).
+     * Un statut « Disponible radio » non coché libère donc le véhicule sans fermer l'intervention
+     * (renforts et main courante restent possibles jusqu'au retour effectif).
+     */
     @Transactional
-    public void clotureSiEnginsDisponibles(UUID vehiculeId) {
+    public void clotureSiEnginsValident(UUID vehiculeId) {
         log.trace("Vérification auto-clôture déclenchée par véhicule {}", vehiculeId);
         for (var inter : interventionRepo.findByFinIsNull()) {
             boolean contient = inter.getEngins().stream().anyMatch(e -> e.getId().equals(vehiculeId));
-            if (!contient || inter.getEngins().isEmpty()) continue;
-            boolean tousDispo = inter.getEngins().stream()
-                    .allMatch(e -> "DISPONIBLE".equals(e.getEtat().getCode()));
-            if (tousDispo) cloturer(inter.getId());
+            if (contient && tousValidentCloture(inter)) cloturer(inter.getId());
+        }
+    }
+
+    /** Tous les engins de l'intervention portent-ils un statut validant la clôture ? */
+    private boolean tousValidentCloture(SpIntervention inter) {
+        if (inter.getEngins().isEmpty()) return false;
+        return inter.getEngins().stream()
+                .allMatch(e -> e.getStatut() != null && e.getStatut().isClotureIntervention());
+    }
+
+    /**
+     * Réengagement : un véhicule encore rattaché à une intervention ouverte (ex. « Disponible
+     * radio ») qui part sur une nouvelle est détaché de l'ancienne, avec note en main courante.
+     * L'ancienne se clôture alors si tous ses engins restants valident la clôture.
+     */
+    private void detacherDesInterventionsPrecedentes(List<SpVehicule> engins, SpIntervention nouvelle) {
+        for (var inter : interventionRepo.findByFinIsNull()) {
+            if (inter.getId().equals(nouvelle.getId())) continue;
+            boolean modifie = false;
+            for (var engin : engins) {
+                if (inter.getEngins().removeIf(e -> e.getId().equals(engin.getId()))) {
+                    modifie = true;
+                    events.publishEvent(RealtimeEvent.faction(RealtimeEvent.MAIN_COURANTE, "SP",
+                            engin + " réengagé sur " + nouvelle.getCode(),
+                            Map.of("vehiculeId", engin.getId().toString()), actor()).withReference(inter.getCode()));
+                    log.info("{} détaché de {} (réengagé sur {})", engin, inter.getCode(), nouvelle.getCode());
+                }
+            }
+            if (modifie) {
+                interventionRepo.update(inter);
+                // Plus d'engin, ou tous les restants valident → l'ancienne intervention se clôture.
+                if (inter.getEngins().isEmpty() || tousValidentCloture(inter)) cloturer(inter.getId());
+            }
         }
     }
 
@@ -375,7 +467,10 @@ public class SpInterventionService {
     private void libererEngins(SpIntervention inter) {
         var dispoStatut = statutRepo.findByCode("DISPONIBLE").orElse(null);
         var dispoEtat   = etatRepo.findByCode("DISPONIBLE").orElse(null);
-        if (dispoStatut == null || dispoEtat == null) return;
+        if (dispoStatut == null || dispoEtat == null) {
+            log.warn("Libération des engins de {} impossible : statut/état DISPONIBLE non configuré", inter.getCode());
+            return;
+        }
 
         var engagesAilleurs = interventionRepo.findByFinIsNull().stream()
                 .filter(o -> !o.getId().equals(inter.getId()))
@@ -384,8 +479,21 @@ public class SpInterventionService {
                 .collect(java.util.stream.Collectors.toSet());
 
         for (var engin : inter.getEngins()) {
-            if (engagesAilleurs.contains(engin.getId())) continue;
+            if (engagesAilleurs.contains(engin.getId())) {
+                log.debug("Clôture {} : {} conservé tel quel (engagé sur une autre intervention)", inter.getCode(), engin);
+                continue;
+            }
+            // Un statut validant la clôture est un état final CHOISI (inventaire, dispo caserne…) :
+            // on ne l'écrase pas. Seuls les statuts « en cours d'intervention » sont réinitialisés
+            // (cas de la clôture forcée par le dispatcher).
+            if (engin.getStatut() != null && engin.getStatut().isClotureIntervention()) {
+                log.debug("Clôture {} : {} conservé en {} (statut validant la clôture)",
+                        inter.getCode(), engin, engin.getStatut().getCode());
+                continue;
+            }
             if (dispoStatut.getId().equals(engin.getStatut().getId())) continue;   // déjà disponible
+            log.info("Clôture {} : {} réinitialisé {} → {}", inter.getCode(), engin,
+                    engin.getStatut().getCode(), dispoStatut.getCode());
             engin.setStatut(dispoStatut);
             engin.setEtat(dispoEtat);
             vehiculeRepo.update(engin);

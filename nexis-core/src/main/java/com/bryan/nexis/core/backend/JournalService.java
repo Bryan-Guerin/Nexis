@@ -58,4 +58,11 @@ public class JournalService {
         return repo.findByFaction(faction, Pageable.from(0, limit, RECENT)).getContent()
                 .stream().map(JournalEntryDto::from).toList();
     }
+
+    /** Événements d'une faction sur une plage [from, to[ (main courante par jour). */
+    @Transactional
+    public List<JournalEntryDto> byFactionBetween(String faction, java.time.Instant from, java.time.Instant to) {
+        return repo.findByFactionAndCreeLeGreaterThanEqualAndCreeLeLessThanOrderByCreeLeDesc(faction, from, to)
+                .stream().map(JournalEntryDto::from).toList();
+    }
 }

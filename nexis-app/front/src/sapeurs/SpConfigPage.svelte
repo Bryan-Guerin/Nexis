@@ -56,7 +56,7 @@
 
   function resetForm() {
     form = cat.kind === 'etat'      ? { code: '', label: '', couleur: '#4caf82' }
-         : cat.kind === 'statutveh' ? { code: '', label: '', couleur: '#4f6ef7', etatId: etatsRef[0]?.id ?? '' }
+         : cat.kind === 'statutveh' ? { code: '', label: '', couleur: '#4f6ef7', etatId: etatsRef[0]?.id ?? '', clotureIntervention: false }
          : cat.kind === 'statut'    ? { code: '', label: '', couleur: '#4f6ef7', categorie: 'GARDE' }
          : cat.kind === 'casier'    ? { numero: null }
          : { code: '', label: '' }
@@ -117,6 +117,14 @@
     try { await api.put(`${cat.list}/${it.id}/defaut`); items = await api.get(cat.list) }
     catch (e) { error = e.message }
   }
+
+  // Bascule la case « clôture auto d'intervention » d'un statut véhicule
+  async function toggleCloture(it) {
+    try {
+      const updated = await api.put(`${cat.list}/${it.id}/cloture-intervention`)
+      items = items.map(x => x.id === updated.id ? updated : x)
+    } catch (e) { error = e.message }
+  }
 </script>
 
 <div class="page">
@@ -166,6 +174,11 @@
               {#if cat.kind === 'statut'}<span class="cat-badge">{it.categorie}</span>{/if}
               {#if cat.kind === 'statutveh' && it.etat}<span class="cat-badge" title="État appliqué">→ {it.etat.label}</span>{/if}
               {#if cat.key === 'statutsveh'}
+                <button class="defaut-btn" class:on={it.clotureIntervention}
+                        title="Si coché : quand TOUS les engins d'une intervention ont (au moins) un statut coché, elle se clôture automatiquement"
+                        onclick={() => toggleCloture(it)}>
+                  {it.clotureIntervention ? '✓ clôture inter' : 'clôture inter'}
+                </button>
                 <button class="defaut-btn" class:on={it.parDefaut} title="Statut par défaut" onclick={() => setDefaut(it)}>
                   {it.parDefaut ? '★ défaut' : '☆'}
                 </button>
@@ -197,6 +210,9 @@
                   <select bind:value={form.etatId} required>
                     {#each etatsRef as e (e.id)}<option value={e.id}>{e.label}</option>{/each}
                   </select>
+                </label>
+                <label class="check-label" title="Si coché : l'intervention se clôture quand tous ses engins portent un statut coché">
+                  <input type="checkbox" bind:checked={form.clotureIntervention} /> Clôture l'intervention
                 </label>
               {/if}
               {#if cat.kind === 'statut'}
@@ -287,6 +303,7 @@
   .defaut-btn.on { border-color: var(--accent); color: var(--accent); }
 
   .add-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .check-label { display: flex; align-items: center; gap: 6px; font-size: 13px; align-self: flex-end; padding-bottom: 8px; white-space: nowrap; }
   .label-color { flex: 0 0 80px; min-width: 80px; }
   input[type="color"] { height: 34px; width: 60px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; padding: 2px; }
 </style>

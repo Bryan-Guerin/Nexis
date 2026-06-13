@@ -1,4 +1,6 @@
 <script>
+// @ts-nocheck
+
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {currentUser} from '../shared/stores.js'
@@ -172,7 +174,7 @@
     loading = true; error = ''
     try {
       const [mem, g, u, f] = await Promise.all([
-        api.get('/sp/membres'),
+        api.get('/sp/membres/grade'),
         api.get('/sp/grades'),
         api.get('/admin/users').catch(() => []),
         api.get('/sp/fonctions'),
@@ -226,6 +228,19 @@
       const updated = await api.patch(`/sp/membres/${selectedId}`, { nomComplet: editNameVal })
       refreshMembre(updated)
       editName = false
+    } catch (e) { saveError = e.message }
+  }
+
+  async function toggleActif() {
+    const next = !selected.actif
+    const msg = next
+      ? `Réintégrer ${selected.nomComplet || selected.username} ? Le compte sera réactivé.`
+      : `Radier ${selected.nomComplet || selected.username} ?\nLe compte sera désactivé (login bloqué). L'historique (formations, sanctions, notations) est conservé.`
+    if (!window.confirm(msg)) return
+    saveError = ''
+    try {
+      const updated = await api.put(`/sp/membres/${selectedId}/actif?actif=${next}`)
+      refreshMembre(updated)
     } catch (e) { saveError = e.message }
   }
 
@@ -360,10 +375,10 @@
           class:active={m.id === selectedId}
           onclick={() => select(m)}
         >
-          <span class="li-mat">{m.matricule}</span>
+          <span class="li-mat">{m.gradeCode}</span>
           <span class="li-main">
             <span class="li-name">{m.nomComplet || m.username}</span>
-            <span class="li-grade">{m.grade}{#if m.nomComplet} · {m.username}{/if}</span>
+            <span class="li-grade">{m.matricule}{#if m.nomComplet} · {m.username}{/if}</span>
           </span>
           <span class="contrat-pill" class:spp={m.contrat === 'SPP'} class:spv={m.contrat === 'SPV'}>
             {m.contrat}
@@ -393,6 +408,11 @@
             <span class="contrat-pill lg" class:spp={selected.contrat === 'SPP'} class:spv={selected.contrat === 'SPV'}>
               {selected.contrat === 'SPP' ? 'Professionnel' : 'Volontaire'}
             </span>
+            {#if isAdmin}
+              <button class="radier-btn" class:reintegrer={!selected.actif} onclick={toggleActif}>
+                {selected.actif ? 'Radier' : 'Réintégrer'}
+              </button>
+            {/if}
           </div>
           <div class="dh-sub">
             <span class="dh-grade">{selected.grade}</span>
@@ -851,6 +871,10 @@
   .dh-main { display: flex; align-items: center; gap: 12px; }
   .dh-matricule { font-family: monospace; font-size: 28px; font-weight: 700; letter-spacing: 1px; }
   .dh-title { font-size: 26px; font-weight: 700; letter-spacing: .3px; }
+  .radier-btn { margin-left: auto; background: none; border: 1px solid var(--color-danger); color: var(--color-danger); border-radius: var(--radius); font-size: 12px; padding: 4px 12px; cursor: pointer; transition: background .12s; }
+  .radier-btn:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
+  .radier-btn.reintegrer { border-color: var(--color-success); color: var(--color-success); }
+  .radier-btn.reintegrer:hover { background: color-mix(in srgb, var(--color-success) 12%, transparent); }
   .info-value.mono { font-family: monospace; }
   .dh-sub  { display: flex; align-items: center; gap: 10px; }
   .dh-grade { font-size: 14px; font-weight: 600; color: var(--accent); }

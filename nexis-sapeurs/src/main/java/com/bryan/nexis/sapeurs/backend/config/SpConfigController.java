@@ -128,7 +128,14 @@ public class SpConfigController {
     @Post("/statuts")
     @Status(HttpStatus.CREATED)
     SpVehiculeStatutDto createStatut(@Body CreateSpVehiculeStatutRequest req) {
-        return statutService.create(req.code(), req.label(), req.couleur(), req.etatId());
+        return statutService.create(req.code(), req.label(), req.couleur(), req.etatId(),
+                Boolean.TRUE.equals(req.clotureIntervention()));
+    }
+
+    /** Bascule la case « clôture auto d'intervention » du statut. */
+    @Put("/statuts/{id}/cloture-intervention")
+    SpVehiculeStatutDto toggleClotureIntervention(UUID id) {
+        return statutService.toggleClotureIntervention(id);
     }
 
     @Put("/statuts/order")

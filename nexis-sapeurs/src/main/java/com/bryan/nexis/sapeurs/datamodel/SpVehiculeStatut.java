@@ -39,6 +39,14 @@ public class SpVehiculeStatut {
     @JoinColumn(name = "etat_id", nullable = false)
     private SpVehiculeEtat etat;
 
+    /**
+     * Ce statut valide-t-il la clôture automatique d'intervention ?
+     * L'intervention se clôture quand TOUS ses engins portent un statut coché.
+     * Permet « Disponible radio » : véhicule libéré sans fermer l'intervention.
+     */
+    @Column(name = "cloture_intervention", nullable = false)
+    private boolean clotureIntervention;
+
     protected SpVehiculeStatut() {}
 
     public SpVehiculeStatut(String code, String label, String couleur, SpVehiculeEtat etat) {
@@ -55,8 +63,10 @@ public class SpVehiculeStatut {
     public int getPosition()     { return position; }
     public boolean isParDefaut() { return parDefaut; }
     public SpVehiculeEtat getEtat() { return etat; }
+    public boolean isClotureIntervention() { return clotureIntervention; }
 
     public void setPosition(int position)       { this.position = position; }
     public void setParDefaut(boolean parDefaut) { this.parDefaut = parDefaut; }
     public void setEtat(SpVehiculeEtat etat)    { this.etat = etat; }
+    public void setClotureIntervention(boolean v) { this.clotureIntervention = v; }
 }

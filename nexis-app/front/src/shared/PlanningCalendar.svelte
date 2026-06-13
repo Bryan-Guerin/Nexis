@@ -14,7 +14,7 @@
     import {onMount} from 'svelte'
     import {api} from './api.js'
 
-    let { planningPath, membresPath, selfPath, title } = $props()
+    let { planningPath, membresPath, selfPath, title, canManageGarde = false, gardeBase = null } = $props()
 
   // ── Constantes de mise en page ──────────────────────────────────────────────
   const PX_M     = 1.2        // pixels par minute (axe horizontal)
@@ -89,8 +89,29 @@
     const r = new Date(d); r.setDate(r.getDate() + 1); r.setHours(H_START, 0, 0, 0); return r
   }
 
+  // ── Gestion des gardes par le dispatch (boutons par effectif) ───────────────
+  let enService = $state(new Set())
+  async function loadEnService() {
+    if (!canManageGarde || !gardeBase) return
+    const ids = await api.get(`${gardeBase}/membres/en-service`).catch(() => [])
+    enService = new Set(ids)
+  }
+  let gardeDuree = $state({})   // membreId -> heures choisies (défaut 4)
+  async function demarrerGarde(m) {
+    error = ''
+    const h = gardeDuree[m.id] ?? 4
+    try { await api.post(`${gardeBase}/planning/membres/${m.id}/prendre-garde?heures=${h}`); await load(); await loadEnService() }
+    catch (e) { error = e.message }
+  }
+  async function terminerGarde(m) {
+    if (!window.confirm(`Terminer la garde de ${m.nomComplet || m.username} ?`)) return
+    error = ''
+    try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(); await loadEnService() }
+    catch (e) { error = e.message }
+  }
+
   // ── Chargement ──────────────────────────────────────────────────────────────
-  onMount(load)
+  onMount(() => { load(); loadEnService() })
 
   async function load() {
     loading = true; error = ''
@@ -100,6 +121,7 @@
         api.get(planningPath),
         api.get(`${planningPath}/statuts`),
       ])
+      if (canManageGarde) gardeDuree = Object.fromEntries(membres.map(m => [m.id, gardeDuree[m.id] ?? 4]))
     } catch (e) { error = e.message }
     finally    { loading = false }
   }
@@ -211,6 +233,19 @@
               <span class="m-grade">{m.grade}</span>
               <span class="m-name">{m.username}</span>
               <span class="m-mat">{m.matricule}</span>
+              {#if canManageGarde}
+                {#if enService.has(m.id)}
+                  <button class="g-btn stop" title="Terminer la garde" onclick={() => terminerGarde(m)}>⏹</button>
+                {:else}
+                  <select class="g-duree" title="Durée de la garde" bind:value={gardeDuree[m.id]}>
+                    <option value={1}>1h</option>
+                    <option value={2}>2h</option>
+                    <option value={3}>3h</option>
+                    <option value={4}>4h</option>
+                  </select>
+                  <button class="g-btn start" title="Démarrer la garde" onclick={() => demarrerGarde(m)}>▶</button>
+                {/if}
+              {/if}
             </div>
 
             <!-- Piste planning -->
@@ -365,6 +400,10 @@
     font-family: monospace; font-size: 10px;
     color: var(--color-muted); white-space: nowrap;
   }
+  .g-duree { flex-shrink: 0; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text); font-size: 10px; padding: 2px 3px; outline: none; }
+  .g-btn { flex-shrink: 0; border: 1px solid var(--color-border); background: var(--color-bg); border-radius: 4px; font-size: 10px; line-height: 1; padding: 3px 5px; cursor: pointer; }
+  .g-btn.start { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border)); }
+  .g-btn.stop  { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border)); }
 
   /* Piste planning */
   .track {
