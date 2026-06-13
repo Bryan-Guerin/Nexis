@@ -45,6 +45,8 @@
     startNotifications()
     const off = realtime.on(ev => {
       if (ev.type === 'BIP') declenchePager(ev)
+      // Compte désactivé (radiation) → déconnexion immédiate.
+      if (ev.type === 'COMPTE_DESACTIVE') { logout(); window.location.assign('/') }
     })
     // Sur mobile, refermer le menu overlay après une navigation
     const closeOnNav = () => { if (window.innerWidth <= 768) navOpen = false }
