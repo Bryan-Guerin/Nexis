@@ -46,6 +46,7 @@ public class SpInterventionService {
     private final SpVehiculeStatutRepository     statutRepo;           // statut "Déclenché" (premier)
     private final SpVehiculeEtatRepository       etatRepo;             // état "Indisponible"
     private final JournalService                 journalService;       // main courante
+    private final com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage; // login → nom RP
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final SecurityService                securityService;
 
@@ -54,6 +55,7 @@ public class SpInterventionService {
                                  SpVehiculeAffectationRepository affectationRepo, SpVehiculeTypePosteRepository posteRepo,
                                  SpVehiculeStatutRepository statutRepo, SpVehiculeEtatRepository etatRepo,
                                  JournalService journalService,
+                                 com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage,
                                  ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
@@ -61,6 +63,7 @@ public class SpInterventionService {
         this.affectationService = affectationService;
         this.affectationRepo    = affectationRepo;
         this.posteRepo          = posteRepo;
+        this.nommage            = nommage;
         this.statutRepo         = statutRepo;
         this.etatRepo           = etatRepo;
         this.journalService     = journalService;
@@ -206,7 +209,7 @@ public class SpInterventionService {
     public List<JournalEntryDto> mainCourante(UUID interventionId) {
         var inter = interventionRepo.findById(interventionId)
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + interventionId));
-        return journalService.byReference(inter.getCode());
+        return nommage.enrichir(journalService.byReference(inter.getCode()));
     }
 
     /** Ajoute une note de main courante. Réservé à un équipier de l'intervention (ou admin SP). */
@@ -385,6 +388,9 @@ public class SpInterventionService {
 
         if (!toAdd.isEmpty()) {
             detacherDesInterventionsPrecedentes(toAdd, inter);
+            // Libère les équipiers sur poste non obligatoire déjà engagés ailleurs (ex. effectif B
+            // tenant un poste obligatoire d'un autre engin) → ils ne partent pas et ne sont pas bipés.
+            desaffecterPostesNonObligatoires(toAdd, inter.getCode());
             events.publishEvent(RealtimeEvent.faction(RealtimeEvent.INTERVENTION_RENFORT, "SP",
                     "Renfort sur intervention : " + inter.getMotif(),
                     Map.of("interventionId", id.toString()), actor()).withReference(inter.getCode()));

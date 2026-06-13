@@ -31,6 +31,7 @@ class SpInterventionServiceTest {
     private SpVehiculeTypePosteRepository posteRepo;
     private SpVehiculeStatutRepository statutRepo;
     private SpVehiculeEtatRepository etatRepo;
+    private SpVehiculeAffectationService affectationService;
 
     private SpInterventionService service;
 
@@ -50,12 +51,14 @@ class SpInterventionServiceTest {
         posteRepo        = mock(SpVehiculeTypePosteRepository.class);
         statutRepo       = mock(SpVehiculeStatutRepository.class);
         etatRepo         = mock(SpVehiculeEtatRepository.class);
+        affectationService = mock(SpVehiculeAffectationService.class);
         SecurityService securityService = mock(SecurityService.class);
         when(securityService.username()).thenReturn(Optional.of("codis"));
 
         service = new SpInterventionService(interventionRepo, vehiculeRepo,
-                mock(SpNatureInterventionRepository.class), mock(SpVehiculeAffectationService.class),
+                mock(SpNatureInterventionRepository.class), affectationService,
                 affectationRepo, posteRepo, statutRepo, etatRepo, mock(JournalService.class),
+                mock(com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage.class),
                 (ApplicationEventPublisher<RealtimeEvent>) mock(ApplicationEventPublisher.class),
                 securityService);
 
@@ -197,6 +200,37 @@ class SpInterventionServiceTest {
                 .hasMessageContaining(ancienne.getCode());
 
         assertThat(nouvelle.getEngins()).isEmpty();   // aucun engagement effectué
+    }
+
+    @Test
+    void renfort_desaffecteLePosteNonObligatoireDejaEngageAilleurs() {
+        // FPT renfort : poste oblig = A (libre), poste non oblig = B (déjà parti sur le VSAV).
+        var posteA = poste(typeFpt, fonction("CATE"), 1, true);
+        var posteB = poste(typeFpt, fonction("EQ INC"), 1, false);
+        var membreA = membre("a", 352);
+        var membreB = membre("b", 353);
+        var affB = affectation(fpt, membreB, posteB);
+
+        var ancienne = intervention("SAP", vsav);   // B engagé via VSAV (inter en cours)
+        var nouvelle = intervention("Feu");
+        when(interventionRepo.findByFinIsNull()).thenReturn(List.of(ancienne, nouvelle));
+        when(interventionRepo.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+        when(interventionRepo.update(any(SpIntervention.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(vehiculeRepo.findById(fpt.getId())).thenReturn(Optional.of(fpt));
+        when(posteRepo.findByVehiculeTypeId(typeFpt.getId())).thenReturn(List.of(posteA, posteB));
+        when(affectationRepo.findByVehiculeIdAndFinIsNull(fpt.getId()))
+                .thenReturn(List.of(affectation(fpt, membreA, posteA), affB));
+        when(affectationRepo.findByVehiculeIdAndFinIsNull(vsav.getId()))
+                .thenReturn(List.of(affectation(vsav, membreB, null)));
+        when(statutRepo.listOrderByPositionAsc()).thenReturn(List.of());
+        when(statutRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(statutDispo));
+        when(etatRepo.findByCode("DISPONIBLE")).thenReturn(Optional.of(etatDispo));
+
+        service.addEngins(nouvelle.getId(), List.of(fpt.getId()));
+
+        // B (poste non obligatoire, occupé sur le VSAV) est désaffecté du FPT ; A reste.
+        verify(affectationService).cloturer(eq(affB.getId()), any());
+        assertThat(nouvelle.getEngins()).extracting("id").containsExactly(fpt.getId());
     }
 
     // ── Réengagement (départ depuis « disponible radio ») ─────────────────────
