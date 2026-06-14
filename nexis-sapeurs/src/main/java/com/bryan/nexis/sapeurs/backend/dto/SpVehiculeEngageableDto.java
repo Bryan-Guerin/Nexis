@@ -5,7 +5,7 @@ import io.micronaut.serde.annotation.Serdeable;
 import java.util.List;
 import java.util.UUID;
 
-/** Véhicule disponible à l'engagement, avec son état « armé » et les natures de son type. */
+/** Véhicule disponible à l'engagement, avec son état « armé », les natures de son type et la nature principale. */
 @Serdeable
 public record SpVehiculeEngageableDto(UUID vehiculeId, String libelle, String typeCode, UUID typeId,
-                                      boolean arme, List<UUID> natureIds) {}
+                                      boolean arme, List<UUID> natureIds, UUID naturePrincipaleId) {}

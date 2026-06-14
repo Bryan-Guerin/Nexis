@@ -17,6 +17,14 @@
   // Regroupement par catégorie principale (nature principale du type), sections repliables.
   let collapsed = $state({})
   let groupes = $derived(grouperVehicules(vehicules))
+
+  // Compteurs d'état de la flotte (vue instantanée).
+  let stats = $derived({
+    total:    vehicules.length,
+    dispo:    vehicules.filter(v => v.etat?.code === 'DISPONIBLE').length,
+    engages:  vehicules.filter(v => (v.equipe ?? []).length > 0).length,
+    nonArmes: vehicules.filter(v => !v.arme).length,
+  })
   function grouperVehicules(list) {
     const map = new Map()
     for (const v of list) {
@@ -159,6 +167,14 @@
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
+    <!-- Compteurs d'état de la flotte -->
+    <div class="stat-bar">
+      <span class="stat"><b>{stats.total}</b> engins</span>
+      <span class="stat dispo"><b>{stats.dispo}</b> disponibles</span>
+      <span class="stat eng"><b>{stats.engages}</b> engagés</span>
+      <span class="stat na"><b>{stats.nonArmes}</b> non armés</span>
+    </div>
+
     <!-- Personnel actuellement de garde -->
     <div class="garde-panel">
       <span class="garde-title"><span class="garde-dot"></span> De garde — {enServiceMembres.length}</span>
@@ -302,6 +318,13 @@
     box-shadow: 0 1px 4px rgba(0,0,0,.25);
   }
   .btn-nouvelle-inter:hover { filter: brightness(1.08); }
+
+  .stat-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat { font-size: 13px; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 12px; }
+  .stat b { color: var(--color-text); font-size: 15px; }
+  .stat.dispo b { color: var(--color-success); }
+  .stat.eng b { color: var(--accent); }
+  .stat.na b { color: var(--color-danger); }
 
   .veh-group { margin-bottom: 16px; }
   .group-head {

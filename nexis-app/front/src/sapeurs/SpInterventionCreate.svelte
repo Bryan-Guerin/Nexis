@@ -22,11 +22,18 @@
   function onCoordInput(e) { form.coordonnees = e.target.value.replace(/\D/g, '').slice(0, 6) }
   function toggle(list, id) { return list.includes(id) ? list.filter(x => x !== id) : [...list, id] }
 
-  function estPropose(v) { return v.arme && (v.natureIds ?? []).includes(form.natureId) }
+  // Proposition par pertinence : armé + nature principale = nature de l'intervention, puis
+  // armé + nature secondaire, puis armé, puis le reste.
+  function matchPrincipal(v)  { return form.natureId && v.arme && v.naturePrincipaleId === form.natureId }
+  function matchSecondaire(v) { return form.natureId && v.arme && !matchPrincipal(v) && (v.natureIds ?? []).includes(form.natureId) }
+  function rang(v) {
+    if (matchPrincipal(v))  return 0
+    if (matchSecondaire(v)) return 1
+    if (v.arme)             return 2
+    return 3
+  }
   let engageablesTries = $derived([...vehicules].sort((a, b) =>
-    (estPropose(b) ? 1 : 0) - (estPropose(a) ? 1 : 0) ||
-    (b.arme ? 1 : 0) - (a.arme ? 1 : 0) ||
-    a.libelle.localeCompare(b.libelle)
+    rang(a) - rang(b) || a.libelle.localeCompare(b.libelle)
   ))
   function avertirNonArmes(ids) {
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
@@ -105,10 +112,11 @@
         <span class="pick-label">Engins engagés</span>
         <div class="veh-grid">
           {#each engageablesTries as v (v.vehiculeId)}
-            <label class="veh-check" class:propose={estPropose(v)}>
+            <label class="veh-check" class:propose={matchPrincipal(v)} class:propose-sec={matchSecondaire(v)}>
               <input type="checkbox" checked={createSel.includes(v.vehiculeId)} onchange={() => createSel = toggle(createSel, v.vehiculeId)} />
               {v.libelle} <span class="chip-code">{v.typeCode}</span>
-              {#if estPropose(v)}<span class="propose-tag">proposé</span>{/if}
+              {#if matchPrincipal(v)}<span class="propose-tag">★ proposé</span>
+              {:else if matchSecondaire(v)}<span class="propose-tag sec">proposé</span>{/if}
               {#if !v.arme}<span class="non-arme">non armé</span>{/if}
             </label>
           {/each}
@@ -145,6 +153,8 @@
   .q-chk { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 
   .veh-check.propose { border-left: 2px solid var(--color-success); padding-left: 5px; border-radius: 2px; }
+  .veh-check.propose-sec { border-left: 2px solid var(--accent); padding-left: 5px; border-radius: 2px; }
   .propose-tag { font-size: 9px; font-weight: 700; color: var(--color-success); background: color-mix(in srgb, var(--color-success) 16%, transparent); border-radius: 6px; padding: 1px 6px; }
+  .propose-tag.sec { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
   .non-arme { font-size: 9px; font-weight: 700; color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 16%, transparent); border-radius: 6px; padding: 1px 6px; }
 </style>
