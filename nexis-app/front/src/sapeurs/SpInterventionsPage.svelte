@@ -3,6 +3,7 @@
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
+    import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let interventions = $state([])
   let vehicules     = $state([])
@@ -22,11 +23,8 @@
   let editing      = $state(false)
   let editForm     = $state({})
 
-  // Création
+  // Création (modal extrait → SpInterventionCreate)
   let showCreate  = $state(false)
-  let form        = $state({ motif: '', natureId: '', requerant: '', telephone: '', observation: '', commune: '', coordonnees: '', nbVictimes: '', incendie: false, vehiculeImplique: false })
-  let createSel   = $state([])
-  let createError = $state('')
 
   // Renfort
   let renfortFor  = $state(null)
@@ -78,64 +76,18 @@
 
   function fmt(iso) { return iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—' }
   function fmtCoord(c) { return c && c.length === 6 ? c.slice(0, 3) + ' ' + c.slice(3) : (c || '—') }
-  // Saisie coordonnées : chiffres uniquement (max 6), espace ajouté après 3 chiffres pour la lecture
+  // Coordonnées : affichage avec espace après 3 chiffres (réutilisé par l'édition).
   function coordDisplay(raw) { return raw.length > 3 ? raw.slice(0, 3) + ' ' + raw.slice(3) : raw }
-  function onCoordInput(e) { form.coordonnees = e.target.value.replace(/\D/g, '').slice(0, 6) }
   function toggle(list, id) { return list.includes(id) ? list.filter(x => x !== id) : [...list, id] }
-
-  async function submitCreate(e) {
-    e.preventDefault(); createError = ''
-    if (!form.motif.trim()) { createError = 'Motif requis'; return }
-    if (!form.natureId) { createError = 'La nature est obligatoire'; return }
-    if (!avertirNonArmes(createSel)) return
-    if (!(await avertirDesaffectation(createSel))) return
-    try {
-      await api.post('/sp/interventions', {
-        motif: form.motif,
-        natureId: form.natureId,
-        requerant: form.requerant || null,
-        telephone: form.telephone || null,
-        observation: form.observation || null,
-        commune: form.commune || null,
-        coordonnees: form.coordonnees || null,
-        nbVictimes: form.nbVictimes !== '' ? Number(form.nbVictimes) : null,
-        incendie: form.incendie,
-        vehiculeImplique: form.vehiculeImplique,
-        vehiculeIds: createSel,
-      })
-      form = { motif: '', natureId: '', requerant: '', telephone: '', observation: '', commune: '', coordonnees: '', nbVictimes: '', incendie: false, vehiculeImplique: false }
-      createSel = []; showCreate = false
-      await load()
-    } catch (e) { createError = e.message }
-  }
 
   function vehiculesHors(inter) {
     return vehicules.filter(v => !inter.engins.some(e => e.vehiculeId === v.vehiculeId))
   }
 
-  // Proposition : véhicule armé ET dont le type est tagué pour la nature choisie
-  function estPropose(v) { return v.arme && (v.natureIds ?? []).includes(form.natureId) }
-  let engageablesTries = $derived([...vehicules].sort((a, b) =>
-    (estPropose(b) ? 1 : 0) - (estPropose(a) ? 1 : 0) ||
-    (b.arme ? 1 : 0) - (a.arme ? 1 : 0) ||
-    a.libelle.localeCompare(b.libelle)
-  ))
   function avertirNonArmes(ids) {
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
     if (nonArmes.length === 0) return true
     return window.confirm(`⚠ ${nonArmes.map(v => v.libelle).join(', ')} non armé(s) (poste obligatoire non couvert).\nEngager quand même ?`)
-  }
-
-  // Au déclenchement, les effectifs sur poste NON obligatoire des engins seront désaffectés :
-  // on prévient le dispatcher avec la liste avant de valider.
-  async function avertirDesaffectation(ids) {
-    if (!ids || ids.length === 0) return true
-    let preview = []
-    try { preview = await api.post('/sp/interventions/preview-desaffectation', { vehiculeIds: ids }) }
-    catch { preview = [] }
-    if (!preview || preview.length === 0) return true
-    const lignes = preview.map(p => `• ${p.gradeCode} ${p.nom} — ${p.fonction} (${p.vehicule})`).join('\n')
-    return window.confirm(`Au déclenchement, ces effectifs sur un poste NON obligatoire seront désaffectés :\n\n${lignes}\n\nDéclencher quand même ?`)
   }
 
   async function submitRenfort(inter) {
@@ -325,7 +277,7 @@
 <div class="page">
   <div class="page-header">
     <h2>Interventions — Sapeurs-Pompiers</h2>
-    <button class="btn-primary" onclick={() => { showCreate = !showCreate; createError = '' }}>
+    <button class="btn-primary" onclick={() => showCreate = !showCreate}>
       {showCreate ? 'Annuler' : 'Nouvelle intervention'}
     </button>
   </div>
@@ -415,61 +367,9 @@
   {/if}
 </div>
 
-<!-- ── Modale : nouvelle intervention (fermeture par la croix uniquement) ────── -->
+<!-- ── Modale : nouvelle intervention (composant partagé) ────────────────────── -->
 {#if showCreate}
-  <div class="backdrop">
-    <div class="modal create-modal">
-      <button class="modal-x" title="Fermer" onclick={() => showCreate = false}>✕</button>
-      <h3>Nouvelle intervention</h3>
-      {#if createError}<p class="inline-error">{createError}</p>{/if}
-      <form class="create-modal-form" onsubmit={submitCreate}>
-        <div class="form-row">
-          <label>Nature *
-            <select bind:value={form.natureId} required>
-              <option value="" disabled>— choisir —</option>
-              {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
-            </select>
-          </label>
-          <label>Motif<input type="text" bind:value={form.motif} placeholder="ex: Feu d'habitation" required /></label>
-        </div>
-        <div class="form-row">
-          <label>Requérant<input type="text" bind:value={form.requerant} maxlength="40" /></label>
-          <label>Téléphone<input type="tel" bind:value={form.telephone} maxlength="10" placeholder="10 chiffres" /></label>
-          <label>Commune<input type="text" bind:value={form.commune} maxlength="40" /></label>
-          <label>Coordonnées<input type="text" inputmode="numeric" maxlength="7" value={coordDisplay(form.coordonnees)} oninput={onCoordInput} placeholder="ex: 060 150" /></label>
-        </div>
-        <label class="full">Observation<input type="text" bind:value={form.observation} placeholder="Précisions / description" /></label>
-
-        <!-- Arbre décision / qualification de l'appel -->
-        <div class="qualif">
-          <span class="pick-label">Qualification</span>
-          <div class="qualif-row">
-            <label class="q-vic">Nb victimes<input type="number" min="0" bind:value={form.nbVictimes} placeholder="0" /></label>
-            <label class="q-chk"><input type="checkbox" bind:checked={form.incendie} /> Incendie</label>
-            <label class="q-chk"><input type="checkbox" bind:checked={form.vehiculeImplique} /> Véhicule impliqué</label>
-          </div>
-        </div>
-
-        <div class="veh-pick">
-          <span class="pick-label">Engins engagés</span>
-          <div class="veh-grid">
-            {#each engageablesTries as v (v.vehiculeId)}
-              <label class="veh-check" class:propose={estPropose(v)}>
-                <input type="checkbox" checked={createSel.includes(v.vehiculeId)} onchange={() => createSel = toggle(createSel, v.vehiculeId)} />
-                {v.libelle} <span class="chip-code">{v.typeCode}</span>
-                {#if estPropose(v)}<span class="propose-tag">proposé</span>{/if}
-                {#if !v.arme}<span class="non-arme">non armé</span>{/if}
-              </label>
-            {/each}
-          </div>
-          {#if vehicules.length === 0}<span class="muted small">Aucun véhicule</span>{/if}
-        </div>
-        <div class="modal-actions">
-          <button type="submit" class="btn-primary">Déclencher l'intervention</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <SpInterventionCreate onclose={() => showCreate = false} oncreated={load} />
 {/if}
 
 <!-- ── Détail intervention + main courante ──────────────────────────────────── -->
@@ -656,21 +556,8 @@
   .i-mc .mono { font-family: monospace; color: var(--color-muted); white-space: nowrap; }
   .i-mc .mc-msg { color: var(--color-text); }
 
-  .veh-pick, .renfort { display: flex; flex-direction: column; gap: 6px; }
-  .pick-label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .5px; }
+  .renfort { display: flex; flex-direction: column; gap: 6px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; width: 100%; }
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-
-  /* Modale création */
-  .create-modal { width: 640px; max-height: 88vh; overflow-y: auto; position: relative; }
-  .modal-x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--color-muted); font-size: 18px; cursor: pointer; line-height: 1; }
-  .modal-x:hover { color: var(--color-danger); }
-  .create-modal-form { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
-  .create-modal label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
-  .create-modal label.full { width: 100%; }
-  .create-modal input, .create-modal select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; text-transform: none; letter-spacing: 0; }
-  .create-modal .veh-check { text-transform: none; letter-spacing: 0; flex-direction: row; }
-  .veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
-  .renfort { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; width: 100%; }
   .renfort-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 
   /* Détail */
@@ -711,18 +598,10 @@
   .cri-actions { display: flex; gap: 8px; }
   .cri-contenu { font-size: 13px; margin: 0; white-space: pre-wrap; }
 
-  .qualif { display: flex; flex-direction: column; gap: 6px; }
-  .qualif-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .q-vic { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--color-muted); }
-  .q-vic input { width: 80px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 5px 8px; }
-  .q-chk { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-
   .renfort-rows { display: flex; gap: 24px; flex-wrap: wrap; }
   .renfort-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .renfort-cible { font-weight: 600; }
   .renfort-row select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
 
-  .veh-check.propose { border-left: 2px solid var(--color-success); padding-left: 5px; border-radius: 2px; }
-  .propose-tag { font-size: 9px; font-weight: 700; color: var(--color-success); background: color-mix(in srgb, var(--color-success) 16%, transparent); border-radius: 6px; padding: 1px 6px; }
   .non-arme { font-size: 9px; font-weight: 700; color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 16%, transparent); border-radius: 6px; padding: 1px 6px; }
 </style>

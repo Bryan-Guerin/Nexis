@@ -2,12 +2,14 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
+    import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let vehicules    = $state([])
   let membres      = $state([])
   let enServiceIds = $state([])
   let loading      = $state(true)
   let error        = $state('')
+  let showCreate   = $state(false)   // création rapide d'intervention
 
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
@@ -141,11 +143,16 @@
 <div class="page">
   <div class="page-header">
     <h2>Dispatch — Sapeurs-Pompiers</h2>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-nouvelle-inter" onclick={() => showCreate = true}>➕ Nouvelle intervention</button>
       <button class="btn-ghost" onclick={desaffecterTout}>Tout désaffecter</button>
       <button class="btn-ghost" onclick={load}>Actualiser</button>
     </div>
   </div>
+
+  {#if showCreate}
+    <SpInterventionCreate onclose={() => showCreate = false} oncreated={load} />
+  {/if}
 
   {#if loading}
     <p class="muted">Chargement...</p>
@@ -289,6 +296,13 @@
 {/if}
 
 <style>
+  .btn-nouvelle-inter {
+    background: var(--color-danger); color: #fff; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: var(--radius);
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  }
+  .btn-nouvelle-inter:hover { filter: brightness(1.08); }
+
   .veh-group { margin-bottom: 16px; }
   .group-head {
     display: flex; align-items: center; gap: 8px; width: 100%;
