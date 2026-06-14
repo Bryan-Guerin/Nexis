@@ -30,7 +30,7 @@ public class RealtimeDispatcher {
 
     @TransactionalEventListener
     public void onEvent(RealtimeEvent event) {
-        journalService.record(event);
+        if (!event.isEphemere()) journalService.record(event);   // éphémère : diffusé sans trace journal
         if (broadcaster != null) {
             broadcaster.broadcastSync(RealtimeEventDto.from(event), session -> matches(session, event));
         }

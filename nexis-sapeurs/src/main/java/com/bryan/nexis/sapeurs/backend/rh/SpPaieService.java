@@ -108,6 +108,12 @@ public class SpPaieService {
             var membre = membreRepo.findById(l.membreId())
                     .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + l.membreId()));
             versementRepo.save(new SpPaieVersement(membre, lundi, l.montant(), payePar));
+            // Notif personnelle temps réel au membre (éphémère : pas de trace en main courante).
+            events.publishEvent(RealtimeEvent.users(RealtimeEvent.PAIE_VERSEE, "SP",
+                    Set.of(membre.getUser().getUsername()),
+                    "Votre paye a été versée (" + l.montant() + " €)",
+                    Map.of("semaine", lundi.toString(), "montant", l.montant().toString()), payePar)
+                    .ephemere());
         }
         // Une seule ligne de main courante (la notif individuelle des membres passe par le seed).
         events.publishEvent(RealtimeEvent.faction(RealtimeEvent.PAIE, "SP",
