@@ -145,7 +145,7 @@
           {#if pager.payload.commune || pager.payload.coord}
             <div class="scr">{[pager.payload.commune, pager.payload.coord].filter(Boolean).join('  ·  ')}</div>
           {/if}
-          <div class="scr">🚒 {pager.payload.engin ?? ''}  ·  {pager.payload.code}</div>
+          <div class="scr">🚒 {pager.payload.engin ?? ''}  ·  {pager.payload.poste ?? pager.payload.code}</div>
         {:else}
           <div class="scr big">🔔 BIP</div>
           <div class="scr">{pager.message}</div>
