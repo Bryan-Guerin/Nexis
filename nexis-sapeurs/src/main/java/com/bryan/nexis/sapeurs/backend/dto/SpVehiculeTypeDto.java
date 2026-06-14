@@ -13,12 +13,12 @@ public record SpVehiculeTypeDto(UUID id, String code, String label, List<UUID> n
 
     /** Nature principale (catégorie de regroupement dispatch) ; null si non définie. */
     @Serdeable
-    public record NaturePrincipale(UUID id, String code, String label) {}
+    public record NaturePrincipale(UUID id, String code, String label, int position) {}
 
     public static SpVehiculeTypeDto from(SpVehiculeType t) {
         var np = t.getNaturePrincipale();
         return new SpVehiculeTypeDto(t.getId(), t.getCode(), t.getLabel(),
                 t.getNatures().stream().map(SpNatureIntervention::getId).toList(),
-                np == null ? null : new NaturePrincipale(np.getId(), np.getCode(), np.getLabel()));
+                np == null ? null : new NaturePrincipale(np.getId(), np.getCode(), np.getLabel(), np.getPosition()));
     }
 }

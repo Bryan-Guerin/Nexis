@@ -54,6 +54,13 @@ public class SpVehiculeController {
         return typeService.addPoste(typeId, req.fonctionId(), req.nbPlaces(), req.obligatoire());
     }
 
+    /** Réordonne les postes d'un type (ordre d'affichage + ordre de l'équipage au dispatch). */
+    @Put("/vehicules/types/{typeId}/postes/order")
+    @Status(HttpStatus.NO_CONTENT)
+    void reorderPostes(UUID typeId, @Body ReorderRequest req) {
+        typeService.setPostesOrder(typeId, req.ids());
+    }
+
     @Put("/vehicules/postes/{posteId}/obligatoire")
     SpVehiculeTypePosteDto toggleObligatoire(UUID posteId) {
         return typeService.toggleObligatoire(posteId);

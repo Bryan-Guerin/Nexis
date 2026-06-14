@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface SpVehiculeTypePosteRepository extends JpaRepository<SpVehiculeTypePoste, UUID> {
     List<SpVehiculeTypePoste> findByVehiculeTypeId(UUID vehiculeTypeId);
+    List<SpVehiculeTypePoste> findByVehiculeTypeIdOrderByOrdreAsc(UUID vehiculeTypeId);
     List<SpVehiculeTypePoste> findByFonctionId(UUID fonctionId);
 }

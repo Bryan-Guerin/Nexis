@@ -215,6 +215,28 @@
     } catch (e) { error = e.message }
   }
 
+  // ── Réordonnancement des postes (glisser-déposer, persisté à la fin) ──
+  let posteDrag = $state({ typeId: null, index: null })
+
+  function posteDragStart(typeId, i) { posteDrag = { typeId, index: i } }
+
+  function posteDragOver(e, typeId, i) {
+    e.preventDefault()
+    if (posteDrag.typeId !== typeId || posteDrag.index === null || posteDrag.index === i) return
+    const arr = [...(postes[typeId] ?? [])]
+    const [moved] = arr.splice(posteDrag.index, 1)
+    arr.splice(i, 0, moved)
+    postes = { ...postes, [typeId]: arr }
+    posteDrag = { typeId, index: i }
+  }
+
+  async function posteDragEnd(typeId) {
+    if (posteDrag.typeId !== typeId) { posteDrag = { typeId: null, index: null }; return }
+    posteDrag = { typeId: null, index: null }
+    try { await api.put(`/sp/vehicules/types/${typeId}/postes/order`, { ids: (postes[typeId] ?? []).map(p => p.id) }) }
+    catch (e) { error = e.message }
+  }
+
   // ── Réordonnancement du modèle d'inventaire (glisser-déposer, persisté à la fin) ──
   let invDrag = $state({ typeId: null, index: null })
 
@@ -378,10 +400,16 @@
           <div class="type-body">
             <!-- Postes -->
             <div class="sub">
-              <span class="sub-h">Postes</span>
+              <span class="sub-h">Postes <span class="hint">— glisser pour réordonner</span></span>
               <div class="chips-row">
-                {#each postes[t.id] ?? [] as p (p.id)}
-                  <span class="poste-chip" class:oblig={p.obligatoire}>
+                {#each postes[t.id] ?? [] as p, i (p.id)}
+                  <span class="poste-chip" class:oblig={p.obligatoire}
+                        class:dragging={posteDrag.typeId === t.id && posteDrag.index === i}
+                        draggable="true"
+                        ondragstart={() => posteDragStart(t.id, i)}
+                        ondragover={(e) => posteDragOver(e, t.id, i)}
+                        ondragend={() => posteDragEnd(t.id)}>
+                    <span class="poste-handle" title="Glisser">⠿</span>
                     {p.fonctionLabel}{#if p.nbPlaces > 1}<span class="nb">×{p.nbPlaces}</span>{/if}
                     <button class="poste-oblig" title="Obligatoire pour être armé" onclick={() => toggleObligatoire(t.id, p)}>{p.obligatoire ? '★' : '☆'}</button>
                     <button class="poste-rm" title="Supprimer" onclick={() => deletePoste(t.id, p)}>×</button>
@@ -560,6 +588,8 @@
   .sub-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-muted); }
   .chips-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .poste-chip { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; font-size: 12px; padding: 4px 10px 4px 12px; display: flex; gap: 6px; align-items: center; }
+  .poste-chip.dragging { opacity: 0.5; }
+  .poste-handle { cursor: grab; color: var(--color-muted); font-size: 11px; }
   .poste-chip.oblig { border-color: var(--accent); }
   .poste-oblig { background: none; border: none; color: var(--color-muted); font-size: 12px; padding: 0; cursor: pointer; line-height: 1; }
   .poste-chip.oblig .poste-oblig { color: var(--accent); }

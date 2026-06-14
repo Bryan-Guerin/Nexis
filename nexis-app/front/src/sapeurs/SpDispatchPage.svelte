@@ -30,11 +30,11 @@
     for (const v of list) {
       const np = v.type?.naturePrincipale
       const key = np?.id ?? '__autres__'
-      if (!map.has(key)) map.set(key, { key, label: np?.label ?? 'Autres', items: [] })
+      // position = ordre de la nature dans la config ; « Autres » (sans nature) en dernier.
+      if (!map.has(key)) map.set(key, { key, label: np?.label ?? 'Autres', position: np?.position ?? Infinity, items: [] })
       map.get(key).items.push(v)
     }
-    return [...map.values()].sort((a, b) =>
-      a.key === '__autres__' ? 1 : b.key === '__autres__' ? -1 : a.label.localeCompare(b.label))
+    return [...map.values()].sort((a, b) => a.position - b.position)
   }
   function toggleGroupe(key) { collapsed = { ...collapsed, [key]: !collapsed[key] } }
 

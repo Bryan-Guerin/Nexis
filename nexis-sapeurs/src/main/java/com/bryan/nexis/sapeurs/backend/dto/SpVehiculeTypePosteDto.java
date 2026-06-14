@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Serdeable
 public record SpVehiculeTypePosteDto(UUID id, UUID vehiculeTypeId, UUID fonctionId, String fonctionCode,
-                                     String fonctionLabel, short nbPlaces, boolean obligatoire) {
+                                     String fonctionLabel, short nbPlaces, boolean obligatoire, int ordre) {
 
     public static SpVehiculeTypePosteDto from(SpVehiculeTypePoste p) {
         return new SpVehiculeTypePosteDto(
@@ -17,7 +17,8 @@ public record SpVehiculeTypePosteDto(UUID id, UUID vehiculeTypeId, UUID fonction
                 p.getFonction().getCode(),
                 p.getFonction().getLabel(),
                 p.getNbPlaces(),
-                p.isObligatoire()
+                p.isObligatoire(),
+                p.getOrdre()
         );
     }
 }

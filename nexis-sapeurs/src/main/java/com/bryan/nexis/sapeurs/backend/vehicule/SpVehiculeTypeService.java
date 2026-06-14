@@ -47,7 +47,7 @@ public class SpVehiculeTypeService {
 
     @Transactional
     public List<SpVehiculeTypePosteDto> listPostes(UUID typeId) {
-        return posteRepo.findByVehiculeTypeId(typeId).stream().map(SpVehiculeTypePosteDto::from).toList();
+        return posteRepo.findByVehiculeTypeIdOrderByOrdreAsc(typeId).stream().map(SpVehiculeTypePosteDto::from).toList();
     }
 
     @Transactional
@@ -56,7 +56,24 @@ public class SpVehiculeTypeService {
                 .orElseThrow(() -> new NoSuchElementException("Type véhicule SP introuvable : " + typeId));
         var fonction = fonctionRepo.findById(fonctionId)
                 .orElseThrow(() -> new NoSuchElementException("Fonction SP introuvable : " + fonctionId));
-        return SpVehiculeTypePosteDto.from(posteRepo.save(new SpVehiculeTypePoste(type, fonction, nbPlaces, obligatoire)));
+        var poste = new SpVehiculeTypePoste(type, fonction, nbPlaces, obligatoire);
+        poste.setOrdre(posteRepo.findByVehiculeTypeId(typeId).size());   // ajouté en fin de liste
+        return SpVehiculeTypePosteDto.from(posteRepo.save(poste));
+    }
+
+    /** Réordonne les postes d'un type selon la liste d'identifiants fournie. */
+    @Transactional
+    public void setPostesOrder(UUID typeId, List<UUID> posteIds) {
+        if (posteIds == null) return;
+        var postes = posteRepo.findByVehiculeTypeId(typeId).stream()
+                .collect(java.util.stream.Collectors.toMap(SpVehiculeTypePoste::getId, p -> p));
+        int ordre = 0;
+        for (var id : posteIds) {
+            var p = postes.get(id);
+            if (p == null) throw new IllegalArgumentException("Poste " + id + " absent du type " + typeId);
+            p.setOrdre(ordre++);
+            posteRepo.update(p);
+        }
     }
 
     /** Bascule le caractère obligatoire d'un poste. */

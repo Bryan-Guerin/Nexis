@@ -40,6 +40,9 @@ public class SpDispatchService {
         return vehiculeRepo.findAll().stream().map(v -> {
             var affectations = affectationRepo.findByVehiculeIdAndFinIsNull(v.getId());
             var equipe = affectations.stream()
+                    // Ordre d'affichage = ordre des postes dans le type (postes sans ordre en fin).
+                    .sorted(java.util.Comparator.comparingInt(
+                            a -> a.getPoste() != null ? a.getPoste().getOrdre() : Integer.MAX_VALUE))
                     .map(a -> new SpDispatchMembreDto(
                             a.getMembre().getId(),
                             a.getMembre().getMatricule(),
