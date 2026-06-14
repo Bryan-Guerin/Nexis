@@ -96,75 +96,6 @@
 
   {#if error}<p class="inline-error">{error}</p>{/if}
 
-  <!-- Paie hebdomadaire -->
-  <section class="panel">
-    <div class="week-nav">
-      <button class="btn-ghost-sm" onclick={() => shiftWeek(-7)}>← Semaine préc.</button>
-      {#if paie}<span class="week-label">Semaine du {jour(paie.debut)} au {jour(paie.fin)}</span>{/if}
-      <button class="btn-ghost-sm" onclick={() => shiftWeek(7)}>Semaine suiv. →</button>
-      <button class="btn-ghost-sm" onclick={() => load()}>Cette semaine</button>
-    </div>
-
-    {#if !paie}
-      <p class="muted">Chargement…</p>
-    {:else if paie.lignes.length === 0}
-      <p class="muted small">Aucune heure de garde sur cette semaine.</p>
-    {:else}
-      <table>
-        <thead>
-          <tr><th>Matricule</th><th>Agent</th><th>Grade</th><th class="r">Garde</th><th class="r">Astreinte</th><th class="r">Montant</th></tr>
-        </thead>
-        <tbody>
-          {#each paie.lignes as l (l.membreId)}
-            <tr>
-              <td class="mono">{l.matricule}</td>
-              <td>{l.username}</td>
-              <td class="muted">{l.grade}</td>
-              <td class="r mono">{l.heuresGarde.toFixed(2)} h <span class="muted">· {eur(l.tauxHoraire)}</span></td>
-              <td class="r mono">{l.heuresAstreinte.toFixed(2)} h <span class="muted">· {eur(l.tauxAstreinte)}</span></td>
-              <td class="r mono strong">{eur(l.montant)}</td>
-            </tr>
-          {/each}
-        </tbody>
-        <tfoot>
-          <tr><td colspan="5" class="r strong">Total</td><td class="r mono strong">{eur(paie.total)}</td></tr>
-        </tfoot>
-      </table>
-
-      <div class="pay-action">
-        {#if paie.payee}
-          <span class="paid-badge">✓ Payée le {dateHeure(paie.regleLe)}{#if paie.reglePar} par {paie.reglePar}{/if}</span>
-        {:else}
-          <button class="btn-primary" onclick={regler} disabled={reglant}>
-            {reglant ? 'Enregistrement…' : 'Marquer la semaine payée'}
-          </button>
-        {/if}
-      </div>
-    {/if}
-  </section>
-
-  <!-- Taux par grade -->
-  <section class="panel">
-    <h3>Taux par grade</h3>
-    <p class="muted small">Paie = heures de garde × taux garde + heures d'astreinte × taux astreinte.</p>
-    <div class="taux-list">
-      <div class="taux-row taux-head">
-        <span class="taux-grade"></span><span class="unit">Garde €/h</span><span class="unit">Astreinte €/h</span><span></span>
-      </div>
-      {#each grades as g (g.id)}
-        <div class="taux-row">
-          <span class="taux-grade">{g.label}</span>
-          <input type="number" step="0.5" min="0" bind:value={g.tauxHoraire} />
-          <input type="number" step="0.5" min="0" bind:value={g.tauxAstreinte} />
-          <button class="btn-ghost-sm" disabled={savingId === g.id} onclick={() => saveTaux(g)}>
-            {savingId === g.id ? '…' : 'Enregistrer'}
-          </button>
-        </div>
-      {/each}
-      {#if grades.length === 0}<p class="muted small">Aucun grade configuré.</p>{/if}
-    </div>
-  </section>
-
   <!-- Trésorerie (RH / admin uniquement) -->
   <section class="panel">
     <div class="treso-head">
@@ -252,6 +183,75 @@
       </table>
       {#if finance.mouvements.length === 0}<p class="muted small">Aucun mouvement enregistré.</p>{/if}
     {/if}
+  </section>
+
+  <!-- Paie hebdomadaire -->
+  <section class="panel">
+    <div class="week-nav">
+      <button class="btn-ghost-sm" onclick={() => shiftWeek(-7)}>← Semaine préc.</button>
+      {#if paie}<span class="week-label">Semaine du {jour(paie.debut)} au {jour(paie.fin)}</span>{/if}
+      <button class="btn-ghost-sm" onclick={() => shiftWeek(7)}>Semaine suiv. →</button>
+      <button class="btn-ghost-sm" onclick={() => load()}>Cette semaine</button>
+    </div>
+
+    {#if !paie}
+      <p class="muted">Chargement…</p>
+    {:else if paie.lignes.length === 0}
+      <p class="muted small">Aucune heure de garde sur cette semaine.</p>
+    {:else}
+      <table>
+        <thead>
+          <tr><th>Matricule</th><th>Agent</th><th>Grade</th><th class="r">Garde</th><th class="r">Astreinte</th><th class="r">Montant</th></tr>
+        </thead>
+        <tbody>
+          {#each paie.lignes as l (l.membreId)}
+            <tr>
+              <td class="mono">{l.matricule}</td>
+              <td>{l.username}</td>
+              <td class="muted">{l.grade}</td>
+              <td class="r mono">{l.heuresGarde.toFixed(2)} h <span class="muted">· {eur(l.tauxHoraire)}</span></td>
+              <td class="r mono">{l.heuresAstreinte.toFixed(2)} h <span class="muted">· {eur(l.tauxAstreinte)}</span></td>
+              <td class="r mono strong">{eur(l.montant)}</td>
+            </tr>
+          {/each}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="5" class="r strong">Total</td><td class="r mono strong">{eur(paie.total)}</td></tr>
+        </tfoot>
+      </table>
+
+      <div class="pay-action">
+        {#if paie.payee}
+          <span class="paid-badge">✓ Payée le {dateHeure(paie.regleLe)}{#if paie.reglePar} par {paie.reglePar}{/if}</span>
+        {:else}
+          <button class="btn-primary" onclick={regler} disabled={reglant}>
+            {reglant ? 'Enregistrement…' : 'Marquer la semaine payée'}
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </section>
+
+  <!-- Taux par grade -->
+  <section class="panel">
+    <h3>Taux par grade</h3>
+    <p class="muted small">Paie = heures de garde × taux garde + heures d'astreinte × taux astreinte.</p>
+    <div class="taux-list">
+      <div class="taux-row taux-head">
+        <span class="taux-grade"></span><span class="unit">Garde €/h</span><span class="unit">Astreinte €/h</span><span></span>
+      </div>
+      {#each grades as g (g.id)}
+        <div class="taux-row">
+          <span class="taux-grade">{g.label}</span>
+          <input type="number" step="0.5" min="0" bind:value={g.tauxHoraire} />
+          <input type="number" step="0.5" min="0" bind:value={g.tauxAstreinte} />
+          <button class="btn-ghost-sm" disabled={savingId === g.id} onclick={() => saveTaux(g)}>
+            {savingId === g.id ? '…' : 'Enregistrer'}
+          </button>
+        </div>
+      {/each}
+      {#if grades.length === 0}<p class="muted small">Aucun grade configuré.</p>{/if}
+    </div>
   </section>
 </div>
 
