@@ -225,13 +225,17 @@ public class SpVehiculeAffectationService {
         return bipCrew(vehicule, "🔔 Bip — " + vehicule, payload, null);
     }
 
-    /** Bip de l'équipage actif d'un véhicule avec message + charge utile (ex. infos de départ). */
+    /**
+     * Bip de l'équipage actif d'un véhicule avec message + charge utile (ex. infos de départ).
+     * Un événement par équipier afin d'ajouter son poste dans la charge utile (affiché au pager).
+     */
     public int bipCrew(SpVehicule vehicule, String message, Map<String, String> payload, String reference) {
-        Set<String> equipage = affectationRepo.findByVehiculeIdAndFinIsNull(vehicule.getId()).stream()
-                .map(a -> a.getMembre().getUser().getUsername())
-                .collect(Collectors.toSet());
-        if (!equipage.isEmpty()) {
-            var ev = RealtimeEvent.users(RealtimeEvent.BIP, "SP", equipage, message, payload, actor());
+        var equipage = affectationRepo.findByVehiculeIdAndFinIsNull(vehicule.getId());
+        for (var a : equipage) {
+            String username = a.getMembre().getUser().getUsername();
+            var p = new HashMap<>(payload);
+            if (a.getPoste() != null) p.put("poste", a.getPoste().getFonction().getLabel());
+            var ev = RealtimeEvent.users(RealtimeEvent.BIP, "SP", Set.of(username), message, p, actor());
             if (reference != null) ev.withReference(reference);
             events.publishEvent(ev);
         }

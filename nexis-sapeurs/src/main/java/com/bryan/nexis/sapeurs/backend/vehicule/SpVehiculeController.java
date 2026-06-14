@@ -72,6 +72,12 @@ public class SpVehiculeController {
         return typeService.setNatures(typeId, req.natureIds());
     }
 
+    /** Étoile la nature principale du type (catégorie de regroupement dispatch). */
+    @Put("/vehicules/types/{typeId}/nature-principale")
+    SpVehiculeTypeDto setNaturePrincipale(UUID typeId, @Body SetNaturePrincipaleRequest req) {
+        return typeService.setNaturePrincipale(typeId, req.natureId());
+    }
+
     @Get("/vehicules/etats")
     List<SpVehiculeEtatDto> listEtats() {
         return etatService.listAll();

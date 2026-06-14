@@ -14,7 +14,11 @@
     import {onMount} from 'svelte'
     import {api} from './api.js'
 
-    let { planningPath, membresPath, selfPath, title, canManageGarde = false, gardeBase = null } = $props()
+    let { planningPath, membresPath, selfPath, title, canManageGarde = false, gardeBase = null, mePath = null } = $props()
+
+  // Édition interactive (drag & drop) : un effectif édite SA ligne, le dispatch toutes.
+  let meId = $state(null)
+  function editable(m) { return canManageGarde || (meId && m.id === meId) }
 
   // ── Constantes de mise en page ──────────────────────────────────────────────
   const PX_M     = 1.2        // pixels par minute (axe horizontal)
@@ -100,21 +104,113 @@
   async function demarrerGarde(m) {
     error = ''
     const h = gardeDuree[m.id] ?? 4
-    try { await api.post(`${gardeBase}/planning/membres/${m.id}/prendre-garde?heures=${h}`); await load(); await loadEnService() }
+    try { await api.post(`${gardeBase}/planning/membres/${m.id}/prendre-garde?heures=${h}`); await load(true); await loadEnService() }
     catch (e) { error = e.message }
   }
   async function terminerGarde(m) {
     if (!window.confirm(`Terminer la garde de ${m.nomComplet || m.username} ?`)) return
     error = ''
-    try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(); await loadEnService() }
+    try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(true); await loadEnService() }
+    catch (e) { error = e.message }
+  }
+
+  // ── Édition interactive (drag & drop des créneaux) ──────────────────────────
+  const SNAP_MIN = 15
+  function snap(min) { return Math.round(min / SNAP_MIN) * SNAP_MIN }
+  function minToIso(min) { return new Date(dayStart(currentDay).getTime() + min * 60000).toISOString() }
+  function gardeStatutId() { const g = statuts.find(s => s.categorie === 'GARDE') ?? statuts[0]; return g ? g.id : '' }
+  // Minutes depuis le début de journée affichée pour un instant donné (clampé à la fenêtre).
+  function isoToMin(iso) { return (new Date(iso).getTime() - dayStart(currentDay).getTime()) / 60000 }
+
+  // drag = { kind:'create'|'move'|'resize-l'|'resize-r', membreId, id, dStart, fStart, debutMin, finMin, x0 }
+  let drag = $state(null)
+  let moved = false
+
+  function trackPointerDown(e, m) {
+    if (!editable(m) || e.button !== 0) return
+    const rectLeft = e.currentTarget.getBoundingClientRect().left
+    const startMin = snap((e.clientX - rectLeft) / PX_M)
+    drag = { kind: 'create', membreId: m.id, debutMin: startMin, finMin: startMin, x0: e.clientX, rectLeft }
+    moved = false
+    addDragListeners()
+  }
+  function blockPointerDown(e, m, ev, kind) {
+    if (!editable(m) || e.button !== 0) return
+    e.stopPropagation()
+    drag = { kind, membreId: m.id, id: ev.id, statutId: ev.statut.id,
+             dStart: isoToMin(ev.debut), fStart: isoToMin(ev.fin),
+             debutMin: isoToMin(ev.debut), finMin: isoToMin(ev.fin), x0: e.clientX }
+    moved = false
+    addDragListeners()
+  }
+  function onDragMove(e) {
+    if (!drag) return
+    if (Math.abs(e.clientX - drag.x0) > 3) moved = true
+    if (drag.kind === 'create') {
+      const anchor = snap((drag.x0 - drag.rectLeft) / PX_M)
+      const cur = snap((e.clientX - drag.rectLeft) / PX_M)
+      drag = { ...drag, debutMin: Math.min(anchor, cur), finMin: Math.max(anchor, cur) }
+    } else {
+      const deltaMin = snap((e.clientX - drag.x0) / PX_M)
+      if (drag.kind === 'move')      { drag = { ...drag, debutMin: drag.dStart + deltaMin, finMin: drag.fStart + deltaMin } }
+      else if (drag.kind === 'resize-l') { drag = { ...drag, debutMin: Math.min(drag.dStart + deltaMin, drag.fStart - SNAP_MIN) } }
+      else if (drag.kind === 'resize-r') { drag = { ...drag, finMin: Math.max(drag.fStart + deltaMin, drag.dStart + SNAP_MIN) } }
+    }
+  }
+  async function onDragUp() {
+    removeDragListeners()
+    const d = drag; drag = null
+    if (!d) return
+    try {
+      if (d.kind === 'create') {
+        if (d.finMin - d.debutMin < SNAP_MIN) return   // trop court / simple clic
+        await creer(d.membreId, minToIso(d.debutMin), minToIso(d.finMin))
+      } else if (!moved) {
+        ouvrirPopover(d)   // clic sans déplacement → menu statut/suppression
+        return
+      } else {
+        await api.put(modifUrl(d.membreId, d.id),
+          { statutId: d.statutId, debut: minToIso(d.debutMin), fin: minToIso(d.finMin), notes: null })
+      }
+      await load(true); await loadEnService()
+    } catch (e) { error = e.message }
+  }
+  function addDragListeners() { window.addEventListener('pointermove', onDragMove); window.addEventListener('pointerup', onDragUp) }
+  function removeDragListeners() { window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragUp) }
+
+  // URLs : ligne de l'effectif courant → endpoints /me ; sinon endpoints dispatch.
+  function creerUrl(membreId) { return (meId && membreId === meId) ? selfPath : `${gardeBase}/planning/membres/${membreId}` }
+  function modifUrl(membreId, id) { return (meId && membreId === meId) ? `${selfPath}/${id}` : `${gardeBase}/planning/${id}` }
+  async function creer(membreId, debut, fin) {
+    await api.post(creerUrl(membreId), { statutId: gardeStatutId(), debut, fin, notes: null })
+  }
+
+  // Popover d'édition d'un bloc (statut + suppression)
+  let popover = $state(null)   // { membreId, id, statutId, debut, fin }
+  function ouvrirPopover(d) { popover = { membreId: d.membreId, id: d.id, statutId: d.statutId, debut: minToIso(d.dStart), fin: minToIso(d.fStart) } }
+  async function changerStatut(statutId) {
+    const p = popover; popover = null
+    try { await api.put(modifUrl(p.membreId, p.id), { statutId, debut: p.debut, fin: p.fin, notes: null }); await load(true); await loadEnService() }
+    catch (e) { error = e.message }
+  }
+  async function supprimerPlage() {
+    const p = popover; popover = null
+    try { await api.delete(modifUrl(p.membreId, p.id)); await load(true); await loadEnService() }
     catch (e) { error = e.message }
   }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
-  onMount(() => { load(); loadEnService() })
+  onMount(() => { load(); loadEnService(); loadMe() })
 
-  async function load() {
-    loading = true; error = ''
+  async function loadMe() {
+    if (!mePath) return
+    try { const me = await api.get(mePath); meId = me?.id ?? null } catch { /* pas d'effectif lié */ }
+  }
+
+  // silent = recharge sans démonter le calendrier (préserve la position de scroll après une maj).
+  async function load(silent = false) {
+    if (!silent) loading = true
+    error = ''
     try {
       ;[membres, planning, statuts] = await Promise.all([
         api.get(`${membresPath}?actif=true`),
@@ -123,7 +219,7 @@
       ])
       if (canManageGarde) gardeDuree = Object.fromEntries(membres.map(m => [m.id, gardeDuree[m.id] ?? 4]))
     } catch (e) { error = e.message }
-    finally    { loading = false }
+    finally    { if (!silent) loading = false }
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
@@ -183,7 +279,7 @@
         notes:   fNotes || null,
       })
       showForm = false
-      await load()
+      await load(true)
     } catch (e) { fError = e.message }
     finally    { fBusy = false }
   }
@@ -202,10 +298,12 @@
     </div>
   </div>
 
+  {#if error}
+    <p class="inline-error">{error}</p>
+  {/if}
+
   {#if loading}
     <p class="muted">Chargement…</p>
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
 
     <!-- ── Calendrier ─────────────────────────────────────────────────────── -->
@@ -230,9 +328,9 @@
 
             <!-- Cellule membre (sticky left) -->
             <div class="member-cell" style="width:{COL_W}px; height:{ROW_H}px">
-              <span class="m-grade">{m.grade}</span>
-              <span class="m-name">{m.username}</span>
-              <span class="m-mat">{m.matricule}</span>
+              <span class="m-grade">{m.gradeCode}</span>
+              <span class="m-name">{m.nomComplet}</span>
+<!--              <span class="m-mat">{m.matricule}</span>-->
               {#if canManageGarde}
                 {#if enService.has(m.id)}
                   <button class="g-btn stop" title="Terminer la garde" onclick={() => terminerGarde(m)}>⏹</button>
@@ -249,7 +347,8 @@
             </div>
 
             <!-- Piste planning -->
-            <div class="track" style="width:{TRACK_W}px; height:{ROW_H}px">
+            <div class="track" class:editable={editable(m)} style="width:{TRACK_W}px; height:{ROW_H}px"
+                 onpointerdown={(e) => trackPointerDown(e, m)}>
               <!-- Grille -->
               {#each gridLines as g}
                 <div
@@ -263,6 +362,7 @@
               {#each planningByMembre[m.id] ?? [] as ev (ev.id)}
                 <div
                   class="block"
+                  class:movable={editable(m)}
                   style="
                     left:{ev.leftPx}px;
                     width:{ev.widthPx}px;
@@ -270,15 +370,23 @@
                     border-top:3px solid {ev.statut.couleur};
                   "
                   title="{ev.statut.label}{ev.notes ? ' — ' + ev.notes : ''}"
+                  onpointerdown={(e) => blockPointerDown(e, m, ev, 'move')}
                 >
+                  {#if editable(m)}
+                    <span class="handle l" onpointerdown={(e) => blockPointerDown(e, m, ev, 'resize-l')}></span>
+                    <span class="handle r" onpointerdown={(e) => blockPointerDown(e, m, ev, 'resize-r')}></span>
+                  {/if}
                   {#if ev.widthPx >= 44}
-                    <span
-                      class="block-label"
-                      style="color:{ev.statut.couleur}"
-                    >{ev.statut.label}</span>
+                    <span class="block-label" style="color:{ev.statut.couleur}">{ev.statut.label}</span>
                   {/if}
                 </div>
               {/each}
+
+              <!-- Aperçu pendant le drag -->
+              {#if drag && drag.membreId === m.id && drag.finMin > drag.debutMin}
+                <div class="block ghost"
+                     style="left:{drag.debutMin * PX_M}px; width:{(drag.finMin - drag.debutMin) * PX_M}px"></div>
+              {/if}
             </div>
 
           </div>
@@ -292,6 +400,24 @@
     </div>
   {/if}
 </div>
+
+<!-- ── Popover d'édition d'un créneau (statut / suppression) ───────────────── -->
+{#if popover}
+  <div class="backdrop" onclick={() => popover = null}>
+    <div class="modal pop" onclick={e => e.stopPropagation()}>
+      <h3>Créneau</h3>
+      <label>Statut
+        <select value={popover.statutId} onchange={e => changerStatut(e.target.value)}>
+          {#each statuts as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="btn-ghost" onclick={() => popover = null}>Fermer</button>
+        <button class="btn-primary danger" onclick={supprimerPlage}>Supprimer</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- ── Modal auto-déclaration ─────────────────────────────────────────────── -->
 {#if showForm}
@@ -420,6 +546,8 @@
   }
   .gl-major { opacity: 0.7; }
 
+  .track.editable { cursor: crosshair; }
+
   /* Blocs planning */
   .block {
     position: absolute; top: 2px; bottom: 2px;
@@ -430,8 +558,15 @@
     box-sizing: border-box;
     cursor: default;
     transition: filter .1s;
+    touch-action: none;
   }
+  .block.movable { cursor: grab; }
   .block:hover { filter: brightness(1.2); }
+  .handle { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
+  .handle.l { left: 0; }
+  .handle.r { right: 0; }
+  .block.ghost { background: color-mix(in srgb, var(--accent) 22%, transparent); border: 1px dashed var(--accent); pointer-events: none; }
+  .modal.pop { width: 280px; }
   .block-label {
     font-size: 10px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

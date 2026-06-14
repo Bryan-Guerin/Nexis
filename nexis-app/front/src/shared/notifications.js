@@ -18,6 +18,7 @@ function username()    { return get(currentUser)?.username }
 function isDispatch()  { return roles().includes('ROLE_SP_DISPATCH') || roles().includes('ROLE_ADMIN_SP') }
 function isAdmin()     { return roles().includes('ROLE_ADMIN_SP') }
 function isRhOrAdmin() { return roles().includes('ROLE_SP_RH') || roles().includes('ROLE_ADMIN_SP') }
+function isSp()        { return roles().includes('ROLE_SP') }
 
 /**
  * Règles de notification temps réel. Pour en ajouter une : pousser une entrée ici.
@@ -33,6 +34,8 @@ const RULES = [
   { type: 'INVENTAIRE',     icon: '📋', audience: isAdmin,    test: ev => ev.payload?.conforme === 'false' },
   { type: 'DESAFFECTATION', icon: '🚪', audience: () => true, test: ev => ev.payload?.membreUsername === username() },
   { type: 'GARDE_FIN_INTERVENTION', icon: '⏰', audience: () => true, test: ev => ev.payload?.membreUsername === username() },
+  { type: 'PAIE',           icon: '💶', audience: isRhOrAdmin, test: () => true },          // règlement global (RH/admin)
+  { type: 'PAIE_VERSEE',    icon: '💶', audience: () => true,  test: () => true },          // personnel (USERS scope → destinataire seul)
 ]
 
 function push(items) {
@@ -58,12 +61,43 @@ async function seedRelancesEchues() {
            .map(r => notif('📌', `Relance échue — ${r.matricule} : ${r.texte}`)))
 }
 
+// Dédoublonnage des versements déjà notifiés (par semaine), partagé entre le seed
+// (login, membres hors ligne) et l'événement temps réel (membre connecté).
+const PAIE_KEY = 'sp.paie.seen'
+function paieSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem(PAIE_KEY) || '[]')) } catch { return new Set() }
+}
+function markPaieSeen(semaine) {
+  const seen = paieSeen(); seen.add(semaine)
+  localStorage.setItem(PAIE_KEY, JSON.stringify([...seen]))
+}
+
+// Versements de paie (notif personnelle « Votre paye a été versée ») — au chargement,
+// pour les membres hors ligne au moment du règlement. Le temps réel couvre les connectés.
+async function seedPaiesVersees() {
+  if (!isSp()) return
+  const list = await api.get('/sp/membres/me/paies').catch(() => [])
+  if (!list.length) return
+  const seen = paieSeen()
+  const fresh = list.filter(v => !seen.has(v.semaine))
+  push(fresh.map(v => notif('💶', `Votre paye a été versée — semaine du ${frSemaine(v.semaine)} (${(+v.montant).toFixed(2)} €)`)))
+  fresh.forEach(v => markPaieSeen(v.semaine))
+}
+function frSemaine(iso) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
+
 let started = false
 export function startNotifications() {
   if (started) return
   started = true
-  realtime.on(ev => { const n = fromEvent(ev); if (n) push([n]) })
+  realtime.on(ev => {
+    const n = fromEvent(ev); if (n) push([n])
+    // Versement reçu en direct : on le marque vu pour éviter un doublon au prochain login (seed).
+    if (ev?.type === 'PAIE_VERSEE' && ev.payload?.semaine) markPaieSeen(ev.payload.semaine)
+  })
   seedRelancesEchues()
+  seedPaiesVersees()
 }
 
 export function markAllRead() { notifications.update(l => l.map(n => (n.read ? n : { ...n, read: true }))) }

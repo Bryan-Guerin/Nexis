@@ -17,6 +17,8 @@ public class RealtimeEvent {
     public static final String ETAT_VEHICULE        = "ETAT_VEHICULE";
     public static final String INVENTAIRE           = "INVENTAIRE";
     public static final String PLANNING             = "PLANNING";
+    public static final String PAIE                 = "PAIE";
+    public static final String PAIE_VERSEE          = "PAIE_VERSEE";
     public static final String MAIN_COURANTE        = "MAIN_COURANTE";
     public static final String BIP                  = "BIP";
     public static final String INTERVENTION_OUVERTE  = "INTERVENTION_OUVERTE";
@@ -32,6 +34,7 @@ public class RealtimeEvent {
     private final String actorUsername;
     private final Instant timestamp;
     private String reference;                // lien facultatif (ex. code intervention)
+    private boolean ephemere;                // true = diffusé en WS mais NON journalisé (pas de main courante)
 
     private RealtimeEvent(String type, String faction, Scope scope, Set<String> recipients,
                           String message, Map<String, String> payload, String actorUsername) {
@@ -63,6 +66,12 @@ public class RealtimeEvent {
         return this;
     }
 
+    /** Marque l'événement comme éphémère : diffusé en temps réel mais non persisté au journal. */
+    public RealtimeEvent ephemere() {
+        this.ephemere = true;
+        return this;
+    }
+
     public String getType()               { return type; }
     public String getFaction()            { return faction; }
     public Scope getScope()               { return scope; }
@@ -72,4 +81,5 @@ public class RealtimeEvent {
     public String getActorUsername()      { return actorUsername; }
     public Instant getTimestamp()         { return timestamp; }
     public String getReference()          { return reference; }
+    public boolean isEphemere()           { return ephemere; }
 }

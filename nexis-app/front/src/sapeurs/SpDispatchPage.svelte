@@ -2,15 +2,41 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
+    import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let vehicules    = $state([])
   let membres      = $state([])
   let enServiceIds = $state([])
   let loading      = $state(true)
   let error        = $state('')
+  let showCreate   = $state(false)   // création rapide d'intervention
 
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
+
+  // Regroupement par catégorie principale (nature principale du type), sections repliables.
+  let collapsed = $state({})
+  let groupes = $derived(grouperVehicules(vehicules))
+
+  // Compteurs d'état de la flotte (vue instantanée).
+  let stats = $derived({
+    total:    vehicules.length,
+    dispo:    vehicules.filter(v => v.etat?.code === 'DISPONIBLE').length,
+    engages:  vehicules.filter(v => (v.equipe ?? []).length > 0).length,
+    nonArmes: vehicules.filter(v => !v.arme).length,
+  })
+  function grouperVehicules(list) {
+    const map = new Map()
+    for (const v of list) {
+      const np = v.type?.naturePrincipale
+      const key = np?.id ?? '__autres__'
+      if (!map.has(key)) map.set(key, { key, label: np?.label ?? 'Autres', items: [] })
+      map.get(key).items.push(v)
+    }
+    return [...map.values()].sort((a, b) =>
+      a.key === '__autres__' ? 1 : b.key === '__autres__' ? -1 : a.label.localeCompare(b.label))
+  }
+  function toggleGroupe(key) { collapsed = { ...collapsed, [key]: !collapsed[key] } }
 
   let reloadTimer = null
 
@@ -125,17 +151,30 @@
 <div class="page">
   <div class="page-header">
     <h2>Dispatch — Sapeurs-Pompiers</h2>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-nouvelle-inter" onclick={() => showCreate = true}>➕ Nouvelle intervention</button>
       <button class="btn-ghost" onclick={desaffecterTout}>Tout désaffecter</button>
       <button class="btn-ghost" onclick={load}>Actualiser</button>
     </div>
   </div>
+
+  {#if showCreate}
+    <SpInterventionCreate onclose={() => showCreate = false} oncreated={load} />
+  {/if}
 
   {#if loading}
     <p class="muted">Chargement...</p>
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
+    <!-- Compteurs d'état de la flotte -->
+    <div class="stat-bar">
+      <span class="stat"><b>{stats.total}</b> engins</span>
+      <span class="stat dispo"><b>{stats.dispo}</b> disponibles</span>
+      <span class="stat eng"><b>{stats.engages}</b> engagés</span>
+      <span class="stat na"><b>{stats.nonArmes}</b> non armés</span>
+    </div>
+
     <!-- Personnel actuellement de garde -->
     <div class="garde-panel">
       <span class="garde-title"><span class="garde-dot"></span> De garde — {enServiceMembres.length}</span>
@@ -150,8 +189,16 @@
       {/if}
     </div>
 
-    <div class="grid">
-      {#each vehicules as v (v.id)}
+    {#each groupes as g (g.key)}
+    <section class="veh-group">
+      <button class="group-head" onclick={() => toggleGroupe(g.key)}>
+        <span class="group-caret">{collapsed[g.key] ? '▸' : '▾'}</span>
+        <span class="group-title">{g.label}</span>
+        <span class="group-count">{g.items.length}</span>
+      </button>
+      {#if !collapsed[g.key]}
+      <div class="grid">
+      {#each g.items as v (v.id)}
         <div class="card" style="border-top: 3px solid {v.statut.couleur}">
           <div class="card-head">
             <div class="veh-info">
@@ -197,10 +244,13 @@
           </div>
         </div>
       {/each}
-      {#if vehicules.length === 0}
-        <p class="muted">Aucun véhicule enregistré</p>
+      </div>
       {/if}
-    </div>
+    </section>
+    {/each}
+    {#if vehicules.length === 0}
+      <p class="muted">Aucun véhicule enregistré</p>
+    {/if}
   {/if}
 </div>
 
@@ -262,6 +312,31 @@
 {/if}
 
 <style>
+  .btn-nouvelle-inter {
+    background: var(--color-danger); color: #fff; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: var(--radius);
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  }
+  .btn-nouvelle-inter:hover { filter: brightness(1.08); }
+
+  .stat-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat { font-size: 13px; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 12px; }
+  .stat b { color: var(--color-text); font-size: 15px; }
+  .stat.dispo b { color: var(--color-success); }
+  .stat.eng b { color: var(--accent); }
+  .stat.na b { color: var(--color-danger); }
+
+  .veh-group { margin-bottom: 16px; }
+  .group-head {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: none; cursor: pointer; padding: 6px 2px;
+    color: var(--color-text); font-size: 14px; font-weight: 600;
+    border-bottom: 1px solid var(--color-border); margin-bottom: 10px;
+  }
+  .group-caret { color: var(--color-muted); font-size: 11px; }
+  .group-title { flex: 1; text-align: left; }
+  .group-count { color: var(--color-muted); font-weight: 500; font-size: 12px; }
+
   .etat-dot { width: 6px; height: 6px; }
   .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }

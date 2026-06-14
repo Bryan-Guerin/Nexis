@@ -8,7 +8,8 @@ import java.util.UUID;
 
 /** Paie hebdomadaire SP : une ligne par membre ayant effectué des heures de garde sur la semaine. */
 @Serdeable
-public record SpPaieSemaineDto(String debut, String fin, BigDecimal total, List<Ligne> lignes) {
+public record SpPaieSemaineDto(String debut, String fin, BigDecimal total, List<Ligne> lignes,
+                               boolean payee, String reglePar, String regleLe) {
 
     @Serdeable
     public record Ligne(UUID membreId, String matricule, String username, String grade,

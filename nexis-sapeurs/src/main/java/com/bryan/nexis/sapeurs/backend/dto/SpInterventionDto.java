@@ -1,5 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.dto;
 
+import com.bryan.nexis.core.backend.dto.JournalEntryDto;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
 import io.micronaut.serde.annotation.Serdeable;
 
@@ -27,9 +28,14 @@ public record SpInterventionDto(
         boolean vehiculeImplique,
         String renfortGn,
         String renfortVinci,
-        List<SpEnginDto> engins
+        List<SpEnginDto> engins,
+        List<JournalEntryDto> dernieresLignes
 ) {
     public static SpInterventionDto from(SpIntervention i) {
+        return from(i, List.of());
+    }
+
+    public static SpInterventionDto from(SpIntervention i, List<JournalEntryDto> dernieresLignes) {
         return new SpInterventionDto(
                 i.getId(),
                 i.getCode(),
@@ -49,7 +55,8 @@ public record SpInterventionDto(
                 i.isVehiculeImplique(),
                 i.getRenfortGn(),
                 i.getRenfortVinci(),
-                i.getEngins().stream().map(SpEnginDto::from).toList()
+                i.getEngins().stream().map(SpEnginDto::from).toList(),
+                dernieresLignes
         );
     }
 }

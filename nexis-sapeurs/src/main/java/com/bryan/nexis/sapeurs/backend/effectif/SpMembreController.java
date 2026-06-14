@@ -8,8 +8,10 @@ import com.bryan.nexis.sapeurs.backend.dto.CreateSpMembreRequest;
 import com.bryan.nexis.sapeurs.backend.dto.CreateSpPlanningRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreDto;
 import com.bryan.nexis.sapeurs.backend.dto.UpdateSpMembreRequest;
+import com.bryan.nexis.sapeurs.backend.dto.SpPaieVersementDto;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningService;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningStatutService;
+import com.bryan.nexis.sapeurs.backend.rh.SpPaieService;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.security.annotation.Secured;
@@ -27,13 +29,16 @@ public class SpMembreController {
     private final SpPlanningService       planningService;
     private final SpPlanningStatutService planningStatutService;
     private final NotationService         notationService;
+    private final SpPaieService           paieService;
 
     public SpMembreController(SpMembreService membreService, SpPlanningService planningService,
-                              SpPlanningStatutService planningStatutService, NotationService notationService) {
+                              SpPlanningStatutService planningStatutService, NotationService notationService,
+                              SpPaieService paieService) {
         this.membreService         = membreService;
         this.planningService       = planningService;
         this.planningStatutService = planningStatutService;
         this.notationService       = notationService;
+        this.paieService           = paieService;
     }
 
     /** Mes notations (l'effectif voit les siennes). */
@@ -54,6 +59,13 @@ public class SpMembreController {
     List<PlanningDto> getMyPlanning(Authentication auth) {
         var me = membreService.findByUsername(auth.getName());
         return planningService.listByMembre(me.id());
+    }
+
+    /** Mes versements de paie (pour la notification « vous avez été payé »). */
+    @Get("/membres/me/paies")
+    List<SpPaieVersementDto> mesPaies(Authentication auth) {
+        var me = membreService.findByUsername(auth.getName());
+        return paieService.mesVersements(me.id());
     }
 
     @Post("/planning/me")
@@ -129,7 +141,7 @@ public class SpMembreController {
     // ── Mise à jour partielle (admin) ─────────────────────────────────────────
 
     @Patch("/membres/{id}")
-    @Secured("ROLE_ADMIN_SP")
+    @Secured({"ROLE_SP_RH", "ROLE_ADMIN_SP"})
     SpMembreDto updateMembre(UUID id, @Body UpdateSpMembreRequest req) {
         return membreService.update(id, req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet(), req.telephone());
     }
@@ -177,6 +189,46 @@ public class SpMembreController {
     @Secured("ROLE_SP_DISPATCH")
     PlanningDto terminerGardePour(UUID membreId) {
         return planningService.terminerGardeEnCours(membreId);
+    }
+
+    // ── Édition interactive du planning (drag & drop) ─────────────────────────────
+
+    /** Modifie une de SES plages (déplacement / redimensionnement). */
+    @Put("/planning/me/{id}")
+    PlanningDto modifierMaPlage(Authentication auth, UUID id, @Body CreateSpPlanningRequest req) {
+        var me = membreService.findByUsername(auth.getName());
+        return planningService.modifier(id, req.statutId(), req.debut(), req.fin(), me.id());
+    }
+
+    /** Supprime une de SES plages. */
+    @Delete("/planning/me/{id}")
+    @Status(HttpStatus.NO_CONTENT)
+    void supprimerMaPlage(Authentication auth, UUID id) {
+        var me = membreService.findByUsername(auth.getName());
+        planningService.supprimer(id, me.id());
+    }
+
+    /** Déclare une plage pour un effectif (dispatch). */
+    @Post("/planning/membres/{membreId}")
+    @Secured("ROLE_SP_DISPATCH")
+    @Status(HttpStatus.CREATED)
+    PlanningDto declarerPour(UUID membreId, @Body CreateSpPlanningRequest req) {
+        return planningService.declarerPour(membreId, req.statutId(), req.debut(), req.fin());
+    }
+
+    /** Modifie n'importe quelle plage (dispatch). */
+    @Put("/planning/{id}")
+    @Secured("ROLE_SP_DISPATCH")
+    PlanningDto modifierPlage(UUID id, @Body CreateSpPlanningRequest req) {
+        return planningService.modifier(id, req.statutId(), req.debut(), req.fin(), null);
+    }
+
+    /** Supprime n'importe quelle plage (dispatch). */
+    @Delete("/planning/{id}")
+    @Secured("ROLE_SP_DISPATCH")
+    @Status(HttpStatus.NO_CONTENT)
+    void supprimerPlage(UUID id) {
+        planningService.supprimer(id, null);
     }
 
     // ── Qualifications (fonctions du membre) ──────────────────────────────────

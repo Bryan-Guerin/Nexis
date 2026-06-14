@@ -72,9 +72,8 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         var now = Instant.now();
         var plage = planningRepo.findMembreCouvrant(membreId, TypeService.GARDE, now).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Aucune garde en cours à terminer."));
-        // Quart d'heure entamé = compté complet (paie) ; mais plus dispatchable dès maintenant.
-        Instant fin = ceilToQuarter(now);
-        plage.setFin(fin.isAfter(plage.getDebut()) ? fin : plage.getFin());
+        // Fin = maintenant (plus de quart d'heure entamé) ; quitteLe trace le départ effectif.
+        plage.setFin(now.isAfter(plage.getDebut()) ? now : plage.getFin());
         plage.setQuitteLe(now);
         var saved = planningRepo.update(plage);
         log.info("Fin de garde anticipée : membre={} fin payée={} quitte={}", membreId, plage.getFin(), now);
@@ -93,7 +92,7 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         var now = Instant.now();
         var astreinte = planningRepo.findMembreCouvrant(membreId, TypeService.ASTREINTE, now).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Aucune astreinte en cours."));
-        Instant split = floorToQuarter(now);
+        Instant split = now;
         Instant minFin = split.plusMillis(UNE_HEURE_MS);
         Instant gardeFin = astreinte.getFin().isAfter(minFin) ? astreinte.getFin() : minFin;   // min 1 h
         if (split.isAfter(astreinte.getDebut())) { astreinte.setFin(split); planningRepo.update(astreinte); }
@@ -114,7 +113,7 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         var now = Instant.now();
         var garde = planningRepo.findMembreCouvrant(membreId, TypeService.GARDE, now).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Aucune garde en cours."));
-        Instant split = ceilToQuarter(now);
+        Instant split = now;
         Instant gardeFin = garde.getFin();
         if (!split.isBefore(gardeFin)) {
             throw new IllegalStateException("Garde trop courte pour basculer en astreinte (elle se termine bientôt).");
@@ -127,6 +126,48 @@ public class SpPlanningService extends AbstractPlanningService<SpPlanning> {
         log.info("Bascule garde→astreinte : membre={} astreinte {} → {}", membreId, split, gardeFin);
         publierBascule(garde, "passage en astreinte");
         return PlanningDto.from(saved);
+    }
+
+    /** Déclaration d'une plage pour un membre par le dispatch (drag & drop). */
+    @Transactional
+    public PlanningDto declarerPour(UUID membreId, UUID statutId, Instant debut, Instant fin) {
+        return declareSelf(membreId, statutId, debut, fin, null);
+    }
+
+    /**
+     * Modifie une plage (déplacement / redimensionnement / changement de statut). Réécrit la plage
+     * (delete + create) afin de réappliquer la fusion des chevauchements du même statut.
+     * {@code exigeMembreId} non null = contrôle de propriété (un effectif n'édite que ses plages).
+     */
+    @Transactional
+    public PlanningDto modifier(UUID id, UUID statutId, Instant debut, Instant fin, UUID exigeMembreId) {
+        var plage = planningRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Plage de planning introuvable : " + id));
+        verifierProprietaire(plage, exigeMembreId);
+        if (debut == null || fin == null) throw new IllegalArgumentException("Début et fin requis.");
+        if (!fin.isAfter(debut)) throw new IllegalArgumentException("La fin doit être postérieure au début.");
+        UUID membreId = plage.getMembre().getId();
+        UUID sId = statutId != null ? statutId : plage.getStatut().getId();
+        planningRepo.delete(plage);
+        return create(membreId, sId, debut, fin, null);
+    }
+
+    /** Supprime une plage. {@code exigeMembreId} non null = contrôle de propriété. */
+    @Transactional
+    public void supprimer(UUID id, UUID exigeMembreId) {
+        var plage = planningRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Plage de planning introuvable : " + id));
+        verifierProprietaire(plage, exigeMembreId);
+        planningRepo.delete(plage);
+        events.publishEvent(RealtimeEvent.faction(RealtimeEvent.PLANNING, "SP",
+                plage.getMembre() + " — créneau supprimé",
+                Map.of("membreId", plage.getMembre().getId().toString()), plage.getMembreUsername()));
+    }
+
+    private void verifierProprietaire(SpPlanning plage, UUID exigeMembreId) {
+        if (exigeMembreId != null && !plage.getMembre().getId().equals(exigeMembreId)) {
+            throw new IllegalStateException("Action non autorisée : créneau d'un autre effectif.");
+        }
     }
 
     private SpPlanningStatut premierStatut(TypeService categorie) {
