@@ -52,15 +52,27 @@
       .filter(Boolean).some(s => s.toLowerCase().includes(q))
   }))
 
+  // Horloge pour le chrono des interventions en cours (rafraîchi chaque minute).
+  let now = $state(Date.now())
+
   onMount(() => {
     load()
-    return realtime.on(ev => {
+    const unsub = realtime.on(ev => {
       if (ev.faction === 'SP' && (ev.type?.startsWith('INTERVENTION_') || ev.type === 'ETAT_VEHICULE'
           || ev.type === 'AFFECTATION' || ev.type === 'DESAFFECTATION' || ev.type === 'MAIN_COURANTE')) {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(() => detailInter ? refreshDetail() : load(), 300)
       }
     })
+    const tick = setInterval(() => now = Date.now(), 60000)
+    return () => { unsub(); clearInterval(tick) }
   })
+
+  // Durée écoulée depuis l'ouverture (chrono live).
+  function chrono(debutIso) {
+    const min = Math.max(0, Math.floor((now - new Date(debutIso).getTime()) / 60000))
+    const h = Math.floor(min / 60), m = min % 60
+    return h > 0 ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`
+  }
 
   async function load() {
     loading = true; error = ''
@@ -303,6 +315,7 @@
               <span class="badge" class:badge-actif={i.enCours} class:badge-inactif={!i.enCours}>
                 {i.enCours ? 'En cours' : 'Clôturée'}
               </span>
+              {#if i.enCours}<span class="i-chrono" title="Durée depuis l'ouverture">⏱ {chrono(i.debut)}</span>{/if}
               <span class="i-code">{i.code}</span>
               {#if i.nature}<span class="chip-code">{i.nature.code}</span>{/if}
               <span class="i-motif">{i.motif}</span>
@@ -540,6 +553,7 @@
   .i-code { font-family: monospace; font-size: 12px; color: var(--accent); font-weight: 700; }
   .i-motif { font-size: 15px; font-weight: 600; }
   .i-time { font-size: 12px; color: var(--color-muted); white-space: nowrap; }
+  .i-chrono { font-size: 12px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
 
   .engins { display: flex; gap: 8px; flex-wrap: wrap; }
   .engin { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 4px 10px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
