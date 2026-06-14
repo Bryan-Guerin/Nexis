@@ -30,11 +30,14 @@ FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 
 # curl : requis par le HEALTHCHECK (interroge /health).
+# /logs : créé et possédé par nexis pour que la trace stdout soit écrivable même
+# sans volume monté (en prod, le volume /logs le recouvre, possédé par PUID).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system nexis \
- && useradd --system --gid nexis --home /app nexis
+ && useradd --system --gid nexis --home /app nexis \
+ && mkdir -p /logs && chown nexis:nexis /logs
 COPY --from=build /workspace/app.jar /app/app.jar
 USER nexis
 
@@ -45,5 +48,7 @@ ENV JAVA_OPTS=""
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
   CMD curl -fsS http://localhost:8080/health || exit 1
 
-# Les variables d'environnement (DATASOURCES_*, JWT_*) surchargent application.properties.
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+# Trace complète : tout le stdout/stderr (banner JVM, attach de l'agent Glowroot,
+# démarrage Micronaut) est affiché (docker logs) ET copié dans ${LOG_DIR}/nexis-stdout.log.
+# bash requis pour la substitution de processus ; exec → java reçoit bien les signaux.
+ENTRYPOINT ["bash", "-c", "exec java $JAVA_OPTS -jar /app/app.jar > >(tee -a \"${LOG_DIR:-/logs}/nexis-stdout.log\") 2>&1"]
