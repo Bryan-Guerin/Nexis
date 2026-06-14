@@ -8,11 +8,10 @@ ALTER TABLE sp_vehicule_type
     ADD COLUMN nature_principale_id UUID REFERENCES sp_nature_intervention(id);
 
 UPDATE sp_vehicule_type t
-   SET nature_principale_id = sub.nature_id
-  FROM (
-        SELECT type_id, MIN(nature_id) AS nature_id
-          FROM sp_vehicule_type_nature
-      GROUP BY type_id
-        HAVING COUNT(*) = 1
-       ) sub
- WHERE t.id = sub.type_id;
+   SET nature_principale_id = n.nature_id
+  FROM sp_vehicule_type_nature n
+ WHERE t.id = n.type_id
+   AND n.type_id IN (
+        SELECT type_id FROM sp_vehicule_type_nature
+      GROUP BY type_id HAVING COUNT(*) = 1
+       );
