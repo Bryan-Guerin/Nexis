@@ -1,4 +1,6 @@
 package com.bryan.nexis.backend;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.backend.dto.CreateRoleRequest;
 import com.bryan.nexis.backend.dto.CreateUserRequest;
@@ -21,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Controller("/api/admin")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SYSTEM")
 public class AdminUserController {
 

@@ -1,4 +1,6 @@
 package com.bryan.nexis.gendarmerie.backend;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.dto.PlanningDto;
 import com.bryan.nexis.core.backend.dto.PlanningStatutDto;
@@ -15,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Controller("/api/gn")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_GN")
 public class GnMembreController {
 

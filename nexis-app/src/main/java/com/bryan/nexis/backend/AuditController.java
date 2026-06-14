@@ -1,4 +1,6 @@
 package com.bryan.nexis.backend;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.JournalService;
 import com.bryan.nexis.core.backend.dto.JournalEntryDto;
@@ -12,6 +14,7 @@ import java.util.Optional;
 
 /** Audit système : journal complet (toutes factions + connexions), réservé à l'admin. */
 @Controller("/api/admin")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SYSTEM")
 public class AuditController {
 

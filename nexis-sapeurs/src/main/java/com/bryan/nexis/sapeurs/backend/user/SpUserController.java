@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.user;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.RefUserService;
 import com.bryan.nexis.core.backend.dto.RefUserDto;
@@ -14,6 +16,7 @@ import org.mindrot.jbcrypt.BCrypt;
 import java.util.Set;
 
 @Controller("/api/sp/users")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_ADMIN_SP")
 public class SpUserController {
 

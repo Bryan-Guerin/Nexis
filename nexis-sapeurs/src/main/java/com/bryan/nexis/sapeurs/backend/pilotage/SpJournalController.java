@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.pilotage;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.JournalService;
 import com.bryan.nexis.core.backend.dto.JournalEntryDto;
@@ -13,6 +15,7 @@ import java.util.Optional;
 
 /** Main courante SP : timeline des événements opérationnels de la faction. */
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpJournalController {
 

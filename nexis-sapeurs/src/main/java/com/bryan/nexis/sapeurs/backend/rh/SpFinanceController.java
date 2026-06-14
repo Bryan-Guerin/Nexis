@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.rh;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.FinanceRequests.CreateCategorieRequest;
 import com.bryan.nexis.sapeurs.backend.dto.FinanceRequests.CreateMouvementRequest;
@@ -12,6 +14,7 @@ import java.util.UUID;
 
 /** Trésorerie SP — réservé au référent RH (et à l'admin SP). Visible d'eux seuls. */
 @Controller("/api/sp/rh/finance")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured({"ROLE_SP_RH", "ROLE_ADMIN_SP"})
 public class SpFinanceController {
 

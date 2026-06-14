@@ -1,4 +1,6 @@
 package com.bryan.nexis.gendarmerie.backend;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.gendarmerie.backend.dto.GnAffecterRequest;
 import com.bryan.nexis.gendarmerie.backend.dto.GnVehiculeAffectationDto;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Controller("/api/gn")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_GN")
 public class GnAffectationController {
 

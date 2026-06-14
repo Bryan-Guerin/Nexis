@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.vehicule;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpDispatchDto;
 import io.micronaut.http.annotation.Controller;
@@ -9,6 +11,7 @@ import java.util.List;
 
 @Secured("ROLE_SP")
 @Controller("/api/sp/dispatch")
+@ExecuteOn(TaskExecutors.BLOCKING)
 public class SpDispatchController {
 
     private final SpDispatchService dispatchService;

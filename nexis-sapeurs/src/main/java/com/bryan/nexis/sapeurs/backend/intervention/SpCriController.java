@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpCriDto;
 import com.bryan.nexis.sapeurs.backend.dto.UpdateCriRequest;
@@ -12,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpCriController {
 

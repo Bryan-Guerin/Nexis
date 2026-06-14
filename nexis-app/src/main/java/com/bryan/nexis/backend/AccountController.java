@@ -1,4 +1,6 @@
 package com.bryan.nexis.backend;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.backend.dto.ChangePasswordRequest;
 import com.bryan.nexis.backend.dto.UpdateAvatarRequest;
@@ -14,6 +16,7 @@ import org.mindrot.jbcrypt.BCrypt;
 
 /** Compte de l'utilisateur connecté (toutes factions confondues). */
 @Controller("/api/account")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured(SecurityRule.IS_AUTHENTICATED)
 public class AccountController {
 

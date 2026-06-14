@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.inventaire;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.CreateInventaireItemRequest;
 import com.bryan.nexis.sapeurs.backend.dto.CreateVerificationRequest;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpInventaireController {
 

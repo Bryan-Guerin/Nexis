@@ -1,4 +1,6 @@
 package com.bryan.nexis.gendarmerie.backend;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.gendarmerie.backend.dto.CreateGnGradeRequest;
 import com.bryan.nexis.gendarmerie.backend.dto.CreateGnVehiculeEtatRequest;
@@ -11,6 +13,7 @@ import io.micronaut.security.annotation.Secured;
 import java.util.List;
 
 @Controller("/api/gn")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_ADMIN_GN")
 public class GnConfigController {
 

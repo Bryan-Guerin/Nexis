@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.rh;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.NotationService;
 import com.bryan.nexis.core.backend.dto.CreateNotationRequest;
@@ -24,6 +26,7 @@ import java.util.UUID;
 
 /** Module RH / paie / notation — réservé au référent RH (et à l'admin SP par héritage). */
 @Controller("/api/sp/rh")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured({"ROLE_SP_RH", "ROLE_ADMIN_SP"})
 public class SpRhController {
 

@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.vehicule;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpAffecterRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeAffectationDto;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpAffectationController {
 

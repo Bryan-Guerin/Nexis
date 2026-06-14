@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.document;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.CreateDocumentCategorieRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpDocumentCategorieView;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Controller("/api/sp/documents")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpDocumentController {
 

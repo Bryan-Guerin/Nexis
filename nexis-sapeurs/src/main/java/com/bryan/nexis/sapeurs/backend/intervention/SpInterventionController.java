@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.dto.JournalEntryDto;
 import com.bryan.nexis.sapeurs.backend.dto.*;
@@ -11,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpInterventionController {
 

@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.effectif;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.NotationService;
 import com.bryan.nexis.core.backend.dto.NotationDto;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpMembreController {
 

@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.config;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.dto.PlanningStatutDto;
 import com.bryan.nexis.sapeurs.backend.dto.*;
@@ -19,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_ADMIN_SP")
 public class SpConfigController {
 

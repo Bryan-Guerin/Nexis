@@ -1,4 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.config;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.CreateFrequenceRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpFrequenceRadioDto;
@@ -11,6 +13,7 @@ import java.util.UUID;
 
 /** Fréquences radio : lecture pour tous les SP, gestion réservée aux admins SP. */
 @Controller("/api/sp")
+@ExecuteOn(TaskExecutors.BLOCKING)
 @Secured("ROLE_SP")
 public class SpFrequenceController {
 
