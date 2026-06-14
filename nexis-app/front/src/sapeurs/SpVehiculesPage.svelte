@@ -199,11 +199,15 @@
     } catch (e) { addTypeError = e.message }
   }
 
+  // Cible « contenant » pour l'ajout d'un item (sac/lot) ; null = item de premier niveau.
+  let invParent = $state(null)
+
   async function addItem(typeId) {
     if (!invForm.objetId) return
     try {
+      const parentId = invParent && invParent.typeId === typeId ? invParent.id : null
       const created = await api.post(`/sp/vehicules/types/${typeId}/inventaire`,
-        { objetId: invForm.objetId, quantite: Number(invForm.quantite) || 1 })
+        { objetId: invForm.objetId, quantite: Number(invForm.quantite) || 1, parentId })
       inventaire = { ...inventaire, [typeId]: [...(inventaire[typeId] ?? []), created] }
       invForm = { objetId: '', quantite: 1 }
     } catch (e) { error = e.message }
@@ -211,7 +215,9 @@
   async function deleteItem(typeId, itemId) {
     try {
       await api.delete(`/sp/inventaire/${itemId}`)
-      inventaire = { ...inventaire, [typeId]: inventaire[typeId].filter(i => i.id !== itemId) }
+      // Le back supprime aussi le contenu (CASCADE) → on retire l'item ET ses enfants.
+      inventaire = { ...inventaire, [typeId]: inventaire[typeId].filter(i => i.id !== itemId && i.parentId !== itemId) }
+      if (invParent && invParent.id === itemId) invParent = null
     } catch (e) { error = e.message }
   }
 
@@ -265,6 +271,7 @@
     const items = await api.get(`/sp/vehicules/types/${v.type.id}/inventaire`).catch(() => [])
     // ok = conforme (quantité complète) ; sinon on saisit le nombre manquant
     verifLignes = items.map(i => ({
+      id: i.id, parentId: i.parentId,
       libelle: i.objetLabel, quantiteAttendue: i.quantite, ok: true, manquant: 1,
     }))
     verifHistory = await api.get(`/sp/vehicules/${v.id}/verifications`).catch(() => [])
@@ -272,6 +279,17 @@
   function quantitePresente(l) {
     return l.ok ? l.quantiteAttendue : Math.max(0, l.quantiteAttendue - (Number(l.manquant) || 0))
   }
+  // Hiérarchie sac/contenu : items de premier niveau + enfants d'un sac.
+  let verifTop = $derived(verifLignes.filter(l => !l.parentId))
+  function verifChildren(l) { return verifLignes.filter(c => c.parentId === l.id) }
+  function allChildrenOk(l) { return verifChildren(l).every(c => c.ok) }
+  // Valider le sac = tout son contenu présent (le sac lui-même reste présent).
+  function toggleBag(l, ok) {
+    for (const c of verifChildren(l)) c.ok = ok
+    l.ok = true
+    verifLignes = [...verifLignes]
+  }
+  function setOk(l, ok) { l.ok = ok; verifLignes = [...verifLignes] }
   let verifConforme = $derived(verifLignes.every(l => quantitePresente(l) >= l.quantiteAttendue))
   async function submitVerif() {
     verifError = ''
@@ -464,19 +482,27 @@
                 {#each inventaire[t.id] ?? [] as it, i (it.id)}
                   <li
                     class:dragging={invDrag.typeId === t.id && invDrag.index === i}
+                    class:inv-child={it.parentId}
                     draggable="true"
                     ondragstart={() => invDragStart(t.id, i)}
                     ondragover={(e) => invDragOver(e, t.id, i)}
                     ondragend={() => invDragEnd(t.id)}
                   >
                     <span class="handle" title="Glisser pour déplacer">⠿</span>
-                    <span>{it.objetLabel} <span class="qty">×{it.quantite}</span></span>
+                    <span>{#if it.parentId}<span class="child-arrow">↳</span>{/if}{it.objetLabel} <span class="qty">×{it.quantite}</span></span>
+                    {#if !it.parentId}
+                      <button class="inv-content-btn" title="Ajouter un contenu à ce sac/lot"
+                              onclick={() => invParent = { typeId: t.id, id: it.id, label: it.objetLabel }}>＋ contenu</button>
+                    {/if}
                     <button class="rm-btn" title="Supprimer" onclick={() => deleteItem(t.id, it.id)}>×</button>
                   </li>
                 {/each}
                 {#if (inventaire[t.id] ?? []).length === 0}<li class="muted small">Aucun item</li>{/if}
               </ul>
               <div class="inv-add">
+                {#if invParent && invParent.typeId === t.id}
+                  <span class="inv-parent-chip">Dans : {invParent.label}<button title="Annuler" onclick={() => invParent = null}>✕</button></span>
+                {/if}
                 <select bind:value={invForm.objetId}>
                   <option value="">— objet —</option>
                   {#each objets as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
@@ -535,16 +561,40 @@
           {verifConforme ? '✓ Inventaire conforme → véhicule disponible' : '✗ Inventaire incomplet → véhicule indisponible'}
         </div>
         <div class="check-list">
-          {#each verifLignes as l, i (i)}
-            <div class="check-line" class:missing={!l.ok}>
-              <label class="chk"><input type="checkbox" bind:checked={l.ok} /> {l.libelle}</label>
-              <span class="att">attendu&nbsp;: {l.quantiteAttendue}</span>
-              {#if !l.ok}
-                <label class="mq">manquant
-                  <input type="number" bind:value={l.manquant} min="1" max={l.quantiteAttendue} style="width:60px" />
+          {#each verifTop as l (l.id)}
+            {@const children = verifChildren(l)}
+            {#if children.length > 0}
+              <!-- Sac/lot : une case valide tout le contenu ; décocher pour détailler -->
+              <div class="check-line">
+                <label class="chk">
+                  <input type="checkbox" checked={allChildrenOk(l)} onchange={e => toggleBag(l, e.target.checked)} />
+                  {l.libelle} <span class="bag-tag">sac · {children.length}</span>
                 </label>
+              </div>
+              {#if !allChildrenOk(l)}
+                {#each children as c (c.id)}
+                  <div class="check-line child" class:missing={!c.ok}>
+                    <label class="chk"><input type="checkbox" checked={c.ok} onchange={e => setOk(c, e.target.checked)} /> <span class="child-arrow">↳</span> {c.libelle}</label>
+                    <span class="att">attendu&nbsp;: {c.quantiteAttendue}</span>
+                    {#if !c.ok}
+                      <label class="mq">manquant
+                        <input type="number" bind:value={c.manquant} min="1" max={c.quantiteAttendue} style="width:60px" />
+                      </label>
+                    {/if}
+                  </div>
+                {/each}
               {/if}
-            </div>
+            {:else}
+              <div class="check-line" class:missing={!l.ok}>
+                <label class="chk"><input type="checkbox" checked={l.ok} onchange={e => setOk(l, e.target.checked)} /> {l.libelle}</label>
+                <span class="att">attendu&nbsp;: {l.quantiteAttendue}</span>
+                {#if !l.ok}
+                  <label class="mq">manquant
+                    <input type="number" bind:value={l.manquant} min="1" max={l.quantiteAttendue} style="width:60px" />
+                  </label>
+                {/if}
+              </div>
+            {/if}
           {/each}
         </div>
       {/if}
@@ -609,7 +659,13 @@
   .inv-list li > span:not(.handle) { flex: 1; }
   .inv-list .handle { flex: 0 0 auto; color: var(--color-muted); cursor: grab; user-select: none; font-size: 12px; }
   .hint { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; color: var(--color-muted); }
-  .inv-add { display: flex; gap: 8px; }
+  .inv-list li.inv-child { margin-left: 22px; background: color-mix(in srgb, var(--color-bg) 70%, transparent); }
+  .child-arrow { color: var(--color-muted); margin-right: 2px; }
+  .inv-content-btn { flex: 0 0 auto; background: none; border: 1px solid var(--color-border); border-radius: 12px; color: var(--accent); font-size: 11px; padding: 1px 8px; cursor: pointer; }
+  .inv-parent-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 12px; padding: 4px 10px; }
+  .inv-parent-chip button { background: none; border: none; color: var(--color-muted); cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
+
+  .inv-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .inv-add input { flex: 1; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 4px; }
   .rm-btn:hover { color: var(--color-danger); }
@@ -630,6 +686,8 @@
   .check-line .chk { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .check-line .att { font-size: 11px; color: var(--color-muted); }
   .check-line .mq { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-danger); }
+  .check-line.child { margin-left: 22px; }
+  .bag-tag { font-size: 10px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 8px; padding: 1px 7px; }
   .histo { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--color-border); padding-top: 10px; margin-top: 8px; }
   .histo-line { display: flex; gap: 12px; font-size: 12px; align-items: center; }
   .ko-badge { background: color-mix(in srgb, var(--color-danger) 18%, transparent) !important; color: var(--color-danger) !important; }

@@ -27,6 +27,11 @@ public class SpInventaireItem {
     @Column(name = "ordre", nullable = false)
     private int position;
 
+    /** Item contenant (sac/lot) ; null = item de premier niveau. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "parent_id")
+    private SpInventaireItem parent;
+
     protected SpInventaireItem() {}
 
     public SpInventaireItem(SpVehiculeType vehiculeType, SpObjetInventaire objet, int quantite) {
@@ -40,7 +45,9 @@ public class SpInventaireItem {
     public SpObjetInventaire getObjet()     { return objet; }
     public int getQuantite()                { return quantite; }
     public int getPosition()                { return position; }
+    public SpInventaireItem getParent()     { return parent; }
 
     public void setQuantite(int quantite)  { this.quantite = quantite; }
     public void setPosition(int position)  { this.position = position; }
+    public void setParent(SpInventaireItem parent) { this.parent = parent; }
 }

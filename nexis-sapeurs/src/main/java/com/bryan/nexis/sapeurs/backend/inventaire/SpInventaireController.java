@@ -35,7 +35,7 @@ public class SpInventaireController {
     @Secured("ROLE_ADMIN_SP")
     @Status(HttpStatus.CREATED)
     SpInventaireItemDto addItem(UUID typeId, @Body CreateInventaireItemRequest req) {
-        return service.addItem(typeId, req.objetId(), req.quantite());
+        return service.addItem(typeId, req.objetId(), req.quantite(), req.parentId());
     }
 
     @Delete("/inventaire/{itemId}")

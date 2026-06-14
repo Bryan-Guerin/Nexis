@@ -55,12 +55,21 @@ public class SpInventaireService {
     }
 
     @Transactional
-    public SpInventaireItemDto addItem(UUID typeId, UUID objetId, int quantite) {
+    public SpInventaireItemDto addItem(UUID typeId, UUID objetId, int quantite, UUID parentId) {
         var type = typeRepo.findById(typeId)
                 .orElseThrow(() -> new NoSuchElementException("Type véhicule introuvable : " + typeId));
         var objet = objetRepo.findById(objetId)
                 .orElseThrow(() -> new NoSuchElementException("Objet d'inventaire introuvable : " + objetId));
         var item = new SpInventaireItem(type, objet, Math.max(1, quantite));
+        if (parentId != null) {
+            var parent = itemRepo.findById(parentId)
+                    .orElseThrow(() -> new NoSuchElementException("Contenant introuvable : " + parentId));
+            if (!parent.getVehiculeType().getId().equals(typeId))
+                throw new IllegalArgumentException("Le contenant appartient à un autre type de véhicule.");
+            if (parent.getParent() != null)
+                throw new IllegalArgumentException("Un contenant ne peut pas être imbriqué (un seul niveau).");
+            item.setParent(parent);
+        }
         item.setPosition((int) itemRepo.countByVehiculeTypeId(typeId));
         return SpInventaireItemDto.from(itemRepo.save(item));
     }

@@ -7,9 +7,10 @@ import java.util.UUID;
 
 @Serdeable
 public record SpInventaireItemDto(UUID id, UUID vehiculeTypeId, UUID objetId,
-                                  String objetCode, String objetLabel, int quantite, int position) {
+                                  String objetCode, String objetLabel, int quantite, int position, UUID parentId) {
     public static SpInventaireItemDto from(SpInventaireItem i) {
         return new SpInventaireItemDto(i.getId(), i.getVehiculeType().getId(), i.getObjet().getId(),
-                i.getObjet().getCode(), i.getObjet().getLabel(), i.getQuantite(), i.getPosition());
+                i.getObjet().getCode(), i.getObjet().getLabel(), i.getQuantite(), i.getPosition(),
+                i.getParent() == null ? null : i.getParent().getId());
     }
 }
