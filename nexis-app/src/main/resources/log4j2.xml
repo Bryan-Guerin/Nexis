@@ -41,19 +41,23 @@
             <AppenderRef ref="File"/>
         </Logger>
 
-        <!-- Réduire le bruit des frameworks -->
-        <Logger name="io.micronaut"  level="warn" additivity="false">
+        <!-- Frameworks : bruit réduit, mais persistés aussi dans nexis.log (logs de démarrage inclus) -->
+        <Logger name="io.micronaut"  level="info" additivity="false">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
         </Logger>
         <Logger name="org.hibernate" level="warn" additivity="false">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
         </Logger>
         <Logger name="org.flywaydb"  level="info" additivity="false">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
         </Logger>
 
         <Root level="warn">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
         </Root>
     </Loggers>
 
