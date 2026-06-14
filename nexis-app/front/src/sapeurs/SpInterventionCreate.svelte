@@ -35,6 +35,12 @@
   let engageablesTries = $derived([...vehicules].sort((a, b) =>
     rang(a) - rang(b) || a.libelle.localeCompare(b.libelle)
   ))
+  // Engins proposés (nature principale/secondaire) vs autres ; détails repliables.
+  let proposes   = $derived(engageablesTries.filter(v => matchPrincipal(v) || matchSecondaire(v)))
+  let autres     = $derived(engageablesTries.filter(v => !matchPrincipal(v) && !matchSecondaire(v)))
+  let showAutres = $state(false)
+  let openAutres = $derived(showAutres || proposes.length === 0)
+  let showDetails = $state(false)
   function avertirNonArmes(ids) {
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
     if (nonArmes.length === 0) return true
@@ -81,48 +87,76 @@
     <button class="modal-x" title="Fermer" onclick={onclose}>✕</button>
     <h3>Nouvelle intervention</h3>
     {#if createError}<p class="inline-error">{createError}</p>{/if}
+    {#snippet enginRow(v)}
+      <label class="veh-check" class:propose={matchPrincipal(v)} class:propose-sec={matchSecondaire(v)}>
+        <input type="checkbox" checked={createSel.includes(v.vehiculeId)} onchange={() => createSel = toggle(createSel, v.vehiculeId)} />
+        {v.libelle} <span class="chip-code">{v.typeCode}</span>
+        {#if matchPrincipal(v)}<span class="propose-tag">★ proposé</span>
+        {:else if matchSecondaire(v)}<span class="propose-tag sec">proposé</span>{/if}
+        {#if !v.arme}<span class="non-arme">non armé</span>{/if}
+      </label>
+    {/snippet}
+
     <form class="create-modal-form" onsubmit={submitCreate}>
-      <div class="form-row">
-        <label>Nature *
+      <!-- Alerte (mise en avant) -->
+      <div class="sec-alerte">
+        <label class="big">Nature *
           <select bind:value={form.natureId} required>
             <option value="" disabled>— choisir —</option>
             {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
           </select>
         </label>
-        <label>Motif<input type="text" bind:value={form.motif} placeholder="ex: Feu d'habitation" required /></label>
+        <label class="big">Motif *<input type="text" bind:value={form.motif} placeholder="ex: Feu d'habitation" required /></label>
       </div>
-      <div class="form-row">
-        <label>Requérant<input type="text" bind:value={form.requerant} maxlength="40" /></label>
-        <label>Téléphone<input type="tel" bind:value={form.telephone} maxlength="10" placeholder="10 chiffres" /></label>
-        <label>Commune<input type="text" bind:value={form.commune} maxlength="40" /></label>
-        <label>Coordonnées<input type="text" inputmode="numeric" maxlength="7" value={coordDisplay(form.coordonnees)} oninput={onCoordInput} placeholder="ex: 060 150" /></label>
-      </div>
-      <label class="full">Observation<input type="text" bind:value={form.observation} placeholder="Précisions / description" /></label>
 
-      <div class="qualif">
-        <span class="pick-label">Qualification</span>
-        <div class="qualif-row">
-          <label class="q-vic">Nb victimes<input type="number" min="0" bind:value={form.nbVictimes} placeholder="0" /></label>
-          <label class="q-chk"><input type="checkbox" bind:checked={form.incendie} /> Incendie</label>
-          <label class="q-chk"><input type="checkbox" bind:checked={form.vehiculeImplique} /> Véhicule impliqué</label>
+      <!-- Détails complémentaires (repliable) -->
+      <button type="button" class="sec-toggle" onclick={() => showDetails = !showDetails}>
+        <span class="caret">{showDetails ? '▾' : '▸'}</span> Détails — appelant, localisation, qualification
+      </button>
+      {#if showDetails}
+        <div class="sec-body">
+          <span class="sec-h">Appelant</span>
+          <div class="form-row">
+            <label>Requérant<input type="text" bind:value={form.requerant} maxlength="40" /></label>
+            <label>Téléphone<input type="tel" bind:value={form.telephone} maxlength="10" placeholder="10 chiffres" /></label>
+          </div>
+          <span class="sec-h">Localisation</span>
+          <div class="form-row">
+            <label>Commune<input type="text" bind:value={form.commune} maxlength="40" /></label>
+            <label>Coordonnées<input type="text" inputmode="numeric" maxlength="7" value={coordDisplay(form.coordonnees)} oninput={onCoordInput} placeholder="ex: 060 150" /></label>
+          </div>
+          <label class="full">Observation<input type="text" bind:value={form.observation} placeholder="Précisions / description" /></label>
+          <span class="sec-h">Qualification</span>
+          <div class="qualif-row">
+            <label class="q-vic">Nb victimes<input type="number" min="0" bind:value={form.nbVictimes} placeholder="0" /></label>
+            <label class="q-chk"><input type="checkbox" bind:checked={form.incendie} /> Incendie</label>
+            <label class="q-chk"><input type="checkbox" bind:checked={form.vehiculeImplique} /> Véhicule impliqué</label>
+          </div>
         </div>
-      </div>
+      {/if}
 
+      <!-- Engins -->
       <div class="veh-pick">
-        <span class="pick-label">Engins engagés</span>
-        <div class="veh-grid">
-          {#each engageablesTries as v (v.vehiculeId)}
-            <label class="veh-check" class:propose={matchPrincipal(v)} class:propose-sec={matchSecondaire(v)}>
-              <input type="checkbox" checked={createSel.includes(v.vehiculeId)} onchange={() => createSel = toggle(createSel, v.vehiculeId)} />
-              {v.libelle} <span class="chip-code">{v.typeCode}</span>
-              {#if matchPrincipal(v)}<span class="propose-tag">★ proposé</span>
-              {:else if matchSecondaire(v)}<span class="propose-tag sec">proposé</span>{/if}
-              {#if !v.arme}<span class="non-arme">non armé</span>{/if}
-            </label>
-          {/each}
-        </div>
-        {#if vehicules.length === 0}<span class="muted small">Aucun véhicule</span>{/if}
+        <span class="sec-h">Engins proposés</span>
+        {#if proposes.length > 0}
+          <div class="veh-grid">
+            {#each proposes as v (v.vehiculeId)}{@render enginRow(v)}{/each}
+          </div>
+        {:else}
+          <span class="muted small">{form.natureId ? 'Aucun engin proposé pour cette nature.' : 'Choisis une nature pour la proposition.'}</span>
+        {/if}
+
+        <button type="button" class="sec-toggle" onclick={() => showAutres = !showAutres}>
+          <span class="caret">{openAutres ? '▾' : '▸'}</span> Autres engins ({autres.length})
+        </button>
+        {#if openAutres}
+          <div class="veh-grid">
+            {#each autres as v (v.vehiculeId)}{@render enginRow(v)}{/each}
+          </div>
+          {#if vehicules.length === 0}<span class="muted small">Aucun véhicule</span>{/if}
+        {/if}
       </div>
+
       <div class="modal-actions">
         <button type="submit" class="btn-primary">Déclencher l'intervention</button>
       </div>
@@ -142,11 +176,18 @@
   .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
   .form-row label { flex: 1; min-width: 140px; }
   .veh-pick { display: flex; flex-direction: column; gap: 6px; }
-  .pick-label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .5px; }
   .veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 
-  .qualif { display: flex; flex-direction: column; gap: 6px; }
+  .sec-alerte { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sec-alerte .big { flex: 1; min-width: 180px; }
+  .create-modal .big { font-size: 12px; font-weight: 700; color: var(--color-text); }
+  .create-modal .big input, .create-modal .big select { font-size: 15px; padding: 9px 11px; }
+  .sec-toggle { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; text-align: left; padding: 2px 0; }
+  .caret { display: inline-block; width: 12px; color: var(--color-muted); }
+  .sec-body { display: flex; flex-direction: column; gap: 10px; border-left: 2px solid var(--color-border); padding-left: 12px; }
+  .sec-h { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-muted); }
+
   .qualif-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .q-vic { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--color-muted); }
   .q-vic input { width: 80px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 5px 8px; }
