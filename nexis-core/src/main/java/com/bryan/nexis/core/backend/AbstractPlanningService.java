@@ -49,9 +49,33 @@ public abstract class AbstractPlanningService<P extends AbstractPlanning> {
             if (p.getFin().isAfter(f))    f = p.getFin();
         }
         // Déjà entièrement couvert par une plage unique inchangée → no-op.
-        if (memeStatut.size() == 1 && d.equals(memeStatut.get(0).getDebut()) && f.equals(memeStatut.get(0).getFin())) {
-            return PlanningDto.from(memeStatut.get(0));
+        boolean noop = memeStatut.size() == 1
+                && d.equals(memeStatut.get(0).getDebut()) && f.equals(memeStatut.get(0).getFin());
+
+        // Chevauchement avec une plage d'un AUTRE statut → la nouvelle plage écrase la zone
+        // commune : la plage existante est rognée (et non supprimée si une partie reste hors
+        // du créneau ; scindée en deux si elle l'englobe entièrement).
+        for (P p : findOverlapping(membreId, d, f)) {
+            if (p.getStatutView().getId().equals(statutId)) continue;   // même statut : géré par la fusion
+            boolean avant = p.getDebut().isBefore(d);
+            boolean apres = p.getFin().isAfter(f);
+            if (avant && apres) {
+                Instant finOrig = p.getFin();
+                p.setFin(d);
+                repo().update(p);
+                repo().save(build(p.getMembreId(), p.getStatutView().getId(), f, finOrig, p.getNotes()));
+            } else if (avant) {
+                p.setFin(d);
+                repo().update(p);
+            } else if (apres) {
+                p.setDebut(f);
+                repo().update(p);
+            } else {
+                repo().delete(p);   // entièrement couverte par le nouveau créneau
+            }
         }
+
+        if (noop) return PlanningDto.from(memeStatut.get(0));
         for (P p : memeStatut) repo().delete(p);   // absorbées dans la plage fusionnée
         P saved = repo().save(build(membreId, statutId, d, f, notes));
         onCreated(saved);   // ex. publier un événement temps réel (dans la transaction → diffusé après commit)
