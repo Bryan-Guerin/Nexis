@@ -110,6 +110,37 @@ public class SpVehiculeTypeService {
         }
         type.getNatures().clear();
         type.getNatures().addAll(natures);
+        reconcilierPrincipale(type);
         return SpVehiculeTypeDto.from(typeRepo.update(type));
+    }
+
+    /** Étoile une nature comme principale (catégorie dispatch). {@code natureId} null = retire l'étoile. */
+    @Transactional
+    public SpVehiculeTypeDto setNaturePrincipale(UUID typeId, UUID natureId) {
+        var type = typeRepo.findById(typeId)
+                .orElseThrow(() -> new NoSuchElementException("Type véhicule SP introuvable : " + typeId));
+        if (natureId == null) {
+            type.setNaturePrincipale(null);
+        } else {
+            var nature = type.getNatures().stream().filter(n -> n.getId().equals(natureId)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "La nature principale doit faire partie des natures du type."));
+            type.setNaturePrincipale(nature);
+        }
+        return SpVehiculeTypeDto.from(typeRepo.update(type));
+    }
+
+    /**
+     * Maintient la cohérence de la nature principale après modification des natures :
+     * une seule nature → promue automatiquement ; principale retirée des natures → effacée.
+     */
+    private void reconcilierPrincipale(SpVehiculeType type) {
+        var natures = type.getNatures();
+        if (natures.size() == 1) {
+            type.setNaturePrincipale(natures.iterator().next());
+        } else if (type.getNaturePrincipale() != null
+                && natures.stream().noneMatch(n -> n.getId().equals(type.getNaturePrincipale().getId()))) {
+            type.setNaturePrincipale(null);
+        }
     }
 }

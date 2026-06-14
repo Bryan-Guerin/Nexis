@@ -29,6 +29,11 @@ public class SpVehiculeType {
     )
     private Set<SpNatureIntervention> natures = new HashSet<>();
 
+    /** Nature « principale » du type (étoile) : sert de catégorie de regroupement au dispatch. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "nature_principale_id")
+    private SpNatureIntervention naturePrincipale;
+
     protected SpVehiculeType() {}
 
     public SpVehiculeType(String code, String label) {
@@ -40,7 +45,9 @@ public class SpVehiculeType {
     public String getCode()  { return code; }
     public String getLabel() { return label; }
     public Set<SpNatureIntervention> getNatures() { return natures; }
+    public SpNatureIntervention getNaturePrincipale() { return naturePrincipale; }
 
     public void setCode(String code)   { this.code = code; }
     public void setLabel(String label) { this.label = label; }
+    public void setNaturePrincipale(SpNatureIntervention naturePrincipale) { this.naturePrincipale = naturePrincipale; }
 }

@@ -12,6 +12,22 @@
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
 
+  // Regroupement par catégorie principale (nature principale du type), sections repliables.
+  let collapsed = $state({})
+  let groupes = $derived(grouperVehicules(vehicules))
+  function grouperVehicules(list) {
+    const map = new Map()
+    for (const v of list) {
+      const np = v.type?.naturePrincipale
+      const key = np?.id ?? '__autres__'
+      if (!map.has(key)) map.set(key, { key, label: np?.label ?? 'Autres', items: [] })
+      map.get(key).items.push(v)
+    }
+    return [...map.values()].sort((a, b) =>
+      a.key === '__autres__' ? 1 : b.key === '__autres__' ? -1 : a.label.localeCompare(b.label))
+  }
+  function toggleGroupe(key) { collapsed = { ...collapsed, [key]: !collapsed[key] } }
+
   let reloadTimer = null
 
   onMount(() => {
@@ -150,8 +166,16 @@
       {/if}
     </div>
 
-    <div class="grid">
-      {#each vehicules as v (v.id)}
+    {#each groupes as g (g.key)}
+    <section class="veh-group">
+      <button class="group-head" onclick={() => toggleGroupe(g.key)}>
+        <span class="group-caret">{collapsed[g.key] ? '▸' : '▾'}</span>
+        <span class="group-title">{g.label}</span>
+        <span class="group-count">{g.items.length}</span>
+      </button>
+      {#if !collapsed[g.key]}
+      <div class="grid">
+      {#each g.items as v (v.id)}
         <div class="card" style="border-top: 3px solid {v.statut.couleur}">
           <div class="card-head">
             <div class="veh-info">
@@ -197,10 +221,13 @@
           </div>
         </div>
       {/each}
-      {#if vehicules.length === 0}
-        <p class="muted">Aucun véhicule enregistré</p>
+      </div>
       {/if}
-    </div>
+    </section>
+    {/each}
+    {#if vehicules.length === 0}
+      <p class="muted">Aucun véhicule enregistré</p>
+    {/if}
   {/if}
 </div>
 
@@ -262,6 +289,17 @@
 {/if}
 
 <style>
+  .veh-group { margin-bottom: 16px; }
+  .group-head {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: none; cursor: pointer; padding: 6px 2px;
+    color: var(--color-text); font-size: 14px; font-weight: 600;
+    border-bottom: 1px solid var(--color-border); margin-bottom: 10px;
+  }
+  .group-caret { color: var(--color-muted); font-size: 11px; }
+  .group-title { flex: 1; text-align: left; }
+  .group-count { color: var(--color-muted); font-weight: 500; font-size: 12px; }
+
   .etat-dot { width: 6px; height: 6px; }
   .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }

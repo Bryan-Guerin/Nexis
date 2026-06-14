@@ -181,6 +181,15 @@
     } catch (e) { error = e.message }
   }
 
+  // Étoile la nature principale (catégorie de regroupement dispatch).
+  async function setPrincipale(t, natureId) {
+    const next = t.naturePrincipale?.id === natureId ? null : natureId
+    try {
+      const updated = await api.put(`/sp/vehicules/types/${t.id}/nature-principale`, { natureId: next })
+      types = types.map(x => x.id === updated.id ? updated : x)
+    } catch (e) { error = e.message }
+  }
+
   async function submitAddType(e) {
     e.preventDefault(); addTypeError = ''
     try {
@@ -400,12 +409,21 @@
               {/if}
             </div>
 
-            <!-- Natures (proposition d'engins) -->
+            <!-- Natures (proposition d'engins) + nature principale (★ = catégorie dispatch) -->
             <div class="sub">
-              <span class="sub-h">Natures — proposition</span>
+              <span class="sub-h">Natures — proposition <span class="hint">— ★ = catégorie principale (dispatch)</span></span>
               <div class="chips-row">
                 {#each natures as n (n.id)}
-                  <button class="nature-tag" class:on={(t.natureIds ?? []).includes(n.id)} onclick={() => toggleNature(t, n.id)}>{n.code}</button>
+                  {@const on = (t.natureIds ?? []).includes(n.id)}
+                  <span class="nature-wrap">
+                    <button class="nature-tag" class:on onclick={() => toggleNature(t, n.id)}>{n.code}</button>
+                    {#if on}
+                      <button class="star-btn" class:on={t.naturePrincipale?.id === n.id}
+                              title="Définir comme catégorie principale (dispatch)" onclick={() => setPrincipale(t, n.id)}>
+                        {t.naturePrincipale?.id === n.id ? '★' : '☆'}
+                      </button>
+                    {/if}
+                  </span>
                 {/each}
                 {#if natures.length === 0}<span class="muted small">Aucune nature configurée</span>{/if}
               </div>
@@ -550,6 +568,9 @@
   .chk-oblig { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
   .nature-tag { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-muted); border-radius: 16px; font-size: 11px; padding: 3px 10px; cursor: pointer; }
   .nature-tag.on { border-color: var(--accent); color: var(--accent); font-weight: 600; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .nature-wrap { display: inline-flex; align-items: center; gap: 2px; }
+  .star-btn { background: none; border: none; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; color: var(--color-muted); }
+  .star-btn.on { color: #e8a23a; }
   .nb { font-weight: 600; color: var(--accent); font-size: 11px; }
 
   .inv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
