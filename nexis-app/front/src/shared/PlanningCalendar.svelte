@@ -298,10 +298,12 @@
     </div>
   </div>
 
+  {#if error}
+    <p class="inline-error">{error}</p>
+  {/if}
+
   {#if loading}
     <p class="muted">Chargement…</p>
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
 
     <!-- ── Calendrier ─────────────────────────────────────────────────────── -->
