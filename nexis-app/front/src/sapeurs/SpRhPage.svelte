@@ -6,6 +6,7 @@
   let grades  = $state([])
   let error   = $state('')
   let savingId = $state(null)
+  let reglant = $state(false)
 
   onMount(() => { load(); loadGrades() })
 
@@ -34,7 +35,17 @@
     finally { savingId = null }
   }
 
+  async function regler() {
+    if (!paie || paie.payee) return
+    if (!confirm(`Marquer la paie de la semaine du ${jour(paie.debut)} comme réglée ?\nAction irréversible — chaque membre sera notifié de son versement.`)) return
+    reglant = true; error = ''
+    try { paie = await api.post(`/sp/rh/paie/regler?lundi=${paie.debut}`) }
+    catch (e) { error = e.message }
+    finally { reglant = false }
+  }
+
   function jour(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) }
+  function dateHeure(iso) { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
   function eur(n) { return (n ?? 0).toFixed(2) + ' €' }
 </script>
 
@@ -79,6 +90,16 @@
           <tr><td colspan="5" class="r strong">Total</td><td class="r mono strong">{eur(paie.total)}</td></tr>
         </tfoot>
       </table>
+
+      <div class="pay-action">
+        {#if paie.payee}
+          <span class="paid-badge">✓ Payée le {dateHeure(paie.regleLe)}{#if paie.reglePar} par {paie.reglePar}{/if}</span>
+        {:else}
+          <button class="btn-primary" onclick={regler} disabled={reglant}>
+            {reglant ? 'Enregistrement…' : 'Marquer la semaine payée'}
+          </button>
+        {/if}
+      </div>
     {/if}
   </section>
 
@@ -116,6 +137,9 @@
   th.r, td.r { text-align: right; }
   .strong { font-weight: 700; }
   tfoot td { border-top: 2px solid var(--color-border); padding-top: 8px; }
+
+  .pay-action { display: flex; justify-content: flex-end; margin-top: 12px; }
+  .paid-badge { color: var(--color-success, #4caf82); font-weight: 600; font-size: 13px; }
 
   .taux-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .taux-row { display: flex; align-items: center; gap: 10px; }

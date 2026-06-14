@@ -1,31 +1,50 @@
 package com.bryan.nexis.sapeurs.backend.rh;
 
 import com.bryan.nexis.core.datamodel.TypeService;
+import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpPaieSemaineDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpPaieSemaineDto.Ligne;
+import com.bryan.nexis.sapeurs.backend.dto.SpPaieVersementDto;
 import com.bryan.nexis.sapeurs.datamodel.SpMembre;
+import com.bryan.nexis.sapeurs.datamodel.SpPaieVersement;
+import com.bryan.nexis.sapeurs.datarepository.SpMembreRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpPaieVersementRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpPlanningRepository;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Singleton
 public class SpPaieService {
 
     private static final ZoneId ZONE = ZoneId.of("Europe/Paris");
+    private static final DateTimeFormatter JOUR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final SpPlanningRepository planningRepo;
+    private final SpMembreRepository   membreRepo;
+    private final SpPaieVersementRepository versementRepo;
+    private final ApplicationEventPublisher<RealtimeEvent> events;
 
-    public SpPaieService(SpPlanningRepository planningRepo) {
-        this.planningRepo = planningRepo;
+    public SpPaieService(SpPlanningRepository planningRepo, SpMembreRepository membreRepo,
+                         SpPaieVersementRepository versementRepo,
+                         ApplicationEventPublisher<RealtimeEvent> events) {
+        this.planningRepo  = planningRepo;
+        this.membreRepo    = membreRepo;
+        this.versementRepo = versementRepo;
+        this.events        = events;
     }
 
     /**
@@ -61,8 +80,48 @@ public class SpPaieService {
         }
         lignes.sort(Comparator.comparing(Ligne::matricule));
 
+        // État de règlement de la semaine (qui a réglé, quand).
+        boolean payee = versementRepo.existsBySemaineLundi(lundi);
+        String reglePar = null, regleLe = null;
+        if (payee) {
+            var v = versementRepo.findBySemaineLundi(lundi).stream().findFirst().orElse(null);
+            if (v != null) { reglePar = v.getReglePar(); regleLe = v.getRegleLe().toString(); }
+        }
+
         return new SpPaieSemaineDto(lundi.toString(), lundi.plusDays(6).toString(),
-                total.setScale(2, RoundingMode.HALF_UP), lignes);
+                total.setScale(2, RoundingMode.HALF_UP), lignes, payee, reglePar, regleLe);
+    }
+
+    /**
+     * Marque la paie de la semaine comme réglée (action RH, irréversible) : enregistre un versement
+     * par membre, trace en main courante (qui a réglé) et permet la notification « vous avez été payé »
+     * de chaque membre (même non connecté, via le seed au login).
+     */
+    @Transactional
+    public SpPaieSemaineDto regler(LocalDate dateDansSemaine, String payePar) {
+        SpPaieSemaineDto paie = semaine(dateDansSemaine);
+        LocalDate lundi = LocalDate.parse(paie.debut());
+        if (paie.payee()) throw new IllegalStateException("La paie de cette semaine est déjà réglée.");
+        if (paie.lignes().isEmpty()) throw new IllegalStateException("Aucune heure à régler sur cette semaine.");
+
+        for (var l : paie.lignes()) {
+            var membre = membreRepo.findById(l.membreId())
+                    .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + l.membreId()));
+            versementRepo.save(new SpPaieVersement(membre, lundi, l.montant(), payePar));
+        }
+        // Une seule ligne de main courante (la notif individuelle des membres passe par le seed).
+        events.publishEvent(RealtimeEvent.faction(RealtimeEvent.PAIE, "SP",
+                "Paie de la semaine du " + lundi.format(JOUR) + " réglée — total " + paie.total()
+                        + " € (" + paie.lignes().size() + " effectifs)",
+                Map.of("semaine", lundi.toString()), payePar));
+        return semaine(dateDansSemaine);
+    }
+
+    /** Versements de paie d'un membre (récent → ancien), pour la notification « vous avez été payé ». */
+    @Transactional
+    public List<SpPaieVersementDto> mesVersements(UUID membreId) {
+        return versementRepo.findByMembreIdOrderByRegleLeDesc(membreId).stream()
+                .map(SpPaieVersementDto::from).toList();
     }
 
     private void cumuler(java.util.List<com.bryan.nexis.sapeurs.datamodel.SpPlanning> plages, Instant start, Instant end,

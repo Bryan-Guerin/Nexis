@@ -16,6 +16,8 @@
   let isAdmin = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isRh    = $derived($currentUser?.roles?.includes('ROLE_SP_RH') ?? false)
   let canManageNotation = $derived(isAdmin || isRh)
+  // Le RH (et l'admin) peut éditer les informations d'un membre (radiation/création restent admin).
+  let canEditInfos = $derived(isAdmin || isRh)
 
   // Notations du membre sélectionné
   let notations = $state([])
@@ -446,7 +448,7 @@
             <!-- Nom / Prénom -->
             <div class="info-row">
               <span class="info-label">Nom / Prénom</span>
-              {#if editName && isAdmin}
+              {#if editName && canEditInfos}
                 <div class="inline-edit">
                   <input type="text" maxlength="100" bind:value={editNameVal} placeholder="Nom Prénom" />
                   <button class="btn-save" onclick={saveName}>✓</button>
@@ -455,7 +457,7 @@
               {:else}
                 <span class="info-value">
                   {selected.nomComplet || '—'}
-                  {#if isAdmin}<button class="btn-edit" onclick={() => openEdit('name')} title="Modifier">✎</button>{/if}
+                  {#if canEditInfos}<button class="btn-edit" onclick={() => openEdit('name')} title="Modifier">✎</button>{/if}
                 </span>
               {/if}
             </div>
@@ -463,7 +465,7 @@
             <!-- Téléphone -->
             <div class="info-row">
               <span class="info-label">Téléphone</span>
-              {#if editTel && isAdmin}
+              {#if editTel && canEditInfos}
                 <div class="inline-edit">
                   <input type="tel" maxlength="10" bind:value={editTelVal} placeholder="0612345678"
                          oninput={e => editTelVal = e.target.value.replace(/\D/g, '').slice(0, 10)} />
@@ -473,7 +475,7 @@
               {:else}
                 <span class="info-value">
                   {selected.telephone || '—'}
-                  {#if isAdmin}<button class="btn-edit" onclick={() => openEdit('tel')} title="Modifier">✎</button>{/if}
+                  {#if canEditInfos}<button class="btn-edit" onclick={() => openEdit('tel')} title="Modifier">✎</button>{/if}
                 </span>
               {/if}
             </div>
@@ -481,7 +483,7 @@
             <!-- Grade -->
             <div class="info-row">
               <span class="info-label">Grade</span>
-              {#if editGrade && isAdmin}
+              {#if editGrade && canEditInfos}
                 <div class="inline-edit">
                   <select bind:value={editGradeId}>
                     {#each grades as g}<option value={g.id}>{g.label}</option>{/each}
@@ -492,7 +494,7 @@
               {:else}
                 <span class="info-value">
                   {selected.grade}
-                  {#if isAdmin}
+                  {#if canEditInfos}
                     <button class="btn-edit" onclick={() => openEdit('grade')} title="Modifier">✎</button>
                   {/if}
                 </span>
@@ -502,7 +504,7 @@
             <!-- Contrat -->
             <div class="info-row">
               <span class="info-label">Contrat</span>
-              {#if editContrat && isAdmin}
+              {#if editContrat && canEditInfos}
                 <div class="inline-edit">
                   <button
                     class="contrat-btn"
@@ -519,7 +521,7 @@
               {:else}
                 <span class="info-value">
                   {selected.contrat === 'SPP' ? 'Sapeur-Pompier Professionnel' : 'Sapeur-Pompier Volontaire'}
-                  {#if isAdmin}
+                  {#if canEditInfos}
                     <button class="btn-edit" onclick={() => openEdit('contrat')} title="Modifier">✎</button>
                   {/if}
                 </span>
@@ -529,7 +531,7 @@
             <!-- Numéro de casier -->
             <div class="info-row">
               <span class="info-label">N° casier</span>
-              {#if editCasier && isAdmin}
+              {#if editCasier && canEditInfos}
                 <div class="inline-edit">
                   <select bind:value={editCasierVal} style="width:80px">
                     {#each casierEditOptions as n}
@@ -542,7 +544,7 @@
               {:else}
                 <span class="info-value">
                   {selected.numeroCasier}
-                  {#if isAdmin}
+                  {#if canEditInfos}
                     <button class="btn-edit" onclick={() => openEdit('casier')} title="Modifier">✎</button>
                   {/if}
                 </span>

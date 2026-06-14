@@ -17,6 +17,7 @@ public class RealtimeEvent {
     public static final String ETAT_VEHICULE        = "ETAT_VEHICULE";
     public static final String INVENTAIRE           = "INVENTAIRE";
     public static final String PLANNING             = "PLANNING";
+    public static final String PAIE                 = "PAIE";
     public static final String MAIN_COURANTE        = "MAIN_COURANTE";
     public static final String BIP                  = "BIP";
     public static final String INTERVENTION_OUVERTE  = "INTERVENTION_OUVERTE";

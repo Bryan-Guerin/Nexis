@@ -51,6 +51,12 @@ public class SpRhController {
         return paieService.semaine(lundi.map(LocalDate::parse).orElse(null));
     }
 
+    /** Marque la paie de la semaine comme réglée (irréversible). Notifie chaque membre. */
+    @Post("/paie/regler")
+    SpPaieSemaineDto reglerPaie(@QueryValue Optional<String> lundi) {
+        return paieService.regler(lundi.map(LocalDate::parse).orElse(null), securityService.username().orElse(null));
+    }
+
     /** Grades avec leur taux horaire (pour gérer la base de paie). */
     @Get("/grades")
     List<SpGradeDto> grades() {

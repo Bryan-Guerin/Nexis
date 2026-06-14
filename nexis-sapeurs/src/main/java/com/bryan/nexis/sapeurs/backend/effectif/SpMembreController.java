@@ -8,8 +8,10 @@ import com.bryan.nexis.sapeurs.backend.dto.CreateSpMembreRequest;
 import com.bryan.nexis.sapeurs.backend.dto.CreateSpPlanningRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreDto;
 import com.bryan.nexis.sapeurs.backend.dto.UpdateSpMembreRequest;
+import com.bryan.nexis.sapeurs.backend.dto.SpPaieVersementDto;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningService;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningStatutService;
+import com.bryan.nexis.sapeurs.backend.rh.SpPaieService;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.security.annotation.Secured;
@@ -27,13 +29,16 @@ public class SpMembreController {
     private final SpPlanningService       planningService;
     private final SpPlanningStatutService planningStatutService;
     private final NotationService         notationService;
+    private final SpPaieService           paieService;
 
     public SpMembreController(SpMembreService membreService, SpPlanningService planningService,
-                              SpPlanningStatutService planningStatutService, NotationService notationService) {
+                              SpPlanningStatutService planningStatutService, NotationService notationService,
+                              SpPaieService paieService) {
         this.membreService         = membreService;
         this.planningService       = planningService;
         this.planningStatutService = planningStatutService;
         this.notationService       = notationService;
+        this.paieService           = paieService;
     }
 
     /** Mes notations (l'effectif voit les siennes). */
@@ -54,6 +59,13 @@ public class SpMembreController {
     List<PlanningDto> getMyPlanning(Authentication auth) {
         var me = membreService.findByUsername(auth.getName());
         return planningService.listByMembre(me.id());
+    }
+
+    /** Mes versements de paie (pour la notification « vous avez été payé »). */
+    @Get("/membres/me/paies")
+    List<SpPaieVersementDto> mesPaies(Authentication auth) {
+        var me = membreService.findByUsername(auth.getName());
+        return paieService.mesVersements(me.id());
     }
 
     @Post("/planning/me")
@@ -129,7 +141,7 @@ public class SpMembreController {
     // ── Mise à jour partielle (admin) ─────────────────────────────────────────
 
     @Patch("/membres/{id}")
-    @Secured("ROLE_ADMIN_SP")
+    @Secured({"ROLE_SP_RH", "ROLE_ADMIN_SP"})
     SpMembreDto updateMembre(UUID id, @Body UpdateSpMembreRequest req) {
         return membreService.update(id, req.gradeId(), req.contrat(), req.numeroCasier(), req.nomComplet(), req.telephone());
     }
