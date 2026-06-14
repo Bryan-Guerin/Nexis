@@ -367,6 +367,19 @@
             {#if i.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
           </div>
 
+          <div class="i-services">
+            <span class="svc-chip svc-{(i.renfortGn ?? 'NON_PREVENU').toLowerCase()}" title="Gendarmerie">GN&nbsp;: {renfortLabel(i.renfortGn)}</span>
+            <span class="svc-chip svc-{(i.renfortVinci ?? 'NON_PREVENU').toLowerCase()}" title="Dépanneur (VINCI)">Dépanneur&nbsp;: {renfortLabel(i.renfortVinci)}</span>
+          </div>
+
+          {#if (i.dernieresLignes ?? []).length > 0}
+            <ul class="i-mc">
+              {#each i.dernieresLignes as ev (ev.id)}
+                <li><span class="mono">{fmt(ev.creeLe)}</span> <span class="mc-msg">{ev.message}</span></li>
+              {/each}
+            </ul>
+          {/if}
+
           <div class="i-actions">
             <button class="btn-ghost-sm" onclick={() => openDetail(i)}>Détail</button>
             {#if i.enCours}
@@ -632,6 +645,16 @@
   .engin { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 4px 10px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
 
   .i-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .i-services { display: flex; gap: 8px; flex-wrap: wrap; }
+  .svc-chip { font-size: 11px; font-weight: 600; border-radius: 12px; padding: 2px 9px; border: 1px solid var(--color-border); color: var(--color-muted); }
+  .svc-chip.svc-prevenu { color: #e0a23c; border-color: color-mix(in srgb, #e0a23c 45%, transparent); background: color-mix(in srgb, #e0a23c 12%, transparent); }
+  .svc-chip.svc-sur_place { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 45%, transparent); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
+
+  .i-mc { list-style: none; margin: 0; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .i-mc li { font-size: 12px; display: flex; gap: 8px; }
+  .i-mc .mono { font-family: monospace; color: var(--color-muted); white-space: nowrap; }
+  .i-mc .mc-msg { color: var(--color-text); }
 
   .veh-pick, .renfort { display: flex; flex-direction: column; gap: 6px; }
   .pick-label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .5px; }

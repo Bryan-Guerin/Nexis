@@ -194,14 +194,26 @@ public class SpInterventionService {
                 .orElseThrow(() -> new NoSuchElementException("Véhicule SP introuvable : " + id));
     }
 
+    /** Nombre de lignes de main courante remontées dans la vue liste. */
+    private static final int DERNIERES_MC = 5;
+
     @Transactional
     public List<SpInterventionDto> listAll() {
-        return interventionRepo.findAll(BY_DEBUT_DESC).stream().map(SpInterventionDto::from).toList();
+        return interventionRepo.findAll(BY_DEBUT_DESC).stream()
+                .map(i -> SpInterventionDto.from(i, dernieresLignes(i.getCode()))).toList();
     }
 
     @Transactional
     public List<SpInterventionDto> listEnCours() {
-        return interventionRepo.findByFinIsNull().stream().map(SpInterventionDto::from).toList();
+        return interventionRepo.findByFinIsNull().stream()
+                .map(i -> SpInterventionDto.from(i, dernieresLignes(i.getCode()))).toList();
+    }
+
+    /** Les {@value #DERNIERES_MC} dernières lignes de main courante d'une intervention (pour la vue liste). */
+    private List<JournalEntryDto> dernieresLignes(String code) {
+        var all = nommage.enrichir(journalService.byReference(code));   // ordre chronologique
+        int n = all.size();
+        return n <= DERNIERES_MC ? all : all.subList(n - DERNIERES_MC, n);
     }
 
     /** Main courante d'une intervention (journal relié à son code). */
