@@ -60,6 +60,9 @@ jobs:
   deploy:
     name: Deploy (VPS)
     needs: image
+    # Déploiement UNIQUEMENT sur push/fusion vers main. Les tags vX.Y.Z buildent
+    # l'image (versionnée) mais ne déclenchent pas de déploiement automatique.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Pull & up via SSH

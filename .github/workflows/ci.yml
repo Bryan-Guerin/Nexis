@@ -1,10 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  push:              # tests sur toute branche poussée
+  pull_request:      # tests à l'ouverture / mise à jour d'une PR
 
 permissions:
   contents: read
