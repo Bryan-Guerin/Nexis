@@ -2,9 +2,13 @@
   import {onMount} from 'svelte'
   import {api} from '../shared/api.js'
   import {refNatures} from '../shared/referentials.js'
+  import {currentUser} from '../shared/stores.js'
 
   // Modal de création d'intervention, réutilisable (écran interventions + bouton rapide dispatch).
   let { onclose, oncreated } = $props()
+
+  let isDispatch = $derived(($currentUser?.roles ?? []).some(r => r === 'ROLE_SP_DISPATCH' || r === 'ROLE_ADMIN_SP'))
+  let affecterAutoApresDepart = $state(true)
 
   let natures   = $state([])
   let vehicules = $state([])
@@ -82,7 +86,7 @@
     if (!avertirNonArmes(createSel)) return
     if (!(await avertirDesaffectation(createSel))) return
     try {
-      await api.post('/sp/interventions', {
+      const created = await api.post('/sp/interventions', {
         motif: form.motif,
         natureId: form.natureId,
         requerant: form.requerant || null,
@@ -95,6 +99,11 @@
         vehiculeImplique: form.vehiculeImplique,
         vehiculeIds: createSel,
       })
+      // Affectation auto de l'équipage de garde sur chaque engin engagé (dispatch).
+      if (isDispatch && affecterAutoApresDepart) {
+        await Promise.all((created?.engins ?? [])
+          .map(e => api.post(`/sp/vehicules/${e.vehiculeId}/affecter-auto`).catch(() => null)))
+      }
       oncreated?.()
       onclose()
     } catch (err) { createError = err.message }
@@ -180,6 +189,9 @@
       </div>
 
       <div class="modal-actions">
+        {#if isDispatch}
+          <label class="auto-chk"><input type="checkbox" bind:checked={affecterAutoApresDepart} /> Affecter auto l'équipage de garde</label>
+        {/if}
         <button type="submit" class="btn-primary">Déclencher l'intervention</button>
       </div>
     </form>
@@ -201,6 +213,7 @@
   .veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 
+  .auto-chk { margin-right: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text); }
   .lot-btn { align-self: flex-start; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius); font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer; }
   .sec-alerte { display: flex; gap: 10px; flex-wrap: wrap; }
   .sec-alerte .big { flex: 1; min-width: 180px; }

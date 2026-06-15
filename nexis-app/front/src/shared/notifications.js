@@ -34,9 +34,27 @@ const RULES = [
   { type: 'INVENTAIRE',     icon: '📋', audience: isAdmin,    test: ev => ev.payload?.conforme === 'false' },
   { type: 'DESAFFECTATION', icon: '🚪', audience: () => true, test: ev => ev.payload?.membreUsername === username() },
   { type: 'GARDE_FIN_INTERVENTION', icon: '⏰', audience: () => true, test: ev => ev.payload?.membreUsername === username() },
+  { type: 'INTERVENTION_OUVERTE', icon: '🚨', audience: isDispatch, test: () => true },     // alerte ouverture (dispatch/admin)
   { type: 'PAIE',           icon: '💶', audience: isRhOrAdmin, test: () => true },          // règlement global (RH/admin)
   { type: 'PAIE_VERSEE',    icon: '💶', audience: () => true,  test: () => true },          // personnel (USERS scope → destinataire seul)
 ]
+
+// Bref bip d'alerte (sans fichier audio). Silencieux si l'audio n'est pas autorisé.
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'; osc.frequency.value = 880
+    gain.gain.value = 0.06
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.18)
+    osc.onended = () => ctx.close()
+  } catch { /* audio bloqué : on ignore */ }
+}
 
 function push(items) {
   if (!items.length) return
@@ -95,6 +113,8 @@ export function startNotifications() {
     const n = fromEvent(ev); if (n) push([n])
     // Versement reçu en direct : on le marque vu pour éviter un doublon au prochain login (seed).
     if (ev?.type === 'PAIE_VERSEE' && ev.payload?.semaine) markPaieSeen(ev.payload.semaine)
+    // Bip sonore à l'ouverture d'une intervention (dispatch/admin).
+    if (ev?.faction === 'SP' && ev.type === 'INTERVENTION_OUVERTE' && isDispatch()) beep()
   })
   seedRelancesEchues()
   seedPaiesVersees()
