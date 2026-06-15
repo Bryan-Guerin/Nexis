@@ -87,6 +87,52 @@
   function jour(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) }
   function dateHeure(iso) { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
   function eur(n) { return (n ?? 0).toFixed(2) + ' €' }
+
+  // ── Trésorerie : filtre, totaux par catégorie, export CSV, contre-passation ──
+  let mvtFiltre = $state('')   // '' = toutes ; 'SANS' = sans catégorie ; sinon id catégorie
+  let mvtsFiltres = $derived(!finance ? [] : finance.mouvements.filter(m =>
+    mvtFiltre === '' ? true : mvtFiltre === 'SANS' ? !m.categorieId : m.categorieId === mvtFiltre))
+  let totauxCat = $derived.by(() => {
+    if (!finance) return []
+    const map = new Map()
+    for (const m of finance.mouvements) {
+      const key = m.categorieId ?? 'SANS'
+      const cur = map.get(key) ?? { libelle: m.categorieLibelle ?? 'Sans catégorie', net: 0 }
+      cur.net += (m.type === 'GAIN' ? 1 : -1) * Number(m.montant)
+      map.set(key, cur)
+    }
+    return [...map.values()].sort((a, b) => a.libelle.localeCompare(b.libelle))
+  })
+
+  function downloadCsv(rows, filename) {
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = rows.map(r => r.map(esc).join(';')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob); a.download = filename; a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  function exportTresoCsv() {
+    const rows = [['Date', 'Type', 'Libellé', 'Catégorie', 'Montant', 'Par']]
+    for (const m of mvtsFiltres) rows.push([m.date, m.type, m.libelle, m.categorieLibelle ?? '', m.montant, m.creePar ?? ''])
+    downloadCsv(rows, `tresorerie-${finance.libelle.replace(/\s+/g, '_')}.csv`)
+  }
+  function exportPaieCsv() {
+    const rows = [['Matricule', 'Agent', 'Grade', 'Heures garde', 'Heures astreinte', 'Montant']]
+    for (const l of paie.lignes) rows.push([l.matricule, l.username, l.grade, l.heuresGarde, l.heuresAstreinte, l.montant])
+    rows.push(['', '', '', '', 'Total', paie.total])
+    downloadCsv(rows, `paie-${paie.debut}.csv`)
+  }
+  async function contrePasser(m) {
+    if (!window.confirm(`Contre-passer « ${m.libelle} » (${eur(m.montant)}) ?\nCrée l'écriture inverse.`)) return
+    try {
+      finance = await api.post('/sp/rh/finance/mouvements', {
+        type: m.type === 'GAIN' ? 'DEPENSE' : 'GAIN', montant: Number(m.montant),
+        libelle: `Annulation : ${m.libelle}`, date: new Date().toISOString().slice(0, 10),
+        categorieId: m.categorieId || null,
+      })
+    } catch (e) { error = e.message }
+  }
 </script>
 
 <div class="page">
@@ -162,13 +208,30 @@
         <button class="btn-primary" onclick={addMouvement}>Ajouter</button>
       </div>
 
+      <!-- Totaux par catégorie -->
+      {#if totauxCat.length > 0}
+        <div class="cat-totaux">
+          {#each totauxCat as t}
+            <span class="cat-total" class:neg={t.net < 0}>{t.libelle} : {t.net >= 0 ? '+' : '−'}{eur(Math.abs(t.net))}</span>
+          {/each}
+        </div>
+      {/if}
+
       <!-- Historique -->
+      <div class="mvt-bar">
+        <select bind:value={mvtFiltre} class="mvt-filtre">
+          <option value="">Toutes catégories</option>
+          {#each finance.categories as c (c.id)}<option value={c.id}>{c.libelle}</option>{/each}
+          <option value="SANS">Sans catégorie</option>
+        </select>
+        <button class="btn-ghost-sm" disabled={mvtsFiltres.length === 0} onclick={exportTresoCsv}>⤓ Export CSV</button>
+      </div>
       <table class="mvt-table">
         <thead>
-          <tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th class="r">Montant</th><th>Par</th></tr>
+          <tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th class="r">Montant</th><th>Par</th><th></th></tr>
         </thead>
         <tbody>
-          {#each finance.mouvements as m (m.id)}
+          {#each mvtsFiltres as m (m.id)}
             <tr>
               <td class="mono">{jour(m.date)}</td>
               <td>{m.libelle}</td>
@@ -177,11 +240,12 @@
                 {m.type === 'GAIN' ? '+' : '−'}{eur(m.montant)}
               </td>
               <td class="muted small">{m.creePar ?? '—'}</td>
+              <td><button class="cp-btn" title="Contre-passer (écriture inverse)" onclick={() => contrePasser(m)}>↺</button></td>
             </tr>
           {/each}
         </tbody>
       </table>
-      {#if finance.mouvements.length === 0}<p class="muted small">Aucun mouvement enregistré.</p>{/if}
+      {#if mvtsFiltres.length === 0}<p class="muted small">Aucun mouvement{mvtFiltre ? ' dans cette catégorie' : ' enregistré'}.</p>{/if}
     {/if}
   </section>
 
@@ -192,6 +256,9 @@
       {#if paie}<span class="week-label">Semaine du {jour(paie.debut)} au {jour(paie.fin)}</span>{/if}
       <button class="btn-ghost-sm" onclick={() => shiftWeek(7)}>Semaine suiv. →</button>
       <button class="btn-ghost-sm" onclick={() => load()}>Cette semaine</button>
+      {#if paie && paie.lignes.length > 0}
+        <button class="btn-ghost-sm" style="margin-left:auto" onclick={exportPaieCsv}>⤓ Export CSV</button>
+      {/if}
     </div>
 
     {#if !paie}
@@ -300,6 +367,14 @@
   .mvt-form input, .mvt-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
   .mvt-form .m-lib { flex: 1; min-width: 160px; }
   .mvt-form .m-num { width: 110px; }
+
+  .cat-totaux { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .cat-total { font-size: 12px; border: 1px solid var(--color-border); border-radius: 12px; padding: 3px 10px; color: var(--color-success); }
+  .cat-total.neg { color: var(--color-danger); }
+  .mvt-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .mvt-filtre { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
+  .cp-btn { background: none; border: none; color: var(--color-muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+  .cp-btn:hover { color: var(--accent); }
 
   .mvt-table { width: 100%; }
   .mvt-table th, .mvt-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--color-border); font-size: 13px; }
