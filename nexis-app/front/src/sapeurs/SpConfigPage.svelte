@@ -73,6 +73,15 @@
     } catch (e) { formError = e.message }
   }
 
+  // Catégorie d'une fonction (ordre d'affichage de l'équipage au dispatch).
+  const TYPES_FONCTION = [['CHEF_AGRES', "Chef d'agrès"], ['CONDUCTEUR', 'Conducteur'], ['CHEF_EQUIPE', "Chef d'équipe"], ['EQUIPIER', 'Équipier']]
+  async function setFonctionType(it, type) {
+    try {
+      const u = await api.put(`/sp/fonctions/${it.id}/type`, { type })
+      items = items.map(x => x.id === u.id ? u : x)
+    } catch (e) { error = e.message }
+  }
+
   async function removeItem(it) {
     if (!cat.deletable) return
     const extra = cat.confirmDelete ? '\nLes postes liés seront aussi supprimés.'
@@ -172,6 +181,12 @@
               {/if}
               <span class="it-label">{itemLabel(it)}</span>
               {#if it.code}<span class="chip-code">{it.code}</span>{/if}
+              {#if cat.key === 'fonctions'}
+                <select class="type-fonction-sel" value={it.type} title="Catégorie — ordre de l'équipage au dispatch"
+                        onchange={e => setFonctionType(it, e.target.value)}>
+                  {#each TYPES_FONCTION as [v, l]}<option value={v}>{l}</option>{/each}
+                </select>
+              {/if}
               {#if cat.kind === 'statut'}<span class="cat-badge">{it.categorie}</span>{/if}
               {#if cat.kind === 'statutveh' && it.etat}<span class="cat-badge" title="État appliqué">→ {it.etat.label}</span>{/if}
               {#if cat.key === 'statutsveh'}
@@ -302,6 +317,7 @@
   .cat-badge { font-size: 9px; font-weight: 700; letter-spacing: .4px; color: var(--color-muted); border: 1px solid var(--color-border); border-radius: 8px; padding: 1px 6px; }
   .defaut-btn { background: none; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-muted); font-size: 10px; padding: 1px 6px; cursor: pointer; }
   .defaut-btn.on { border-color: var(--accent); color: var(--accent); }
+  .type-fonction-sel { font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; cursor: pointer; }
 
   .add-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .check-label { display: flex; align-items: center; gap: 6px; font-size: 13px; align-self: flex-end; padding-bottom: 8px; white-space: nowrap; }

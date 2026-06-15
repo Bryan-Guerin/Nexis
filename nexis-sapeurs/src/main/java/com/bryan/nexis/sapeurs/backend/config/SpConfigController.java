@@ -102,6 +102,12 @@ public class SpConfigController {
         fonctionService.reorder(req.ids());
     }
 
+    /** Catégorie de la fonction (ordre de l'équipage au dispatch). */
+    @Put("/fonctions/{id}/type")
+    SpFonctionDto setFonctionType(UUID id, @Body SetTypeFonctionRequest req) {
+        return fonctionService.updateType(id, req.type());
+    }
+
     @Delete("/fonctions/{id}")
     io.micronaut.http.HttpResponse<?> deleteFonction(UUID id) {
         try {

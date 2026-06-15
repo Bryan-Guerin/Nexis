@@ -36,6 +36,15 @@ public class SpFonctionService {
         return SpFonctionDto.from(repo.save(fonction));
     }
 
+    /** Définit la catégorie de la fonction (ordre d'affichage de l'équipage au dispatch). */
+    @Transactional
+    public SpFonctionDto updateType(UUID id, String type) {
+        var fonction = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Fonction introuvable : " + id));
+        fonction.setTypeFonction(com.bryan.nexis.sapeurs.datamodel.TypeFonction.valueOf(type));
+        return SpFonctionDto.from(repo.update(fonction));
+    }
+
     /** Supprime une fonction : les dépendants (postes…) réagissent via les listeners. */
     @Transactional
     public void delete(UUID id) {

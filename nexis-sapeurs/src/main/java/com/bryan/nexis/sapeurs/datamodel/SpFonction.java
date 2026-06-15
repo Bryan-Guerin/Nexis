@@ -18,9 +18,14 @@ public class SpFonction {
     @Column(nullable = false, length = 100)
     private String label;
 
-    /** Ordre d'affichage (comme l'index d'une enum). */
+    /** Ordre d'affichage de la liste des fonctions (basique → complexe). */
     @Column(name = "ordre", nullable = false)
     private int position;
+
+    /** Catégorie → ordre de l'équipage au dispatch (CA, Conducteur, Chef d'équipe, Équipier). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_fonction", nullable = false, length = 20)
+    private TypeFonction typeFonction = TypeFonction.EQUIPIER;
 
     protected SpFonction() {}
 
@@ -33,6 +38,8 @@ public class SpFonction {
     public String getCode()  { return code; }
     public String getLabel() { return label; }
     public int getPosition() { return position; }
+    public TypeFonction getTypeFonction() { return typeFonction; }
 
     public void setPosition(int position) { this.position = position; }
+    public void setTypeFonction(TypeFonction typeFonction) { this.typeFonction = typeFonction; }
 }

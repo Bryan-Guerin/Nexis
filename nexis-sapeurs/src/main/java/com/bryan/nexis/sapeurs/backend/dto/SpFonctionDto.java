@@ -6,9 +6,9 @@ import io.micronaut.serde.annotation.Serdeable;
 import java.util.UUID;
 
 @Serdeable
-public record SpFonctionDto(UUID id, String code, String label, int position) {
+public record SpFonctionDto(UUID id, String code, String label, int position, String type) {
 
     public static SpFonctionDto from(SpFonction f) {
-        return new SpFonctionDto(f.getId(), f.getCode(), f.getLabel(), f.getPosition());
+        return new SpFonctionDto(f.getId(), f.getCode(), f.getLabel(), f.getPosition(), f.getTypeFonction().name());
     }
 }
