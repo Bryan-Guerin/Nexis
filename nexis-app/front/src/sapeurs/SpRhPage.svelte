@@ -79,7 +79,7 @@
     if (!paie || paie.payee) return
     if (!confirm(`Marquer la paie de la semaine du ${jour(paie.debut)} comme réglée ?\nAction irréversible — chaque membre sera notifié de son versement.`)) return
     reglant = true; error = ''
-    try { paie = await api.post(`/sp/rh/paie/regler?lundi=${paie.debut}`) }
+    try { paie = await api.post(`/sp/rh/paie/regler?lundi=${paie.debut}`); await loadFinance() }
     catch (e) { error = e.message }
     finally { reglant = false }
   }

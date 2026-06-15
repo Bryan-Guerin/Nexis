@@ -94,4 +94,16 @@ public class SpFinanceService {
         mouvementRepo.save(new SpFinanceMouvement(type, montant, libelle.trim(), jour, categorie, creePar));
         return resume();
     }
+
+    /**
+     * Enregistre une dépense de salaire (catégorie « Salaire », créée si absente) — appelé au
+     * règlement d'une paie hebdomadaire. Décrémente de fait le solde du compte.
+     */
+    @Transactional
+    public void enregistrerSalaire(BigDecimal montant, String libelle, String par) {
+        if (montant == null || montant.signum() <= 0) return;
+        var categorie = categorieRepo.findByLibelle("Salaire")
+                .orElseGet(() -> categorieRepo.save(new SpFinanceCategorie("Salaire")));
+        mouvementRepo.save(new SpFinanceMouvement(SpFinanceMouvement.DEPENSE, montant, libelle, LocalDate.now(), categorie, par));
+    }
 }

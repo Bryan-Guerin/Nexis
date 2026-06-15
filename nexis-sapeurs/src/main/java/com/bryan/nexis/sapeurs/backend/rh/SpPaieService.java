@@ -36,15 +36,17 @@ public class SpPaieService {
     private final SpPlanningRepository planningRepo;
     private final SpMembreRepository   membreRepo;
     private final SpPaieVersementRepository versementRepo;
+    private final SpFinanceService     financeService;
     private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpPaieService(SpPlanningRepository planningRepo, SpMembreRepository membreRepo,
-                         SpPaieVersementRepository versementRepo,
+                         SpPaieVersementRepository versementRepo, SpFinanceService financeService,
                          ApplicationEventPublisher<RealtimeEvent> events) {
-        this.planningRepo  = planningRepo;
-        this.membreRepo    = membreRepo;
-        this.versementRepo = versementRepo;
-        this.events        = events;
+        this.planningRepo   = planningRepo;
+        this.membreRepo     = membreRepo;
+        this.versementRepo  = versementRepo;
+        this.financeService = financeService;
+        this.events         = events;
     }
 
     /**
@@ -120,6 +122,10 @@ public class SpPaieService {
                 "Paie de la semaine du " + lundi.format(JOUR) + " réglée — total " + paie.total()
                         + " € (" + paie.lignes().size() + " effectifs)",
                 Map.of("semaine", lundi.toString()), payePar));
+
+        // Dépense de trésorerie (catégorie Salaire) : décrémente le compte du montant réglé.
+        financeService.enregistrerSalaire(paie.total(), "Paie semaine du " + lundi.format(JOUR), payePar);
+
         return semaine(dateDansSemaine);
     }
 
