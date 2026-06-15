@@ -27,9 +27,19 @@ public class SpActeurNommage {
     @Transactional
     public List<JournalEntryDto> enrichir(List<JournalEntryDto> entries) {
         if (entries.isEmpty()) return entries;
-        Map<String, String> noms = membreRepo.findAll().stream()
+        return appliquer(entries, noms());
+    }
+
+    /** Carte username → nom RP (une seule requête), à réutiliser pour enrichir plusieurs lots. */
+    @Transactional
+    public Map<String, String> noms() {
+        return membreRepo.findAll().stream()
                 .filter(m -> m.getNomComplet() != null && !m.getNomComplet().isBlank())
                 .collect(Collectors.toMap(m -> m.getUser().getUsername(), SpMembre::getNomComplet, (a, b) -> a));
+    }
+
+    /** Applique une carte de noms déjà construite (aucune requête) — pour les traitements en lot. */
+    public List<JournalEntryDto> appliquer(List<JournalEntryDto> entries, Map<String, String> noms) {
         return entries.stream()
                 .map(e -> {
                     String nom = e.acteurUsername() == null ? null : noms.get(e.acteurUsername());

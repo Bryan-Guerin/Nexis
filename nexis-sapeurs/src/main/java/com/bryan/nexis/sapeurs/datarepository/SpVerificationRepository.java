@@ -17,4 +17,8 @@ public interface SpVerificationRepository extends JpaRepository<SpVerification, 
     /** Date de la dernière vérification d'un véhicule (sans charger les lignes). */
     @Query("select max(v.creeLe) from SpVerification v where v.vehicule.id = :vehiculeId")
     Optional<Instant> findDerniereVerif(UUID vehiculeId);
+
+    /** Date de dernière vérification par véhicule, en une requête : [vehiculeId, max(creeLe)]. */
+    @Query("select v.vehicule.id, max(v.creeLe) from SpVerification v group by v.vehicule.id")
+    List<Object[]> findDernieresVerifs();
 }

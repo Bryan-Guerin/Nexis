@@ -199,21 +199,29 @@ public class SpInterventionService {
 
     @Transactional
     public List<SpInterventionDto> listAll() {
-        return interventionRepo.findAll(BY_DEBUT_DESC).stream()
-                .map(i -> SpInterventionDto.from(i, dernieresLignes(i.getCode()))).toList();
+        return projeter(interventionRepo.findAll(BY_DEBUT_DESC));
     }
 
     @Transactional
     public List<SpInterventionDto> listEnCours() {
-        return interventionRepo.findByFinIsNull().stream()
-                .map(i -> SpInterventionDto.from(i, dernieresLignes(i.getCode()))).toList();
+        return projeter(interventionRepo.findByFinIsNull());
     }
 
-    /** Les {@value #DERNIERES_MC} dernières lignes de main courante d'une intervention (pour la vue liste). */
-    private List<JournalEntryDto> dernieresLignes(String code) {
-        var all = nommage.enrichir(journalService.byReference(code));   // ordre chronologique
-        int n = all.size();
-        return n <= DERNIERES_MC ? all : all.subList(n - DERNIERES_MC, n);
+    /**
+     * Projette une liste d'interventions en DTO avec leurs dernières lignes de main courante,
+     * en lot : 1 requête journal (toutes références) + 1 carte de noms (au lieu d'un N+1).
+     */
+    private List<SpInterventionDto> projeter(List<SpIntervention> interventions) {
+        if (interventions.isEmpty()) return List.of();
+        var codes = interventions.stream().map(SpIntervention::getCode).toList();
+        var journauxParCode = journalService.byReferences(codes);   // 1 requête
+        var noms = nommage.noms();                                   // 1 requête
+        return interventions.stream().map(i -> {
+            var all = journauxParCode.getOrDefault(i.getCode(), List.of());
+            int n = all.size();
+            var dern = n <= DERNIERES_MC ? all : all.subList(n - DERNIERES_MC, n);
+            return SpInterventionDto.from(i, nommage.appliquer(dern, noms));
+        }).toList();
     }
 
     /** Main courante d'une intervention (journal relié à son code). */

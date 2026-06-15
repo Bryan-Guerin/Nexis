@@ -9,7 +9,11 @@ import io.micronaut.data.model.Sort;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Singleton
 public class JournalService {
@@ -36,6 +40,18 @@ public class JournalService {
     @Transactional
     public List<JournalEntryDto> byReference(String reference) {
         return repo.findByReferenceOrderByCreeLeAsc(reference).stream().map(JournalEntryDto::from).toList();
+    }
+
+    /**
+     * Main courante de plusieurs références en UNE requête (évite le N+1).
+     * Retourne, par référence, les entrées en ordre chronologique.
+     */
+    @Transactional
+    public Map<String, List<JournalEntryDto>> byReferences(Collection<String> references) {
+        if (references == null || references.isEmpty()) return Map.of();
+        return repo.findByReferenceInOrderByCreeLeAsc(references).stream()
+                .map(JournalEntryDto::from)
+                .collect(Collectors.groupingBy(JournalEntryDto::reference, LinkedHashMap::new, Collectors.toList()));
     }
 
     /** Derniers événements toutes factions. */
