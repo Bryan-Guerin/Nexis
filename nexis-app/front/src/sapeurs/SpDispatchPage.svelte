@@ -2,6 +2,7 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
+    import {refStatutsVeh} from '../shared/referentials.js'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let vehicules    = $state([])
@@ -58,7 +59,7 @@
         api.get('/sp/dispatch'),
         api.get('/sp/membres?actif=true'),
         api.get('/sp/membres/en-service'),
-        api.get('/sp/vehicules/statuts'),
+        refStatutsVeh(),   // référentiel en cache
       ])
     } catch (e) { error = e.message }
     finally { loading = false }

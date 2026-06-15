@@ -3,6 +3,7 @@
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
+    import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let interventions = $state([])
@@ -77,14 +78,16 @@
   async function load() {
     loading = true; error = ''
     try {
+      // Dynamiques (rechargés à chaque fois) + référentiels mis en cache (natures, statuts, me) :
+      // sur les rechargements temps réel, ces 3 derniers sont servis sans réseau.
       let me
-      ;[interventions, vehicules, natures, statuts, affectations, me] = await Promise.all([
+      ;[interventions, vehicules, affectations, natures, statuts, me] = await Promise.all([
         api.get('/sp/interventions'),
         api.get('/sp/vehicules/engageables'),   // disponibles + équipage requis
-        api.get('/sp/natures'),
-        api.get('/sp/vehicules/statuts'),        // pour l'édition de statut depuis la liste
         api.get('/sp/affectations'),             // pour canControl par carte
-        api.get('/sp/membres/me').catch(() => null),
+        refNatures(),
+        refStatutsVeh(),                         // pour l'édition de statut depuis la liste
+        refMe().catch(() => null),
       ])
       myMembreId = me?.id ?? null
     } catch (e) { error = e.message }

@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {invalidateRef} from '../shared/referentials.js'
     import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
 
     // Catégories de configuration (chacune = une "enum" ordonnée)
@@ -69,6 +70,7 @@
       const payload = cat.kind === 'casier' ? { numero: Number(form.numero) } : { ...form }
       const created = await api.post(cat.list, payload)
       items = [...items, created]
+      invalidateRef()
       resetForm()
     } catch (e) { formError = e.message }
   }
@@ -79,6 +81,7 @@
     try {
       const u = await api.put(`/sp/fonctions/${it.id}/type`, { type })
       items = items.map(x => x.id === u.id ? u : x)
+      invalidateRef()
     } catch (e) { error = e.message }
   }
 
@@ -92,6 +95,7 @@
     try {
       await api.delete(`${cat.list}/${it.id}`)
       items = items.filter(x => x.id !== it.id)
+      invalidateRef()
     } catch (e) {
       // Garde-fou back (ex: grade encore porté par des effectifs) → message détaillé.
       window.alert(e.message)
@@ -114,7 +118,7 @@
   async function persistOrder() {
     if (dragIndex === null) return
     dragIndex = null
-    try { await api.put(cat.order, { ids: items.map(x => x.id) }) }
+    try { await api.put(cat.order, { ids: items.map(x => x.id) }); invalidateRef() }
     catch (e) { error = e.message }
   }
 
@@ -124,7 +128,7 @@
 
   // Désigne un statut véhicule comme "par défaut"
   async function setDefaut(it) {
-    try { await api.put(`${cat.list}/${it.id}/defaut`); items = await api.get(cat.list) }
+    try { await api.put(`${cat.list}/${it.id}/defaut`); items = await api.get(cat.list); invalidateRef() }
     catch (e) { error = e.message }
   }
 
@@ -133,6 +137,7 @@
     try {
       const updated = await api.put(`${cat.list}/${it.id}/cloture-intervention`)
       items = items.map(x => x.id === updated.id ? updated : x)
+      invalidateRef()
     } catch (e) { error = e.message }
   }
 </script>

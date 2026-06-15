@@ -1,6 +1,7 @@
 <script>
   import {onMount} from 'svelte'
   import {api} from '../shared/api.js'
+  import {refNatures} from '../shared/referentials.js'
 
   // Modal de création d'intervention, réutilisable (écran interventions + bouton rapide dispatch).
   let { onclose, oncreated } = $props()
@@ -14,7 +15,7 @@
   onMount(async () => {
     ;[vehicules, natures] = await Promise.all([
       api.get('/sp/vehicules/engageables').catch(() => []),
-      api.get('/sp/natures').catch(() => []),
+      refNatures().catch(() => []),
     ])
   })
 
