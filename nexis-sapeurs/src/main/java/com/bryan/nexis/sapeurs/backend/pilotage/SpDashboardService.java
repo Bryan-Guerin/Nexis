@@ -52,7 +52,8 @@ public class SpDashboardService {
         var enCours      = toutes.stream().filter(i -> i.getFin() == null)
                                  .sorted(Comparator.comparing(SpIntervention::getDebut).reversed()).toList();
 
-        long effectifsActifs = membreRepo.findByActif(true).size();
+        var actifs           = membreRepo.findByActif(true);
+        long effectifsActifs = actifs.size();
         var enServiceIds     = planningService.membresEnService();
 
         // ── Flotte par état ──
@@ -63,10 +64,10 @@ public class SpDashboardService {
                 .toList();
         int disponibles = parEtat.getOrDefault(DISPO, 0L).intValue();
 
-        // ── Personnel de garde (nominatif) ──
-        var garde = enServiceIds.stream()
-                .map(membreRepo::findById)
-                .filter(java.util.Optional::isPresent).map(java.util.Optional::get)
+        // ── Personnel de garde (nominatif) ── (filtre la liste des actifs déjà chargée, pas de N+1)
+        var enServiceSet = new java.util.HashSet<>(enServiceIds);
+        var garde = actifs.stream()
+                .filter(m -> enServiceSet.contains(m.getId()))
                 .map(m -> new GardeMembre(m.getMatricule(), m.getUser().getUsername(),
                         m.getGrade().getCode(), m.getGrade().getLabel(), m.getNomComplet()))
                 .toList();

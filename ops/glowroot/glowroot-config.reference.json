@@ -47,6 +47,8 @@
       "captureKind": "transaction",
       "transactionType": "Web",
       "transactionNameTemplate": "{{this.class.simpleName}}#{{methodName}}",
+      "transactionSlowThresholdMillis": 500,
+      "alreadyInTransactionBehavior": "capture-trace-entry",
       "timerName": "controller"
     }
   ],
