@@ -18,10 +18,10 @@ Recopier les entrées dans Glowroot :
 
 ### Méthode B — fichier (reproductible)
 Fusionner les tableaux `gauges` / `instrumentation` / `alerts` dans le `config.json`
-de Glowroot (dossier data, ex. `/opt/glowroot/glowroot/config.json`) **sans écraser**
+de Glowroot (dossier data, ex. `/opt/glowroot//config.json`) **sans écraser**
 les autres sections, puis redémarrer la JVM :
 ```bash
-# éditer /opt/glowroot/glowroot/config.json (ajouter les entrées)
+# éditer /opt/glowroot//config.json (ajouter les entrées)
 docker compose restart app
 ```
 
