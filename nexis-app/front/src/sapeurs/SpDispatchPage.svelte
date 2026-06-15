@@ -54,10 +54,11 @@
   async function load() {
     loading = true; error = ''
     try {
-      ;[vehicules, membres, enServiceIds] = await Promise.all([
+      ;[vehicules, membres, enServiceIds, statuts] = await Promise.all([
         api.get('/sp/dispatch'),
         api.get('/sp/membres?actif=true'),
         api.get('/sp/membres/en-service'),
+        api.get('/sp/vehicules/statuts'),
       ])
     } catch (e) { error = e.message }
     finally { loading = false }
@@ -146,6 +147,14 @@
   let statutOptions = $derived(
     engageCurrent ? statuts.filter(s => s.position >= (engageCurrent.statut?.position ?? 0)) : []
   )
+
+  // Changement de statut directement depuis la carte (transition avant uniquement).
+  function statutsPour(v) { return statuts.filter(s => s.position >= (v.statut?.position ?? 0)) }
+  async function changeStatutVeh(v, statutId) {
+    if (!statutId || statutId === v.statut.id) return
+    try { await api.put(`/sp/vehicules/${v.id}/statut?statutId=${statutId}`); await load() }
+    catch (e) { error = e.message }
+  }
 </script>
 
 <div class="page">
@@ -209,10 +218,11 @@
               {/if}
             </div>
             <div class="badges">
-              <span class="etat-badge" style="background:{v.statut.couleur}22; color:{v.statut.couleur}; border:1px solid {v.statut.couleur}55">
-                <span class="etat-dot" style="background:{v.statut.couleur}"></span>
-                {v.statut.label}
-              </span>
+              <select class="statut-sel" title="Changer le statut (transition avant)"
+                      style="color:{v.statut.couleur}; border-color:{v.statut.couleur}55; background:{v.statut.couleur}18"
+                      value={v.statut.id} onchange={e => changeStatutVeh(v, e.target.value)}>
+                {#each statutsPour(v) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+              </select>
               <span class="sys-badge" style="background:{v.etat.couleur}22; color:{v.etat.couleur}" title="État système">{v.etat.label}</span>
               <span class="arme-badge" class:ok={v.arme} title="Postes obligatoires couverts">{v.arme ? '✓ armé' : '✗ non armé'}</span>
             </div>
@@ -337,8 +347,9 @@
   .group-title { flex: 1; text-align: left; }
   .group-count { color: var(--color-muted); font-weight: 500; font-size: 12px; }
 
-  .etat-dot { width: 6px; height: 6px; }
   .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .statut-sel { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid; padding: 2px 6px; cursor: pointer; outline: none; max-width: 150px; }
+  .statut-sel option { background: var(--color-surface); color: var(--color-text); font-weight: 500; }
   .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }
   .arme-badge { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px; background: color-mix(in srgb, var(--color-danger) 16%, transparent); color: var(--color-danger); }
   .arme-badge.ok { background: color-mix(in srgb, var(--color-success) 16%, transparent); color: var(--color-success); }
