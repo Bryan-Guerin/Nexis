@@ -1,0 +1,68 @@
+{
+  "_comment": [
+    "Conf Glowroot de référence pour Nexis (gauges de saturation + capture des transactions web Micronaut).",
+    "Glowroot gère son propre config.json (dossier data, ex: /opt/glowroot/glowroot/config.json).",
+    "À FUSIONNER, pas à écraser bêtement : ajoute les entrées des tableaux 'gauges' et 'instrumentation'",
+    "ci-dessous dans le config.json existant (qui contient déjà d'autres sections), puis redémarre la JVM.",
+    "Alternative : recopier ces entrées via l'UI Glowroot (Configuration > Gauges / Instrumentation)."
+  ],
+
+  "gauges": [
+    {
+      "mbeanObjectName": "com.zaxxer.hikari:type=Pool (nexis-default)",
+      "mbeanAttributes": [
+        { "name": "ActiveConnections" },
+        { "name": "IdleConnections" },
+        { "name": "TotalConnections" },
+        { "name": "ThreadsAwaitingConnection" }
+      ]
+    },
+    {
+      "mbeanObjectName": "java.lang:type=Threading",
+      "mbeanAttributes": [
+        { "name": "ThreadCount" },
+        { "name": "DaemonThreadCount" }
+      ]
+    },
+    {
+      "mbeanObjectName": "java.lang:type=OperatingSystem",
+      "mbeanAttributes": [
+        { "name": "ProcessCpuLoad" },
+        { "name": "SystemLoadAverage" }
+      ]
+    },
+    {
+      "mbeanObjectName": "java.lang:type=Memory",
+      "mbeanAttributes": [
+        { "name": "HeapMemoryUsage.used" }
+      ]
+    }
+  ],
+
+  "instrumentation": [
+    {
+      "classAnnotation": "io.micronaut.http.annotation.Controller",
+      "methodName": "*",
+      "methodParameterTypes": [ ".." ],
+      "captureKind": "transaction",
+      "transactionType": "Web",
+      "transactionNameTemplate": "{{this.class.simpleName}}#{{methodName}}",
+      "timerName": "controller"
+    }
+  ],
+
+  "alerts": [
+    {
+      "_comment": "Alerte si des requêtes attendent une connexion DB (pool saturé) > 1 min.",
+      "condition": {
+        "conditionType": "metric",
+        "metric": "gauge:com.zaxxer.hikari:type=Pool (nexis-default):ThreadsAwaitingConnection",
+        "threshold": 0.0,
+        "lowerBoundThreshold": false,
+        "timePeriodSeconds": 60
+      },
+      "severity": "critical",
+      "notification": {}
+    }
+  ]
+}
