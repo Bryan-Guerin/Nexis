@@ -54,6 +54,8 @@ public class SpDispatchService {
                             a.getPoste() != null ? a.getPoste().getFonction().getLabel() : null
                     ))
                     .toList();
+            var manquants = postesManquants(v, affectations);
+            boolean arme = estArme(v, affectations, manquants);
             return new SpDispatchDto(
                     v.getId(),
                     v.getLibelle(),
@@ -61,20 +63,32 @@ public class SpDispatchService {
                     SpVehiculeTypeDto.from(v.getType()),
                     SpVehiculeEtatDto.from(v.getEtat()),
                     SpVehiculeStatutDto.from(v.getStatut()),
-                    estArme(v, affectations),
-                    equipe
+                    arme,
+                    equipe,
+                    manquants
             );
         }).toList();
     }
 
-    private boolean estArme(SpVehicule v, List<SpVehiculeAffectation> crew) {
-        var oblig = posteRepo.findByVehiculeTypeId(v.getType().getId()).stream()
-                .filter(SpVehiculeTypePoste::isObligatoire).toList();
-        // Un membre engagé sur une intervention via un autre véhicule n'est pas disponible ici.
+    /** Postes obligatoires non couverts (par un équipier non occupé ailleurs), dans l'ordre du type. */
+    private List<String> postesManquants(SpVehicule v, List<SpVehiculeAffectation> crew) {
         Set<UUID> occupes = interventionService.membresOccupesSurAutreIntervention(v.getId());
-        if (oblig.isEmpty()) return crew.stream().anyMatch(a -> !occupes.contains(a.getMembre().getId()));
-        return oblig.stream().allMatch(p -> crew.stream().anyMatch(a ->
-                a.getPoste() != null && a.getPoste().getId().equals(p.getId())
-                        && !occupes.contains(a.getMembre().getId())));
+        return posteRepo.findByVehiculeTypeIdOrderByOrdreAsc(v.getType().getId()).stream()
+                .filter(SpVehiculeTypePoste::isObligatoire)
+                .filter(p -> crew.stream().noneMatch(a ->
+                        a.getPoste() != null && a.getPoste().getId().equals(p.getId())
+                                && !occupes.contains(a.getMembre().getId())))
+                .map(p -> p.getFonction().getLabel())
+                .toList();
+    }
+
+    private boolean estArme(SpVehicule v, List<SpVehiculeAffectation> crew, List<String> manquants) {
+        boolean aOblig = posteRepo.findByVehiculeTypeId(v.getType().getId()).stream()
+                .anyMatch(SpVehiculeTypePoste::isObligatoire);
+        if (!aOblig) {
+            Set<UUID> occupes = interventionService.membresOccupesSurAutreIntervention(v.getId());
+            return crew.stream().anyMatch(a -> !occupes.contains(a.getMembre().getId()));
+        }
+        return manquants.isEmpty();
     }
 }

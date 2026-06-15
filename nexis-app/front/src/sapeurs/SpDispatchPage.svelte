@@ -224,7 +224,10 @@
                 {#each statutsPour(v) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
               </select>
               <span class="sys-badge" style="background:{v.etat.couleur}22; color:{v.etat.couleur}" title="État système">{v.etat.label}</span>
-              <span class="arme-badge" class:ok={v.arme} title="Postes obligatoires couverts">{v.arme ? '✓ armé' : '✗ non armé'}</span>
+              <span class="arme-badge" class:ok={v.arme}
+                    title={v.arme ? 'Postes obligatoires couverts' : 'Postes manquants : ' + ((v.postesManquants ?? []).join(', ') || '—')}>
+                {v.arme ? '✓ armé' : '✗ non armé'}{#if !v.arme && (v.postesManquants ?? []).length}<span class="manq-count"> ({v.postesManquants.length})</span>{/if}
+              </span>
             </div>
           </div>
 

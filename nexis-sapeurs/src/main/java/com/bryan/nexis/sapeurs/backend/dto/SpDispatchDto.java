@@ -14,7 +14,8 @@ public record SpDispatchDto(
         SpVehiculeEtatDto etat,
         SpVehiculeStatutDto statut,
         boolean arme,
-        List<SpDispatchMembreDto> equipe
+        List<SpDispatchMembreDto> equipe,
+        List<String> postesManquants
 ) {
     @Serdeable
     public record SpDispatchMembreDto(UUID membreId, String matricule, String username, String gradeCode,
