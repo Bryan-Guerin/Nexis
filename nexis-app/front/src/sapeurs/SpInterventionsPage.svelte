@@ -77,14 +77,22 @@
   async function load() {
     loading = true; error = ''
     try {
-      ;[interventions, vehicules, natures] = await Promise.all([
+      let me
+      ;[interventions, vehicules, natures, statuts, affectations, me] = await Promise.all([
         api.get('/sp/interventions'),
         api.get('/sp/vehicules/engageables'),   // disponibles + équipage requis
         api.get('/sp/natures'),
+        api.get('/sp/vehicules/statuts'),        // pour l'édition de statut depuis la liste
+        api.get('/sp/affectations'),             // pour canControl par carte
+        api.get('/sp/membres/me').catch(() => null),
       ])
+      myMembreId = me?.id ?? null
     } catch (e) { error = e.message }
     finally { loading = false }
   }
+
+  // Rafraîchit le détail s'il est ouvert, sinon recharge la liste.
+  async function refreshOrLoad() { if (detailInter) await refreshDetail(); else await load() }
 
   function fmt(iso) { return iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—' }
   function fmtCoord(c) { return c && c.length === 6 ? c.slice(0, 3) + ' ' + c.slice(3) : (c || '—') }
@@ -193,11 +201,11 @@
   // ── Renforts GN / VINCI (éditable par tous) ────────────────────────────────
   const RENFORT_OPTS = [['NON_PREVENU', 'Non prévenu'], ['PREVENU', 'Prévenu'], ['SUR_PLACE', 'Sur place']]
   function renfortLabel(v) { return (RENFORT_OPTS.find(o => o[0] === v) ?? [, v])[1] }
-  async function changeRenfort(cible, statut) {
+  async function changeRenfort(interId, cible, statut) {
     try {
-      await api.put(`/sp/interventions/${detailInter.id}/renfort`,
+      await api.put(`/sp/interventions/${interId}/renfort`,
         cible === 'GN' ? { renfortGn: statut } : { renfortVinci: statut })
-      await refreshDetail()
+      await refreshOrLoad()
     } catch (e) { error = e.message }
   }
 
@@ -275,7 +283,7 @@
 
   async function changeEnginStatut(engin, statutId) {
     if (!statutId || statutId === engin.statutId) return
-    try { await api.put(`/sp/vehicules/${engin.vehiculeId}/statut?statutId=${statutId}`); await refreshDetail() }
+    try { await api.put(`/sp/vehicules/${engin.vehiculeId}/statut?statutId=${statutId}`); await refreshOrLoad() }
     catch (e) { error = e.message }
   }
 
@@ -327,14 +335,34 @@
             {#each i.engins as e (e.vehiculeId)}
               <span class="engin" style="border-left:3px solid {e.etatCouleur}">
                 {e.libelle} <span class="chip-code">{e.typeCode}</span>
+                {#if i.enCours && canControl(e)}
+                  <select class="eng-statut-inline" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)} title="Statut de l'engin">
+                    {#each statutOptions(e) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+                  </select>
+                {:else}
+                  <span class="eng-statut-mini" style="color:{e.etatCouleur}">{e.etatLabel}</span>
+                {/if}
               </span>
             {/each}
             {#if i.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
           </div>
 
           <div class="i-services">
-            <span class="svc-chip svc-{(i.renfortGn ?? 'NON_PREVENU').toLowerCase()}" title="Gendarmerie">GN&nbsp;: {renfortLabel(i.renfortGn)}</span>
-            <span class="svc-chip svc-{(i.renfortVinci ?? 'NON_PREVENU').toLowerCase()}" title="Dépanneur (VINCI)">Dépanneur&nbsp;: {renfortLabel(i.renfortVinci)}</span>
+            {#if i.enCours}
+              <label class="svc-edit">GN
+                <select value={i.renfortGn} onchange={e => changeRenfort(i.id, 'GN', e.target.value)}>
+                  {#each RENFORT_OPTS as [v, l]}<option value={v}>{l}</option>{/each}
+                </select>
+              </label>
+              <label class="svc-edit">Dépanneur
+                <select value={i.renfortVinci} onchange={e => changeRenfort(i.id, 'VINCI', e.target.value)}>
+                  {#each RENFORT_OPTS as [v, l]}<option value={v}>{l}</option>{/each}
+                </select>
+              </label>
+            {:else}
+              <span class="svc-chip svc-{(i.renfortGn ?? 'NON_PREVENU').toLowerCase()}" title="Gendarmerie">GN&nbsp;: {renfortLabel(i.renfortGn)}</span>
+              <span class="svc-chip svc-{(i.renfortVinci ?? 'NON_PREVENU').toLowerCase()}" title="Dépanneur (VINCI)">Dépanneur&nbsp;: {renfortLabel(i.renfortVinci)}</span>
+            {/if}
           </div>
 
           {#if (i.dernieresLignes ?? []).length > 0}
@@ -443,7 +471,7 @@
           <div class="renfort-row">
             <span class="renfort-cible">Gendarmerie</span>
             {#if detailInter.enCours}
-              <select value={detailInter.renfortGn} onchange={e => changeRenfort('GN', e.target.value)}>
+              <select value={detailInter.renfortGn} onchange={e => changeRenfort(detailInter.id, 'GN', e.target.value)}>
                 {#each RENFORT_OPTS as [v, l]}<option value={v}>{l}</option>{/each}
               </select>
             {:else}<span>{renfortLabel(detailInter.renfortGn)}</span>{/if}
@@ -451,7 +479,7 @@
           <div class="renfort-row">
             <span class="renfort-cible">VINCI</span>
             {#if detailInter.enCours}
-              <select value={detailInter.renfortVinci} onchange={e => changeRenfort('VINCI', e.target.value)}>
+              <select value={detailInter.renfortVinci} onchange={e => changeRenfort(detailInter.id, 'VINCI', e.target.value)}>
                 {#each RENFORT_OPTS as [v, l]}<option value={v}>{l}</option>{/each}
               </select>
             {:else}<span>{renfortLabel(detailInter.renfortVinci)}</span>{/if}
@@ -560,7 +588,11 @@
 
   .i-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  .i-services { display: flex; gap: 8px; flex-wrap: wrap; }
+  .i-services { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .svc-edit { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-muted); }
+  .svc-edit select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 3px 6px; }
+  .eng-statut-inline { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 11px; padding: 2px 5px; margin-left: 4px; }
+  .eng-statut-mini { font-size: 11px; font-weight: 600; margin-left: 4px; }
   .svc-chip { font-size: 11px; font-weight: 600; border-radius: 12px; padding: 2px 9px; border: 1px solid var(--color-border); color: var(--color-muted); }
   .svc-chip.svc-prevenu { color: #e0a23c; border-color: color-mix(in srgb, #e0a23c 45%, transparent); background: color-mix(in srgb, #e0a23c 12%, transparent); }
   .svc-chip.svc-sur_place { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 45%, transparent); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
