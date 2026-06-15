@@ -12,6 +12,7 @@ import com.bryan.nexis.sapeurs.backend.intervention.SpInterventionService;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeAffectationRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeTypePosteRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpVerificationRepository;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
@@ -25,13 +26,16 @@ public class SpDispatchService {
     private final SpVehiculeRepository             vehiculeRepo;
     private final SpVehiculeAffectationRepository  affectationRepo;
     private final SpVehiculeTypePosteRepository    posteRepo;
+    private final SpVerificationRepository         verifRepo;
     private final SpInterventionService            interventionService;
 
     public SpDispatchService(SpVehiculeRepository vehiculeRepo, SpVehiculeAffectationRepository affectationRepo,
-                             SpVehiculeTypePosteRepository posteRepo, SpInterventionService interventionService) {
+                             SpVehiculeTypePosteRepository posteRepo, SpVerificationRepository verifRepo,
+                             SpInterventionService interventionService) {
         this.vehiculeRepo    = vehiculeRepo;
         this.affectationRepo = affectationRepo;
         this.posteRepo       = posteRepo;
+        this.verifRepo       = verifRepo;
         this.interventionService = interventionService;
     }
 
@@ -65,7 +69,8 @@ public class SpDispatchService {
                     SpVehiculeStatutDto.from(v.getStatut()),
                     arme,
                     equipe,
-                    manquants
+                    manquants,
+                    verifRepo.findDerniereVerif(v.getId()).map(java.time.Instant::toString).orElse(null)
             );
         }).toList();
     }

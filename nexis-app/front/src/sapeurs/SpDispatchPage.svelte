@@ -148,6 +148,11 @@
     engageCurrent ? statuts.filter(s => s.position >= (engageCurrent.statut?.position ?? 0)) : []
   )
 
+  // Ancienneté de la dernière vérification d'inventaire (badge de péremption).
+  function verifJours(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null }
+  function verifTxt(iso) { const d = verifJours(iso); return d === null ? 'jamais vérifié' : d <= 0 ? 'vérif. aujourd’hui' : `vérif. il y a ${d} j` }
+  function verifVieux(iso) { const d = verifJours(iso); return d === null || d >= 7 }
+
   // Changement de statut directement depuis la carte (transition avant uniquement).
   function statutsPour(v) { return statuts.filter(s => s.position >= (v.statut?.position ?? 0)) }
   async function changeStatutVeh(v, statutId) {
@@ -228,6 +233,7 @@
                     title={v.arme ? 'Postes obligatoires couverts' : 'Postes manquants : ' + ((v.postesManquants ?? []).join(', ') || '—')}>
                 {v.arme ? '✓ armé' : '✗ non armé'}{#if !v.arme && (v.postesManquants ?? []).length}<span class="manq-count"> ({v.postesManquants.length})</span>{/if}
               </span>
+              <span class="verif-badge" class:vieux={verifVieux(v.derniereVerifLe)} title="Dernière vérification d'inventaire">📋 {verifTxt(v.derniereVerifLe)}</span>
             </div>
           </div>
 
@@ -351,6 +357,8 @@
   .group-count { color: var(--color-muted); font-weight: 500; font-size: 12px; }
 
   .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .verif-badge { font-size: 10px; color: var(--color-muted); }
+  .verif-badge.vieux { color: var(--color-danger); font-weight: 600; }
   .statut-sel { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid; padding: 2px 6px; cursor: pointer; outline: none; max-width: 150px; }
   .statut-sel option { background: var(--color-surface); color: var(--color-text); font-weight: 500; }
   .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }
