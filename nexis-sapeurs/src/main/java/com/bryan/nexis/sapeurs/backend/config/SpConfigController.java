@@ -246,6 +246,17 @@ public class SpConfigController {
         natureService.reorder(req.ids());
     }
 
+    /** Supprime une nature (refusée si des interventions l'utilisent ; détachée des types). */
+    @Delete("/natures/{id}")
+    io.micronaut.http.HttpResponse<?> deleteNature(UUID id) {
+        try {
+            natureService.delete(id);
+            return io.micronaut.http.HttpResponse.noContent();
+        } catch (IllegalStateException e) {
+            return io.micronaut.http.HttpResponse.badRequest(e.getMessage());
+        }
+    }
+
     // ── Objets d'inventaire (catalogue) ──────────────────────────────────────────
 
     @Get("/objets-inventaire")

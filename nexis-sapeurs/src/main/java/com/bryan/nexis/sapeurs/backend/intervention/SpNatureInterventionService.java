@@ -2,7 +2,9 @@ package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpNatureInterventionDto;
 import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
+import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpNatureInterventionRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpVehiculeTypeRepository;
 import io.micronaut.data.model.Sort;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
@@ -17,9 +19,41 @@ public class SpNatureInterventionService {
     private static final Sort BY_POSITION = Sort.of(Sort.Order.asc("position"));
 
     private final SpNatureInterventionRepository repo;
+    private final SpInterventionRepository       interventionRepo;
+    private final SpVehiculeTypeRepository        typeRepo;
 
-    public SpNatureInterventionService(SpNatureInterventionRepository repo) {
-        this.repo = repo;
+    public SpNatureInterventionService(SpNatureInterventionRepository repo,
+                                       SpInterventionRepository interventionRepo,
+                                       SpVehiculeTypeRepository typeRepo) {
+        this.repo             = repo;
+        this.interventionRepo = interventionRepo;
+        this.typeRepo         = typeRepo;
+    }
+
+    /**
+     * Supprime une nature : refusée si une intervention l'utilise. Détache la nature des types de
+     * véhicule (tags + nature principale), sans toucher aux véhicules ; promeut la nature restante
+     * si le type n'en a plus qu'une.
+     */
+    @Transactional
+    public void delete(UUID id) {
+        var nature = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Nature introuvable : " + id));
+        if (interventionRepo.existsByNatureId(id)) {
+            throw new IllegalStateException("Impossible de supprimer : des interventions utilisent cette nature.");
+        }
+        for (var type : typeRepo.findAll()) {
+            boolean modif = type.getNatures().removeIf(n -> n.getId().equals(id));
+            if (type.getNaturePrincipale() != null && type.getNaturePrincipale().getId().equals(id)) {
+                type.setNaturePrincipale(null);
+                modif = true;
+            }
+            if (modif) {
+                if (type.getNatures().size() == 1) type.setNaturePrincipale(type.getNatures().iterator().next());
+                typeRepo.update(type);
+            }
+        }
+        repo.delete(nature);
     }
 
     @Transactional

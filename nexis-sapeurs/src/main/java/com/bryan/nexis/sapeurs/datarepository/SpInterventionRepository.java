@@ -12,6 +12,8 @@ import java.util.UUID;
 public interface SpInterventionRepository extends JpaRepository<SpIntervention, UUID> {
     List<SpIntervention> findByFinIsNull();
 
+    boolean existsByNatureId(UUID natureId);
+
     @Query("SELECT COALESCE(MAX(i.numero), 0) FROM SpIntervention i")
     int findMaxNumero();
 }

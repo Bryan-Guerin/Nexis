@@ -11,7 +11,7 @@
     { key: 'casiers',   label: 'Casiers',        list: '/sp/casiers',   order: '/sp/casiers/order',   kind: 'casier', deletable: true },
     { key: 'statuts',   label: 'Statuts planning', list: '/sp/planning/statuts', order: '/sp/planning/statuts/order', kind: 'statut' },
     { key: 'centres',   label: 'Centres',        list: '/sp/centres',   order: '/sp/centres/order',   kind: 'codelabel', deletable: true },
-    { key: 'natures',   label: 'Natures intervention', list: '/sp/natures', order: '/sp/natures/order', kind: 'codelabel' },
+    { key: 'natures',   label: 'Natures intervention', list: '/sp/natures', order: '/sp/natures/order', kind: 'codelabel', deletable: true },
     { key: 'objets',    label: 'Objets inventaire', list: '/sp/objets-inventaire', order: '/sp/objets-inventaire/order', kind: 'codelabel', deletable: true },
     { key: 'evenements', label: 'Événements', kind: 'evenements' },
   ]
@@ -76,7 +76,8 @@
   async function removeItem(it) {
     if (!cat.deletable) return
     const extra = cat.confirmDelete ? '\nLes postes liés seront aussi supprimés.'
-                : cat.kind === 'statutveh' ? '\nLes véhicules concernés repasseront au statut par défaut.' : ''
+                : cat.kind === 'statutveh' ? '\nLes véhicules concernés repasseront au statut par défaut.'
+                : cat.key === 'natures' ? '\nElle sera retirée des types de véhicule (les véhicules sont conservés). Refusé si des interventions l’utilisent.' : ''
     if (!window.confirm(`Supprimer « ${itemLabel(it)} » ?${extra}`)) return
     error = ''
     try {
