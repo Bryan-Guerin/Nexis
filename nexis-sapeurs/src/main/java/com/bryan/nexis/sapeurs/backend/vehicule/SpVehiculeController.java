@@ -22,17 +22,20 @@ public class SpVehiculeController {
     private final SpVehiculeStatutService      statutService;
     private final SpVehiculeAffectationService affectationService;
     private final SpAffectationAutoService     affectationAutoService;
+    private final com.bryan.nexis.sapeurs.backend.intervention.SpTemplateDepartService templateService;
 
     public SpVehiculeController(SpVehiculeTypeService typeService, SpVehiculeService vehiculeService,
                                 SpVehiculeEtatService etatService, SpVehiculeStatutService statutService,
                                 SpVehiculeAffectationService affectationService,
-                                SpAffectationAutoService affectationAutoService) {
+                                SpAffectationAutoService affectationAutoService,
+                                com.bryan.nexis.sapeurs.backend.intervention.SpTemplateDepartService templateService) {
         this.typeService        = typeService;
         this.vehiculeService    = vehiculeService;
         this.etatService        = etatService;
         this.statutService      = statutService;
         this.affectationService = affectationService;
         this.affectationAutoService = affectationAutoService;
+        this.templateService    = templateService;
     }
 
     @Get("/vehicules/types")
@@ -148,5 +151,26 @@ public class SpVehiculeController {
     @Secured("ROLE_SP_DISPATCH")
     List<SpVehiculeAffectationDto> affecterAuto(UUID id) {
         return affectationAutoService.affecterAuto(id);
+    }
+
+    // ── Lots de départ (types de véhicule à engager par nature) ───────────────────
+
+    @Get("/natures/{natureId}/template")
+    List<SpTemplateDepartDto> listTemplate(UUID natureId) {
+        return templateService.listByNature(natureId);
+    }
+
+    @Post("/natures/{natureId}/template")
+    @Secured("ROLE_ADMIN_SP")
+    @Status(HttpStatus.CREATED)
+    SpTemplateDepartDto addTemplate(UUID natureId, @Body CreateTemplateDepartRequest req) {
+        return templateService.add(natureId, req.vehiculeTypeId(), req.quantite());
+    }
+
+    @Delete("/templates/{id}")
+    @Secured("ROLE_ADMIN_SP")
+    @Status(HttpStatus.NO_CONTENT)
+    void deleteTemplate(UUID id) {
+        templateService.delete(id);
     }
 }

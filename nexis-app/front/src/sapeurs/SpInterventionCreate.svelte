@@ -42,6 +42,24 @@
   let showAutres = $state(false)
   let openAutres = $derived(showAutres || proposes.length === 0)
   let showDetails = $state(false)
+
+  // « Engager le lot » : présélectionne les engins du template de la nature (souple : avertit si manque).
+  async function engagerLot() {
+    if (!form.natureId) return
+    createError = ''
+    const tpl = await api.get(`/sp/natures/${form.natureId}/template`).catch(() => [])
+    if (!tpl.length) { createError = 'Aucun lot de départ défini pour cette nature.'; return }
+    const sel = [...createSel]
+    const manques = []
+    for (const ligne of tpl) {
+      const dispo = engageablesTries.filter(v => v.typeId === ligne.vehiculeTypeId && !sel.includes(v.vehiculeId))
+      const pris = dispo.slice(0, ligne.quantite)
+      pris.forEach(v => sel.push(v.vehiculeId))
+      if (pris.length < ligne.quantite) manques.push(`${ligne.typeLabel} ${pris.length}/${ligne.quantite}`)
+    }
+    createSel = sel
+    if (manques.length) createError = `Lot partiel — indisponible : ${manques.join(', ')}. Tu peux déclencher quand même.`
+  }
   function avertirNonArmes(ids) {
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
     if (nonArmes.length === 0) return true
@@ -109,6 +127,9 @@
         </label>
         <label class="big">Motif *<input type="text" bind:value={form.motif} placeholder="ex: Feu d'habitation" required /></label>
       </div>
+      {#if form.natureId}
+        <button type="button" class="lot-btn" onclick={engagerLot}>⚡ Engager le lot de départ</button>
+      {/if}
 
       <!-- Détails complémentaires (repliable) -->
       <button type="button" class="sec-toggle" onclick={() => showDetails = !showDetails}>
@@ -180,6 +201,7 @@
   .veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 
+  .lot-btn { align-self: flex-start; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius); font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer; }
   .sec-alerte { display: flex; gap: 10px; flex-wrap: wrap; }
   .sec-alerte .big { flex: 1; min-width: 180px; }
   .create-modal .big { font-size: 12px; font-weight: 700; color: var(--color-text); }

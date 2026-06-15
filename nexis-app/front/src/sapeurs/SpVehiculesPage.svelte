@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {currentUser} from '../shared/stores.js'
 
     let types      = $state([])
   let vehicules  = $state([])
@@ -38,6 +39,30 @@
   let addPosteFor  = $state(null)
   let addPoste     = $state({ fonctionId: '', nbPlaces: 1, obligatoire: false })
   let natures      = $state([])   // catalogue des natures d'intervention (tags type)
+  let isAdmin      = $derived(($currentUser?.roles ?? []).includes('ROLE_ADMIN_SP'))
+
+  // ── Lots de départ (par nature) ──────────────────────────────────────────────
+  let showLots       = $state(false)
+  let templateNat    = $state('')
+  let templateLignes = $state([])
+  let tplForm        = $state({ vehiculeTypeId: '', quantite: 1 })
+  async function loadTemplate(natureId) {
+    templateNat = natureId
+    templateLignes = natureId ? await api.get(`/sp/natures/${natureId}/template`).catch(() => []) : []
+  }
+  async function addTemplate() {
+    if (!tplForm.vehiculeTypeId || !templateNat) return
+    try {
+      const created = await api.post(`/sp/natures/${templateNat}/template`,
+        { vehiculeTypeId: tplForm.vehiculeTypeId, quantite: Number(tplForm.quantite) || 1 })
+      templateLignes = [...templateLignes, created]
+      tplForm = { vehiculeTypeId: '', quantite: 1 }
+    } catch (e) { error = e.message }
+  }
+  async function deleteTemplate(id) {
+    try { await api.delete(`/sp/templates/${id}`); templateLignes = templateLignes.filter(l => l.id !== id) }
+    catch (e) { error = e.message }
+  }
   let invForm      = $state({ objetId: '', quantite: 1 })   // ajout d'un item au modèle
 
   // Édition véhicule
@@ -313,6 +338,42 @@
       {showAddVehicule ? 'Annuler' : 'Ajouter un véhicule'}
     </button>
   </div>
+
+  {#if isAdmin}
+    <section class="lots-panel">
+      <button class="lots-head" onclick={() => showLots = !showLots}>
+        <span class="caret">{showLots ? '▾' : '▸'}</span> Lots de départ (par nature)
+      </button>
+      {#if showLots}
+        <div class="lots-body">
+          <label class="lots-nat">Nature
+            <select value={templateNat} onchange={e => loadTemplate(e.target.value)}>
+              <option value="">— choisir une nature —</option>
+              {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
+            </select>
+          </label>
+          {#if templateNat}
+            <ul class="lots-list">
+              {#each templateLignes as l (l.id)}
+                <li>{l.typeLabel} <span class="qty">×{l.quantite}</span>
+                  <button class="rm-btn" title="Retirer" onclick={() => deleteTemplate(l.id)}>×</button>
+                </li>
+              {/each}
+              {#if templateLignes.length === 0}<li class="muted small">Aucun engin dans ce lot</li>{/if}
+            </ul>
+            <div class="lots-add">
+              <select bind:value={tplForm.vehiculeTypeId}>
+                <option value="">— type d'engin —</option>
+                {#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+              </select>
+              <input type="number" min="1" bind:value={tplForm.quantite} title="Quantité" style="width:70px" />
+              <button class="btn-ghost-sm" onclick={addTemplate}>Ajouter</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  {/if}
 
   {#if showAddVehicule}
     <form class="create-form" onsubmit={submitAddVehicule}>
@@ -637,6 +698,16 @@
   .sub { display: flex; flex-direction: column; gap: 8px; }
   .sub-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-muted); }
   .chips-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .lots-panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px; }
+  .lots-head { background: none; border: none; color: var(--color-text); font-size: 14px; font-weight: 600; cursor: pointer; padding: 0; }
+  .lots-head .caret { color: var(--color-muted); font-size: 11px; }
+  .lots-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .lots-nat { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-muted); max-width: 320px; }
+  .lots-nat select, .lots-add select, .lots-add input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
+  .lots-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .lots-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .lots-add { display: flex; gap: 8px; align-items: center; }
+
   .poste-chip { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; font-size: 12px; padding: 4px 10px 4px 12px; display: flex; gap: 6px; align-items: center; }
   .poste-chip.dragging { opacity: 0.5; }
   .poste-handle { cursor: grab; color: var(--color-muted); font-size: 11px; }

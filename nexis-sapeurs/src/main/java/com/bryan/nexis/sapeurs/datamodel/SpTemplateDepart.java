@@ -1,0 +1,51 @@
+package com.bryan.nexis.sapeurs.datamodel;
+
+import jakarta.persistence.*;
+import java.util.UUID;
+
+/**
+ * Ligne d'un « lot de départ » : pour une nature d'intervention, un type de véhicule et une
+ * quantité à engager. À la création, « Engager le lot » sélectionne les N véhicules disponibles
+ * de ce type (ranking habituel).
+ */
+@Entity
+@Table(name = "sp_template_depart",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"nature_id", "vehicule_type_id"}))
+public class SpTemplateDepart {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid", updatable = false, nullable = false)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "nature_id", nullable = false)
+    private SpNatureIntervention nature;
+
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "vehicule_type_id", nullable = false)
+    private SpVehiculeType vehiculeType;
+
+    @Column(nullable = false)
+    private int quantite = 1;
+
+    @Column(name = "ordre", nullable = false)
+    private int position;
+
+    protected SpTemplateDepart() {}
+
+    public SpTemplateDepart(SpNatureIntervention nature, SpVehiculeType vehiculeType, int quantite) {
+        this.nature       = nature;
+        this.vehiculeType = vehiculeType;
+        this.quantite     = quantite;
+    }
+
+    public UUID getId()                     { return id; }
+    public SpNatureIntervention getNature() { return nature; }
+    public SpVehiculeType getVehiculeType() { return vehiculeType; }
+    public int getQuantite()                { return quantite; }
+    public int getPosition()                { return position; }
+
+    public void setQuantite(int quantite)  { this.quantite = quantite; }
+    public void setPosition(int position)  { this.position = position; }
+}
