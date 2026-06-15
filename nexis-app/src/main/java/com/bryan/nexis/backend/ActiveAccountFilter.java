@@ -1,6 +1,5 @@
 package com.bryan.nexis.backend;
 
-import io.micronaut.core.annotation.Nullable;
 import com.bryan.nexis.core.datamodel.RefUser;
 import com.bryan.nexis.core.datarepository.RefUserRepository;
 import io.micronaut.core.annotation.Nullable;
@@ -11,6 +10,8 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.RequestFilter;
 import io.micronaut.http.annotation.ServerFilter;
 import io.micronaut.http.filter.ServerFilterPhase;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import java.security.Principal;
 
@@ -31,7 +32,10 @@ public class ActiveAccountFilter implements Ordered {
         this.userRepo = userRepo;
     }
 
+    // La lecture DB ne doit PAS s'exécuter sur l'event-loop Netty (peu de threads) :
+    // sinon chaque requête /api/** bloque un thread event-loop → saturation = REST en attente.
     @RequestFilter
+    @ExecuteOn(TaskExecutors.BLOCKING)
     @Nullable
     public HttpResponse<?> onRequest(HttpRequest<?> request) {
         String username = request.getAttribute(HttpAttributes.PRINCIPAL, Principal.class)
