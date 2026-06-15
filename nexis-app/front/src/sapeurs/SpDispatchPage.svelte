@@ -70,6 +70,15 @@
     catch (e) { error = e.message }
   }
 
+  async function affecterAuto(v) {
+    error = ''
+    try {
+      const ajout = await api.post(`/sp/vehicules/${v.id}/affecter-auto`)
+      if (!ajout || ajout.length === 0) error = `Aucun effectif de garde disponible pour armer ${v.libelle}.`
+      await load()
+    } catch (e) { error = e.message }
+  }
+
   async function desaffecterTout() {
     if (!window.confirm('Désaffecter TOUT le personnel embarqué de tous les véhicules ?')) return
     error = ''
@@ -258,6 +267,9 @@
 
           <div class="card-actions">
             <button class="btn-ghost-sm" onclick={() => openEngage(v)}>⚙ Armer / Statut</button>
+            {#if !v.arme}
+              <button class="btn-ghost-sm" onclick={() => affecterAuto(v)} title="Affecter automatiquement l'équipage de garde">⚡ Armer auto</button>
+            {/if}
             {#if (v.equipe ?? []).length > 0}
               <button class="btn-ghost-sm" onclick={() => bip(v)}>🔔 Biper</button>
             {/if}

@@ -21,15 +21,18 @@ public class SpVehiculeController {
     private final SpVehiculeEtatService        etatService;
     private final SpVehiculeStatutService      statutService;
     private final SpVehiculeAffectationService affectationService;
+    private final SpAffectationAutoService     affectationAutoService;
 
     public SpVehiculeController(SpVehiculeTypeService typeService, SpVehiculeService vehiculeService,
                                 SpVehiculeEtatService etatService, SpVehiculeStatutService statutService,
-                                SpVehiculeAffectationService affectationService) {
+                                SpVehiculeAffectationService affectationService,
+                                SpAffectationAutoService affectationAutoService) {
         this.typeService        = typeService;
         this.vehiculeService    = vehiculeService;
         this.etatService        = etatService;
         this.statutService      = statutService;
         this.affectationService = affectationService;
+        this.affectationAutoService = affectationAutoService;
     }
 
     @Get("/vehicules/types")
@@ -138,5 +141,12 @@ public class SpVehiculeController {
     @Post("/vehicules/{id}/bip")
     int bip(UUID id) {
         return affectationService.bip(id);
+    }
+
+    /** Affecte automatiquement l'équipage de garde aux postes libres de l'engin (action dispatch). */
+    @Post("/vehicules/{id}/affecter-auto")
+    @Secured("ROLE_SP_DISPATCH")
+    List<SpVehiculeAffectationDto> affecterAuto(UUID id) {
+        return affectationAutoService.affecterAuto(id);
     }
 }
