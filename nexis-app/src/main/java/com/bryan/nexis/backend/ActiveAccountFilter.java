@@ -1,7 +1,6 @@
 package com.bryan.nexis.backend;
 
-import com.bryan.nexis.core.datamodel.RefUser;
-import com.bryan.nexis.core.datarepository.RefUserRepository;
+import com.bryan.nexis.core.backend.AccountRevocation;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.order.Ordered;
 import io.micronaut.http.HttpAttributes;
@@ -10,8 +9,6 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.RequestFilter;
 import io.micronaut.http.annotation.ServerFilter;
 import io.micronaut.http.filter.ServerFilterPhase;
-import io.micronaut.scheduling.TaskExecutors;
-import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import java.security.Principal;
 
@@ -20,22 +17,20 @@ import java.security.Principal;
  * Le JWT reste « techniquement valide » jusqu'à expiration ; ce re-check rend la
  * désactivation effective immédiatement, sans révocation de token.
  *
- * <p>Sans cache : une lecture indexée sur le username par requête (charge négligeable
- * à l'échelle du serveur). Le front, sur 401, déconnecte et redirige vers le login.</p>
+ * <p>Contrôle en mémoire via {@link AccountRevocation} : aucun I/O sur le chemin chaud,
+ * donc s'exécute sans risque sur l'event-loop (pas de DB, pas de pression sur le pool).
+ * Le front, sur 401, déconnecte et redirige vers le login.</p>
  */
 @ServerFilter("/api/**")
 public class ActiveAccountFilter implements Ordered {
 
-    private final RefUserRepository userRepo;
+    private final AccountRevocation revocation;
 
-    public ActiveAccountFilter(RefUserRepository userRepo) {
-        this.userRepo = userRepo;
+    public ActiveAccountFilter(AccountRevocation revocation) {
+        this.revocation = revocation;
     }
 
-    // La lecture DB ne doit PAS s'exécuter sur l'event-loop Netty (peu de threads) :
-    // sinon chaque requête /api/** bloque un thread event-loop → saturation = REST en attente.
     @RequestFilter
-    @ExecuteOn(TaskExecutors.BLOCKING)
     @Nullable
     public HttpResponse<?> onRequest(HttpRequest<?> request) {
         String username = request.getAttribute(HttpAttributes.PRINCIPAL, Principal.class)
@@ -43,8 +38,7 @@ public class ActiveAccountFilter implements Ordered {
         if (username == null) {
             return null; // requête non authentifiée : la sécurité s'en charge
         }
-        boolean actif = userRepo.findByUsername(username).map(RefUser::isEnabled).orElse(false);
-        return actif ? null : HttpResponse.unauthorized();
+        return revocation.isRevoked(username) ? HttpResponse.unauthorized() : null;
     }
 
     @Override

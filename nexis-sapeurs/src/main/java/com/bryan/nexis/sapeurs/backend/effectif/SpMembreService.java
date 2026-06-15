@@ -1,5 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.effectif;
 
+import com.bryan.nexis.core.backend.AccountRevocation;
 import com.bryan.nexis.core.datarepository.RefUserRepository;
 import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreDto;
@@ -29,17 +30,20 @@ public class SpMembreService {
     private final SpFonctionRepository fonctionRepo;
     private final SecurityService      securityService;
     private final ApplicationEventPublisher<RealtimeEvent> events;
+    private final AccountRevocation    accountRevocation;
 
     public SpMembreService(SpMembreRepository membreRepo, RefUserRepository userRepo,
                            SpGradeRepository gradeRepo, SpFonctionRepository fonctionRepo,
                            SecurityService securityService,
-                           ApplicationEventPublisher<RealtimeEvent> events) {
+                           ApplicationEventPublisher<RealtimeEvent> events,
+                           AccountRevocation accountRevocation) {
         this.membreRepo   = membreRepo;
         this.userRepo     = userRepo;
         this.gradeRepo    = gradeRepo;
         this.fonctionRepo = fonctionRepo;
         this.securityService = securityService;
         this.events       = events;
+        this.accountRevocation = accountRevocation;
     }
 
     // ── Lecture ──────────────────────────────────────────────────────────────
@@ -130,6 +134,7 @@ public class SpMembreService {
         var user = membre.getUser();
         user.setEnabled(actif);
         userRepo.update(user);
+        accountRevocation.set(user.getUsername(), actif);   // maj de la liste de révocation en mémoire
         var saved = membreRepo.update(membre);
         // Radiation : déconnexion immédiate côté client (le filtre serveur bloque déjà l'API).
         if (!actif) {
