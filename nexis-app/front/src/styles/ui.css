@@ -118,7 +118,7 @@
 .statut-absent    { background: var(--color-border);     color: var(--color-muted); }
 
 /* ── Modale ─────────────────────────────────────────────────────────── */
-.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px; width: 420px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .modal h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 8px; }
