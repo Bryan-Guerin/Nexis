@@ -125,7 +125,7 @@
   .evt-admin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .evt-admin { border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); position: relative; }
   .evt-admin.past { opacity: .6; }
-  .evt-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; background: none; border: none; color: var(--color-text); cursor: pointer; text-align: left; }
+  .evt-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 38px 10px 12px; background: none; border: none; color: var(--color-text); cursor: pointer; text-align: left; }
   .chevron { font-size: 10px; color: var(--color-muted); transition: transform .15s; }
   .chevron:not(.open) { transform: rotate(-90deg); }
   .evt-t { flex: 1; font-weight: 600; font-size: 13px; }
