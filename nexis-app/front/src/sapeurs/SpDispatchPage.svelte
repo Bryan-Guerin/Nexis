@@ -12,7 +12,6 @@
   let loading      = $state(true)
   let error        = $state('')
   let showCreate   = $state(false)   // création rapide d'intervention
-  let showMap      = $state(true)    // carte des interventions en cours
   let interCarte   = $state([])      // interventions en cours (pour la carte)
   let centres      = $state([])      // casernes (repères carte permanents)
   let hopitaux     = $state([])      // hôpitaux (repères carte + destinations transport)
@@ -48,8 +47,7 @@
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
 
-  // Regroupement par catégorie principale (nature principale du type), sections repliables.
-  let collapsed = $state({})
+  // Regroupement par catégorie principale (nature principale du type) → onglets du panneau.
   let groupes = $derived(grouperVehicules(vehicules))
 
   // Compteurs d'état de la flotte (vue instantanée).
@@ -70,7 +68,6 @@
     }
     return [...map.values()].sort((a, b) => a.position - b.position)
   }
-  function toggleGroupe(key) { collapsed = { ...collapsed, [key]: !collapsed[key] } }
 
   let reloadTimer = null
 
@@ -222,15 +219,45 @@
     try { await doChangeStatut(v.id, statutId) }
     catch (e) { error = e.message }
   }
+
+  // ── Layout split : onglets par type d'intervention + lignes dépliables ──────
+  let activeTab = $state('__all__')
+  let gardeOpen = $state(false)
+  let expanded  = $state(new Set())
+  function toggleRow(id) { const s = new Set(expanded); s.has(id) ? s.delete(id) : s.add(id); expanded = s }
+  let filtered = $derived(activeTab === '__all__' ? vehicules : (groupes.find(g => g.key === activeTab)?.items ?? []))
 </script>
 
-<div class="page">
-  <div class="page-header">
-    <h2>Dispatch — Sapeurs-Pompiers</h2>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn-nouvelle-inter" onclick={() => showCreate = true}>➕ Nouvelle intervention</button>
+<div class="dispatch">
+  <!-- Bandeau compact : titre + stats + de garde + actions -->
+  <div class="d-strip">
+    <div class="d-title">
+      <h2>Dispatch — SP</h2>
+      <div class="d-stats">
+        <span class="stat"><b>{stats.total}</b> engins</span>
+        <span class="stat dispo"><b>{stats.dispo}</b> dispo</span>
+        <span class="stat eng"><b>{stats.engages}</b> engagés</span>
+        <span class="stat na"><b>{stats.nonArmes}</b> non armés</span>
+      </div>
+    </div>
+    <div class="d-strip-right">
+      <div class="garde-wrap">
+        <button class="garde-btn" onclick={() => gardeOpen = !gardeOpen}>
+          <span class="garde-dot"></span> {enServiceMembres.length} de garde ▾
+        </button>
+        {#if gardeOpen}
+          <button class="garde-overlay" aria-label="Fermer" onclick={() => gardeOpen = false}></button>
+          <div class="garde-pop">
+            {#each enServiceMembres as m (m.id)}
+              <span class="garde-chip"><span class="g-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
+            {/each}
+            {#if enServiceMembres.length === 0}<span class="muted small">Personne de garde</span>{/if}
+          </div>
+        {/if}
+      </div>
+      <button class="btn-nouvelle-inter" onclick={() => showCreate = true}>➕ Nouvelle</button>
       <button class="btn-ghost" onclick={desaffecterTout}>Tout désaffecter</button>
-      <button class="btn-ghost" onclick={load}>Actualiser</button>
+      <button class="btn-ghost" onclick={load} title="Actualiser">↻</button>
     </div>
   </div>
 
@@ -243,110 +270,79 @@
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
-    <!-- Carte des interventions en cours (repliable) -->
-    <section class="map-panel">
-      <button class="map-head" onclick={() => showMap = !showMap}>
-        <span class="caret">{showMap ? '▾' : '▸'}</span> Carte — {interCarte.length} intervention(s) en cours
-      </button>
-      {#if showMap}
-        <MapView interventions={interCarte} transits={transits} centres={centres} hopitaux={hopitaux} height="360px"
+    <div class="d-body">
+      <!-- Carte (grande, à gauche) -->
+      <div class="d-map">
+        <MapView interventions={interCarte} transits={transits} centres={centres} hopitaux={hopitaux} height="100%"
                  onveh={(id) => { const v = vehicules.find(x => x.id === id); if (v) openEngage(v) }} />
-      {/if}
-    </section>
+      </div>
 
-    <!-- Compteurs d'état de la flotte -->
-    <div class="stat-bar">
-      <span class="stat"><b>{stats.total}</b> engins</span>
-      <span class="stat dispo"><b>{stats.dispo}</b> disponibles</span>
-      <span class="stat eng"><b>{stats.engages}</b> engagés</span>
-      <span class="stat na"><b>{stats.nonArmes}</b> non armés</span>
-    </div>
-
-    <!-- Personnel actuellement de garde -->
-    <div class="garde-panel">
-      <span class="garde-title"><span class="garde-dot"></span> De garde — {enServiceMembres.length}</span>
-      {#if enServiceMembres.length > 0}
-        <div class="garde-list">
-          {#each enServiceMembres as m (m.id)}
-            <span class="garde-chip"><span class="g-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
+      <!-- Panneau véhicules (droite) : onglets par type, un seul à la fois -->
+      <div class="d-panel">
+        <div class="d-tabs">
+          <button class:on={activeTab === '__all__'} onclick={() => activeTab = '__all__'}>Tous <b>{vehicules.length}</b></button>
+          {#each groupes as g (g.key)}
+            <button class:on={activeTab === g.key} onclick={() => activeTab = g.key}>{g.label} <b>{g.items.length}</b></button>
           {/each}
         </div>
-      {:else}
-        <span class="muted small">Personne de garde actuellement</span>
-      {/if}
-    </div>
 
-    {#each groupes as g (g.key)}
-    <section class="veh-group">
-      <button class="group-head" onclick={() => toggleGroupe(g.key)}>
-        <span class="group-caret">{collapsed[g.key] ? '▸' : '▾'}</span>
-        <span class="group-title">{g.label}</span>
-        <span class="group-count">{g.items.length}</span>
-      </button>
-      {#if !collapsed[g.key]}
-      <div class="grid">
-      {#each g.items as v (v.id)}
-        <div class="card" style="border-top: 3px solid {v.statut.couleur}">
-          <div class="card-head">
-            <div class="veh-info">
-              <span class="veh-type">{v.type.code}</span>
-              <span class="veh-lib">{v.libelle}</span>
-              {#if v.immatriculation}
-                <span class="veh-immat">{v.immatriculation}</span>
-              {/if}
-              {#if v.centreLabel}<span class="veh-centre">⛑️ {v.centreLabel}</span>{/if}
-            </div>
-            <div class="badges">
-              <select class="statut-sel" title="Changer le statut (transition avant)"
-                      style="color:{v.statut.couleur}; border-color:{v.statut.couleur}55; background:{v.statut.couleur}18"
-                      value={v.statut.id} onchange={e => changeStatutVeh(v, e.target.value)}>
-                {#each statutsPour(v) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
-              </select>
-              <span class="sys-badge" style="background:{v.etat.couleur}22; color:{v.etat.couleur}" title="État système">{v.etat.label}</span>
-              <span class="arme-badge" class:ok={v.arme}
-                    title={v.arme ? 'Postes obligatoires couverts' : 'Postes manquants : ' + ((v.postesManquants ?? []).join(', ') || '—')}>
-                {v.arme ? '✓ armé' : '✗ non armé'}{#if !v.arme && (v.postesManquants ?? []).length}<span class="manq-count"> ({v.postesManquants.length})</span>{/if}
-              </span>
-              <span class="verif-badge" class:vieux={verifVieux(v.derniereVerifLe)} title="Dernière vérification d'inventaire">📋 {verifTxt(v.derniereVerifLe)}</span>
-            </div>
-          </div>
+        <div class="d-list">
+          {#each filtered as v (v.id)}
+            <div class="vrow" style="border-left:3px solid {v.statut.couleur}">
+              <div class="vr-main" role="button" tabindex="0" onclick={() => toggleRow(v.id)}>
+                <span class="vr-ic">{v.type?.icone || '🚒'}</span>
+                <div class="vr-id">
+                  <span class="vr-lib">{v.libelle}</span>
+                  <span class="vr-sub">{v.type.code}{#if v.centreLabel} · ⛑️ {v.centreLabel}{/if}</span>
+                </div>
+                <span class="vr-crewcount" title="Personnel embarqué">👤 {(v.equipe ?? []).length}</span>
+                <span class="vr-arme" class:ok={v.arme}
+                      title={v.arme ? 'Postes obligatoires couverts' : 'Manque : ' + ((v.postesManquants ?? []).join(', ') || '—')}>
+                  {v.arme ? '✓' : '✗'}
+                </span>
+              </div>
+              <div class="vr-actions">
+                <select class="statut-sel" title="Changer le statut (transition avant)"
+                        style="color:{v.statut.couleur}; border-color:{v.statut.couleur}55; background:{v.statut.couleur}18"
+                        value={v.statut.id} onchange={e => changeStatutVeh(v, e.target.value)}>
+                  {#each statutsPour(v) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+                </select>
+                {#if !v.arme}<button class="ico-btn" title="Armer auto" onclick={() => affecterAuto(v)}>⚡</button>{/if}
+                {#if (v.equipe ?? []).length > 0}<button class="ico-btn" title="Biper" onclick={() => bip(v)}>🔔</button>{/if}
+                <button class="ico-btn" title="Armer / postes" onclick={() => openEngage(v)}>⚙</button>
+              </div>
 
-          {#if (v.equipe ?? []).length > 0}
-            <ul class="crew">
-              {#each v.equipe as m (m.membreId)}
-                <li class="crew-member">
-                  {#if enServiceSet.has(m.membreId)}<span class="garde-dot" title="De garde"></span>{/if}
-                  <span class="crew-grade">{m.gradeCode}</span>
-                  <span class="crew-name">{m.nomComplet || m.username}</span>
-                  <div class="crew-right">
-                    <span class="crew-matricule">{m.matricule}</span>
-                    <span class="crew-fonction">{m.fonctionLabel}</span>
+              {#if expanded.has(v.id)}
+                <div class="vr-crew">
+                  {#if (v.equipe ?? []).length > 0}
+                    <ul class="crew">
+                      {#each v.equipe as m (m.membreId)}
+                        <li class="crew-member">
+                          {#if enServiceSet.has(m.membreId)}<span class="garde-dot" title="De garde"></span>{/if}
+                          <span class="crew-grade">{m.gradeCode}</span>
+                          <span class="crew-name">{m.nomComplet || m.username}</span>
+                          <span class="crew-fonction">{m.fonctionLabel}</span>
+                        </li>
+                      {/each}
+                    </ul>
+                  {:else}
+                    <p class="empty-crew">Aucun personnel embarqué</p>
+                  {/if}
+                  {#if !v.arme && (v.postesManquants ?? []).length}
+                    <div class="manq">Manque : {#each v.postesManquants as p}<span class="manq-chip">{p}</span>{/each}</div>
+                  {/if}
+                  <div class="vr-foot">
+                    <span class="sys-badge" style="background:{v.etat.couleur}22; color:{v.etat.couleur}">{v.etat.label}</span>
+                    <span class="verif-badge" class:vieux={verifVieux(v.derniereVerifLe)}>📋 {verifTxt(v.derniereVerifLe)}</span>
                   </div>
-                </li>
-              {/each}
-            </ul>
-          {:else}
-            <p class="empty-crew">Aucun personnel embarqué</p>
-          {/if}
-
-          <div class="card-actions">
-            <button class="btn-ghost-sm" onclick={() => openEngage(v)}>⚙ Armer / Statut</button>
-            {#if !v.arme}
-              <button class="btn-ghost-sm" onclick={() => affecterAuto(v)} title="Affecter automatiquement l'équipage de garde">⚡ Armer auto</button>
-            {/if}
-            {#if (v.equipe ?? []).length > 0}
-              <button class="btn-ghost-sm" onclick={() => bip(v)}>🔔 Biper</button>
-            {/if}
-          </div>
+                </div>
+              {/if}
+            </div>
+          {/each}
+          {#if filtered.length === 0}<p class="muted small" style="padding:12px">Aucun engin</p>{/if}
         </div>
-      {/each}
       </div>
-      {/if}
-    </section>
-    {/each}
-    {#if vehicules.length === 0}
-      <p class="muted">Aucun véhicule enregistré</p>
-    {/if}
+    </div>
   {/if}
 </div>
 
@@ -436,53 +432,22 @@
   }
   .btn-nouvelle-inter:hover { filter: brightness(1.08); }
 
-  .veh-centre { font-size: 11px; color: var(--color-muted); }
-
-  .map-panel { margin-bottom: 12px; }
-  .map-head { background: none; border: none; color: var(--color-text); font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 0; }
-  .map-head .caret { color: var(--color-muted); font-size: 11px; }
-
-  .stat-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .stat { font-size: 13px; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 12px; }
   .stat b { color: var(--color-text); font-size: 15px; }
   .stat.dispo b { color: var(--color-success); }
   .stat.eng b { color: var(--accent); }
   .stat.na b { color: var(--color-danger); }
 
-  .veh-group { margin-bottom: 16px; }
-  .group-head {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    background: none; border: none; cursor: pointer; padding: 6px 2px;
-    color: var(--color-text); font-size: 14px; font-weight: 600;
-    border-bottom: 1px solid var(--color-border); margin-bottom: 10px;
-  }
-  .group-caret { color: var(--color-muted); font-size: 11px; }
-  .group-title { flex: 1; text-align: left; }
-  .group-count { color: var(--color-muted); font-weight: 500; font-size: 12px; }
-
-  .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .verif-badge { font-size: 10px; color: var(--color-muted); }
   .verif-badge.vieux { color: var(--color-danger); font-weight: 600; }
   .statut-sel { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid; padding: 2px 6px; cursor: pointer; outline: none; max-width: 150px; }
   .statut-sel option { background: var(--color-surface); color: var(--color-text); font-weight: 500; }
   .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }
-  .arme-badge { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px; background: color-mix(in srgb, var(--color-danger) 16%, transparent); color: var(--color-danger); }
-  .arme-badge.ok { background: color-mix(in srgb, var(--color-success) 16%, transparent); color: var(--color-success); }
-  .crew-right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
   .crew-fonction { font-size: 11px; color: var(--accent); font-weight: 500; }
 
-  /* Panneau "de garde" */
-  .garde-panel {
-    background: var(--color-surface); border: 1px solid var(--color-border);
-    border-radius: var(--radius); padding: 12px 16px;
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  }
-  .garde-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-success); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .garde-list { display: flex; gap: 8px; flex-wrap: wrap; }
   .garde-chip { font-size: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; padding: 3px 10px; display: inline-flex; gap: 6px; align-items: center; }
   .garde-chip .g-grade { color: var(--color-muted); font-size: 10px; }
   .garde-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
-  .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
   /* Modal armement */
   .modal.wide { width: 560px; }
@@ -501,4 +466,55 @@
   .rm-btn:hover { color: var(--color-danger); }
   .hopital-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
   .hopital-list .btn-secondary { text-align: left; }
+
+  /* ── Layout split (carte + panneau véhicules) ──────────────────────────── */
+  .dispatch { display: flex; flex-direction: column; gap: 10px; height: calc(100vh - var(--header-h) - 48px); }
+  .d-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .d-title { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .d-title h2 { font-size: 18px; font-weight: 600; }
+  .d-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+  .d-strip-right { display: flex; align-items: center; gap: 8px; }
+
+  .garde-wrap { position: relative; }
+  .garde-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 6px 10px; cursor: pointer; }
+  .garde-btn:hover { border-color: var(--color-success); }
+  .garde-overlay { position: fixed; inset: 0; background: transparent; border: none; z-index: 49; }
+  .garde-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: 250px; max-height: 50vh; overflow-y: auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.3); padding: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .d-body { flex: 1; min-height: 0; display: flex; gap: 10px; }
+  .d-map { flex: 1.7; min-width: 0; border-radius: var(--radius); overflow: hidden; }
+  .d-panel { flex: 1; min-width: 300px; max-width: 460px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+
+  .d-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .d-tabs button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 12px; padding: 4px 10px; cursor: pointer; }
+  .d-tabs button b { color: var(--color-text); font-weight: 700; }
+  .d-tabs button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); }
+  .d-tabs button.on b { color: var(--accent); }
+
+  .d-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+  .vrow { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .vr-main { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; }
+  .vr-ic { font-size: 18px; line-height: 1; }
+  .vr-id { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .vr-lib { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vr-sub { font-size: 11px; color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vr-crewcount { font-size: 11px; color: var(--color-muted); white-space: nowrap; }
+  .vr-arme { font-size: 11px; font-weight: 800; border-radius: 6px; padding: 1px 7px; background: color-mix(in srgb, var(--color-danger) 16%, transparent); color: var(--color-danger); }
+  .vr-arme.ok { background: color-mix(in srgb, var(--color-success) 16%, transparent); color: var(--color-success); }
+  .vr-actions { display: flex; align-items: center; gap: 6px; padding: 0 10px 8px; }
+  .vr-actions .statut-sel { flex: 1; max-width: none; }
+  .ico-btn { background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 13px; line-height: 1; }
+  .ico-btn:hover { border-color: var(--accent); }
+  .vr-crew { border-top: 1px solid var(--color-border); padding: 8px 10px; }
+  .manq { margin-top: 6px; font-size: 11px; color: var(--color-muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .manq-chip { background: color-mix(in srgb, var(--color-danger) 14%, transparent); color: var(--color-danger); border-radius: 6px; padding: 1px 6px; font-weight: 600; }
+  .vr-foot { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+
+  @media (max-width: 900px) {
+    .dispatch { height: auto; }
+    .d-body { flex-direction: column; }
+    .d-map { height: 320px; flex: none; }
+    .d-panel { max-width: none; }
+    .d-list { overflow-y: visible; }
+  }
 </style>
