@@ -3,7 +3,7 @@
 
   // Carte (Leaflet, CRS.Simple sur le terrain UnRealLife). Fond satellite (mosaïque) ou
   // vectoriel (geojson : forêts, routes, bâtiments-repères, noms). Réutilisable.
-  let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null } = $props()
+  let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null, onveh = null } = $props()
 
   const TILE = 2560, NTILE = 4
   const IMG = TILE * NTILE   // 10240 = worldSize, 1 px = 1 m
@@ -76,9 +76,10 @@
   ]
   let heavyGroup, heavyIndex = {}, heavyCells = new Map()   // 'file/cx/cy' → couche Leaflet (ou null = en cours)
 
-  let el, map, satGroup, vectorGroup, layer, baseGroup, clockTimer
-  let mode = $state('sat')   // 'sat' | 'vecteur'
+  let el, map, satGroup, vectorGroup, layer, baseGroup, clockTimer, vectorBuilt = false
+  let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('nexis.mapMode') === 'vecteur') ? 'vecteur' : 'sat')
   let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
+  let showLegend = $state(false)
 
   onMount(() => {
     const L = window.L
@@ -93,8 +94,7 @@
       for (let y = 0; y < NTILE; y++)
         L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]], { pane: 'tilePane' }).addTo(satGroup)
 
-    vectorGroup = L.layerGroup()
-    buildVector()
+    vectorGroup = L.layerGroup()   // construit à la demande (1er passage en vecteur)
 
     satGroup.addTo(map)
     baseGroup = L.layerGroup().addTo(map)   // casernes + hôpitaux (permanents, les 2 modes)
@@ -107,6 +107,7 @@
     map.on('moveend zoomend', updateHeavy)
     renderBase()
     render()
+    if (mode === 'vecteur') setMode('vecteur')   // applique le choix mémorisé (G)
     clockTimer = setInterval(() => tick++, 1000)
   })
   onDestroy(() => { clearInterval(clockTimer); if (map) { map.remove(); map = null } })
@@ -140,6 +141,8 @@
   function setMode(m) {
     if (!map) return
     mode = m
+    try { localStorage.setItem('nexis.mapMode', m) } catch { /* indispo */ }
+    if (m === 'vecteur' && !vectorBuilt) { buildVector(); vectorBuilt = true }   // lazy-load (C)
     // Le sat reste toujours affiché (tilePane) ; on baisse juste son opacité en vecteur.
     satGroup.eachLayer(l => l.setOpacity(m === 'vecteur' ? SAT_DIM : 1))
     if (m === 'vecteur') { vectorGroup.addTo(map); heavyGroup.addTo(map) }
@@ -205,6 +208,12 @@
   const MIN_PER_KM = 2   // vitesse retenue (≈ 2 min/km), à peaufiner
   function fmtClock(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
   function vehDiv(t) { return `<div class="veh-marker" style="--c:${t.couleur || '#4f6ef7'}">${t.icone || '🚒'}</div>` }
+  // Marqueur véhicule : tooltip au survol + clic → callback parent (changer le statut depuis la carte).
+  function vehMarker(ll, icon, t, tip) {
+    const m = window.L.marker(ll, { icon }).addTo(layer).bindTooltip(tip, { direction: 'top' })
+    if (onveh && t.id) m.on('click', () => onveh(t.id))
+    return m
+  }
 
   function render() {
     if (!map || !layer || !window.L) return
@@ -233,14 +242,14 @@
       }
       const pos = [a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac]
       const icon = L.divIcon({ className: 'itv-pin', html: vehDiv(t), iconSize: [24, 24], iconAnchor: [12, 12] })
-      L.marker(pos, { icon }).addTo(layer).bindPopup(`🚒 ${t.label ?? ''}<br>${eta} · ${distKm.toFixed(2)} km`)
+      vehMarker(pos, icon, t, `🚒 ${t.label ?? ''} · ${eta} · ${distKm.toFixed(2)} km`)
     }
     // Barre d'engins sous chaque point (sur place) : côte à côte, jamais empilés.
     for (const grp of atMap.values()) {
       grp.items.forEach((t, k) => {
         const dx = (k - (grp.items.length - 1) / 2) * 24
         const icon = L.divIcon({ className: 'itv-pin', html: vehDiv(t), iconSize: [24, 24], iconAnchor: [12 - dx, -12] })
-        L.marker(grp.ll, { icon }).addTo(layer).bindPopup(`🚒 ${t.label ?? ''}`)
+        vehMarker(grp.ll, icon, t, `🚒 ${t.label ?? ''}`)
       })
     }
     for (const i of interventions) {
@@ -261,6 +270,18 @@
     <button type="button" class:on={mode === 'sat'} onclick={() => setMode('sat')}>Satellite</button>
     <button type="button" class:on={mode === 'vecteur'} onclick={() => setMode('vecteur')}>Vecteur</button>
   </div>
+  <div class="map-legend">
+    <button type="button" class="lg-toggle" onclick={() => showLegend = !showLegend}>{showLegend ? '✕ Légende' : 'ⓘ Légende'}</button>
+    {#if showLegend}
+      <ul>
+        <li>⛑️ Caserne</li>
+        <li>🏥 Hôpital</li>
+        <li>🚒 Engin <span class="muted">(couleur = statut)</span></li>
+        <li><span class="lg-dash"></span> Trajet</li>
+        <li>🔥 / 🚨 Intervention</li>
+      </ul>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -280,4 +301,10 @@
   :global(.poi.caserne) { background: rgba(79,110,247,.28); border: 1px solid #4f6ef7; }
   :global(.poi.hopital) { background: rgba(224,92,92,.28); border: 1px solid #e05c5c; }
   :global(.poi-pt) { background: none; border: none; font-size: 12px; line-height: 16px; text-align: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+  .map-legend { position: absolute; bottom: 8px; left: 8px; z-index: 500; font-size: 11px; }
+  .lg-toggle { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 3px 8px; cursor: pointer; font-size: 11px; }
+  .map-legend ul { list-style: none; margin: 4px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 92%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 3px; }
+  .map-legend li { display: flex; align-items: center; gap: 6px; color: var(--color-text); white-space: nowrap; }
+  .map-legend .muted { color: var(--color-muted); }
+  .lg-dash { display: inline-block; width: 18px; border-top: 2px dashed #aab0b6; }
 </style>

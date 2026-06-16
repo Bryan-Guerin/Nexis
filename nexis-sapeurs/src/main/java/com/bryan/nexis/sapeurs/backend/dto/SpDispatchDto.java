@@ -20,7 +20,8 @@ public record SpDispatchDto(
         String centreLabel,
         String centreCoordonnees,
         String hopitalDestinationCoordonnees,
-        String positionCoordonnees
+        String positionCoordonnees,
+        String legDepart
 ) {
     @Serdeable
     public record SpDispatchMembreDto(UUID membreId, String matricule, String username, String gradeCode,

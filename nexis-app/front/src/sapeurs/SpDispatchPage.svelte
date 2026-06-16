@@ -24,21 +24,21 @@
       if (!i.coordonnees) continue
       for (const e of (i.engins ?? [])) {
         const v = vmap.get(e.vehiculeId); if (!v) continue
-        const couleur = v.statut?.couleur, label = v.libelle, icone = v.type?.icone
+        const id = v.id, couleur = v.statut?.couleur, label = v.libelle, icone = v.type?.icone, dep = v.legDepart
         const action = v.statut?.actionCarte, dest = v.hopitalDestinationCoordonnees, caserne = v.centreCoordonnees, pos = v.positionCoordonnees
         if (action === 'TRANSPORT_HOPITAL') {
-          if (dest) out.push({ from: i.coordonnees, to: dest, couleur, label, icone })
-          else out.push({ at: i.coordonnees, couleur, label, icone })   // destination non choisie : garé sur l'inter
+          if (dest) out.push({ id, from: i.coordonnees, to: dest, couleur, label, icone, depart: dep })
+          else out.push({ id, at: i.coordonnees, couleur, label, icone })   // destination non choisie : garé sur l'inter
         } else if (action === 'SUR_PLACE') {
-          out.push({ at: dest || i.coordonnees, couleur, label, icone })
+          out.push({ id, at: dest || i.coordonnees, couleur, label, icone })
         } else if (action === 'RETOUR_CASERNE') {
           const from = pos || dest || i.coordonnees   // origine = dernière position (ex. hôpital)
-          if (caserne) out.push({ from, to: caserne, couleur, label, icone })
-          else out.push({ at: from, couleur, label, icone })
+          if (caserne) out.push({ id, from, to: caserne, couleur, label, icone, depart: dep })
+          else out.push({ id, at: from, couleur, label, icone })
         } else if (caserne) {
-          out.push({ from: caserne, to: i.coordonnees, couleur, label, icone, depart: i.debut })   // en route (défaut, ETA animée)
+          out.push({ id, from: caserne, to: i.coordonnees, couleur, label, icone, depart: dep || i.debut })   // en route, ETA animée
         } else {
-          out.push({ at: i.coordonnees, couleur, label, icone })
+          out.push({ id, at: i.coordonnees, couleur, label, icone })
         }
       }
     }
@@ -249,7 +249,8 @@
         <span class="caret">{showMap ? '▾' : '▸'}</span> Carte — {interCarte.length} intervention(s) en cours
       </button>
       {#if showMap}
-        <MapView interventions={interCarte} transits={transits} centres={centres} hopitaux={hopitaux} height="360px" />
+        <MapView interventions={interCarte} transits={transits} centres={centres} hopitaux={hopitaux} height="360px"
+                 onveh={(id) => { const v = vehicules.find(x => x.id === id); if (v) openEngage(v) }} />
       {/if}
     </section>
 

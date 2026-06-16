@@ -106,7 +106,8 @@ public class SpDispatchService {
                     v.getCentre() != null ? v.getCentre().getLabel() : null,
                     v.getCentre() != null ? v.getCentre().getCoordonnees() : null,
                     v.getHopitalDestination() != null ? v.getHopitalDestination().getCoordonnees() : null,
-                    v.getPositionCoordonnees());
+                    v.getPositionCoordonnees(),
+                    v.getLegDepart() != null ? v.getLegDepart().toString() : null);
         }).toList();
     }
 }

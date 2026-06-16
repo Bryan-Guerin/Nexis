@@ -47,6 +47,11 @@ public class SpVehicule {
     @Column(name = "position_coordonnees", length = 6)
     private String positionCoordonnees;
 
+    /** Instant de début du trajet courant (dernier changement de statut) : anime le 🚒 et
+     *  calcule l'ETA sur l'aller / le transport / le retour. */
+    @Column(name = "leg_depart")
+    private java.time.Instant legDepart;
+
     /** Capacité en eau (litres) — optionnel. */
     @Column(name = "capacite_eau")
     private Integer capaciteEau;
@@ -72,6 +77,7 @@ public class SpVehicule {
     public SpCentre getCentre()             { return centre; }
     public SpHopital getHopitalDestination() { return hopitalDestination; }
     public String getPositionCoordonnees()  { return positionCoordonnees; }
+    public java.time.Instant getLegDepart() { return legDepart; }
     public Integer getCapaciteEau()         { return capaciteEau; }
     public String getNotes()                { return notes; }
 
@@ -83,6 +89,7 @@ public class SpVehicule {
     public void setCentre(SpCentre centre)                { this.centre = centre; }
     public void setHopitalDestination(SpHopital h)        { this.hopitalDestination = h; }
     public void setPositionCoordonnees(String c)          { this.positionCoordonnees = c; }
+    public void setLegDepart(java.time.Instant t)         { this.legDepart = t; }
     public void setCapaciteEau(Integer capaciteEau)       { this.capaciteEau = capaciteEau; }
     public void setNotes(String notes)                    { this.notes = notes; }
 

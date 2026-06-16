@@ -179,6 +179,7 @@ public class SpVehiculeService {
                 courant != null ? courant.getCode() : "?", cible.getCode(), cible.getEtat().getCode(), actor());
         vehicule.setStatut(cible);
         vehicule.setEtat(cible.getEtat());   // le statut pilote l'état maître
+        vehicule.setLegDepart(java.time.Instant.now()); // nouveau trajet → réinitialise l'animation/ETA
 
         // Destination hôpital + position selon l'action carte du statut (souple : non bloquant).
         switch (cible.getActionCarte()) {
