@@ -7,6 +7,7 @@
     import {refStatutsVeh} from '../shared/referentials.js'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
     import MapView from '../shared/MapView.svelte'
+    import Modal from '../shared/Modal.svelte'
 
     let vehicules    = $state([])
   let membres      = $state([])
@@ -349,80 +350,74 @@
 
 <!-- ── Modal : choix de l'hôpital de destination (transport) ─────────────────── -->
 {#if hopitalPick}
-  <div class="backdrop" style="z-index:1100" onclick={() => hopitalPick = null}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Destination — transport hôpital</h3>
-      {#if hopitaux.length === 0}
-        <p class="muted small">Aucun hôpital configuré (Config → Centres &amp; hôpitaux).</p>
-      {/if}
-      <div class="hopital-list">
-        {#each hopitaux as h (h.id)}
-          <button class="btn-secondary" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
-        {/each}
-      </div>
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, '')}>Sans destination</button>
-        <button class="btn-ghost-sm" onclick={() => hopitalPick = null}>Annuler</button>
-      </div>
+  <Modal title="Destination — transport hôpital" z={1100} onclose={() => hopitalPick = null}>
+    {#if hopitaux.length === 0}
+      <p class="muted small">Aucun hôpital configuré (Config → Centres &amp; hôpitaux).</p>
+    {/if}
+    <div class="hopital-list">
+      {#each hopitaux as h (h.id)}
+        <button class="btn-secondary" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
+      {/each}
     </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost-sm" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, '')}>Sans destination</button>
+      <button class="btn-ghost-sm" onclick={() => hopitalPick = null}>Annuler</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ── Modal armement / engagement ──────────────────────────────────────────── -->
 {#if engageVeh}
-  <div class="backdrop" onclick={closeEngage}>
-    <div class="modal wide" onclick={e => e.stopPropagation()}>
-      <h3>Armer — {engageCurrent.libelle} <span class="muted small">({engageCurrent.type.code})</span></h3>
-      {#if engageError}<p class="inline-error">{engageError}</p>{/if}
+  <Modal wide title={`Armer — ${engageCurrent.libelle} (${engageCurrent.type.code})`} onclose={closeEngage}>
+    {#if engageError}<p class="inline-error">{engageError}</p>{/if}
 
-      <label class="field-label">Statut du véhicule <span class="muted small">(état système : {engageCurrent.etat.label})</span>
-        <select value={engageCurrent.statut.id} onchange={e => changeStatut(e.target.value)}>
-          {#each statutOptions as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
-        </select>
-      </label>
+    <label class="field-label">Statut du véhicule <span class="muted small">(état système : {engageCurrent.etat.label})</span>
+      <select value={engageCurrent.statut.id} onchange={e => changeStatut(e.target.value)}>
+        {#each statutOptions as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+      </select>
+    </label>
 
-      <div class="postes">
-        {#each postes as p (p.id)}
-          {@const occ = occupants(p.id)}
-          <div class="poste">
-            <div class="poste-head">
-              <span class="poste-fonction">{p.fonctionLabel}</span>
-              <span class="poste-cap">{occ.length}/{p.nbPlaces}</span>
-            </div>
-            {#if occ.length > 0}
-              <ul class="poste-crew">
-                {#each occ as a (a.id)}
-                  <li>
-                    <span class="crew-grade">{membreById(a.membreId)?.gradeCode ?? ''}</span>
-                    <span class="crew-name">{membreById(a.membreId)?.nomComplet || membreById(a.membreId)?.username || '—'}</span>
-                    <button class="rm-btn" title="Retirer" onclick={() => retirer(a)}>×</button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            {#if occ.length < p.nbPlaces}
-              {@const elig = eligibles(p)}
-              <div class="poste-add">
-                <select bind:value={addSel[p.id]}>
-                  <option value="">— ajouter un effectif —</option>
-                  {#each elig as m (m.id)}<option value={m.id}>{m.gradeCode} {m.nomComplet || m.username}</option>{/each}
-                </select>
-                <button class="btn-primary" disabled={!addSel[p.id]} onclick={() => affecterPoste(p)}>Affecter</button>
-              </div>
-              {#if elig.length === 0}<span class="muted small">Aucun effectif qualifié <strong>de garde</strong> disponible</span>{/if}
-            {/if}
+    <div class="postes">
+      {#each postes as p (p.id)}
+        {@const occ = occupants(p.id)}
+        <div class="poste">
+          <div class="poste-head">
+            <span class="poste-fonction">{p.fonctionLabel}</span>
+            <span class="poste-cap">{occ.length}/{p.nbPlaces}</span>
           </div>
-        {/each}
-        {#if postes.length === 0}
-          <p class="muted small">Ce type de véhicule n'a aucun poste configuré.</p>
-        {/if}
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={closeEngage}>Fermer</button>
-      </div>
+          {#if occ.length > 0}
+            <ul class="poste-crew">
+              {#each occ as a (a.id)}
+                <li>
+                  <span class="crew-grade">{membreById(a.membreId)?.gradeCode ?? ''}</span>
+                  <span class="crew-name">{membreById(a.membreId)?.nomComplet || membreById(a.membreId)?.username || '—'}</span>
+                  <button class="rm-btn" title="Retirer" onclick={() => retirer(a)}>×</button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          {#if occ.length < p.nbPlaces}
+            {@const elig = eligibles(p)}
+            <div class="poste-add">
+              <select bind:value={addSel[p.id]}>
+                <option value="">— ajouter un effectif —</option>
+                {#each elig as m (m.id)}<option value={m.id}>{m.gradeCode} {m.nomComplet || m.username}</option>{/each}
+              </select>
+              <button class="btn-primary" disabled={!addSel[p.id]} onclick={() => affecterPoste(p)}>Affecter</button>
+            </div>
+            {#if elig.length === 0}<span class="muted small">Aucun effectif qualifié <strong>de garde</strong> disponible</span>{/if}
+          {/if}
+        </div>
+      {/each}
+      {#if postes.length === 0}
+        <p class="muted small">Ce type de véhicule n'a aucun poste configuré.</p>
+      {/if}
     </div>
-  </div>
+
+    {#snippet actions()}
+      <button class="btn-ghost-sm" onclick={closeEngage}>Fermer</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>
@@ -451,8 +446,7 @@
   .garde-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
 
   /* Modal armement */
-  .modal.wide { width: 560px; }
-  .modal select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
+  .field-label select, .postes select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
   .postes { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow-y: auto; }
   .poste { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; }
   .poste-head { display: flex; align-items: center; justify-content: space-between; }

@@ -5,6 +5,7 @@
   import {confirm} from '../shared/confirm.js'
   import {realtime} from '../shared/realtime.js'
   import {refStatutsVeh} from '../shared/referentials.js'
+  import Modal from '../shared/Modal.svelte'
 
   // Feuille de garde : flotte groupée par type principal (comme l'ancien dispatch),
   // triée armé → statut, pour armer/affecter facilement. Pas de carte (→ Dispatch).
@@ -273,31 +274,26 @@
 
 <!-- ── Modal : choix de l'hôpital de destination (transport) ─────────────────── -->
 {#if hopitalPick}
-  <div class="backdrop" style="z-index:1100" onclick={() => hopitalPick = null}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Destination — transport hôpital</h3>
-      {#if hopitaux.length === 0}
-        <p class="muted small">Aucun hôpital configuré (Config → Centres &amp; hôpitaux).</p>
-      {/if}
-      <div class="hopital-list">
-        {#each hopitaux as h (h.id)}
-          <button class="btn-secondary" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
-        {/each}
-      </div>
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, '')}>Sans destination</button>
-        <button class="btn-ghost-sm" onclick={() => hopitalPick = null}>Annuler</button>
-      </div>
+  <Modal title="Destination — transport hôpital" z={1100} onclose={() => hopitalPick = null}>
+    {#if hopitaux.length === 0}
+      <p class="muted small">Aucun hôpital configuré (Config → Centres &amp; hôpitaux).</p>
+    {/if}
+    <div class="hopital-list">
+      {#each hopitaux as h (h.id)}
+        <button class="btn-secondary" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
+      {/each}
     </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost-sm" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, '')}>Sans destination</button>
+      <button class="btn-ghost-sm" onclick={() => hopitalPick = null}>Annuler</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ── Modal armement / engagement ──────────────────────────────────────────── -->
 {#if engageVeh}
-  <div class="backdrop" onclick={closeEngage}>
-    <div class="modal wide" onclick={e => e.stopPropagation()}>
-      <h3>Armer — {engageCurrent.libelle} <span class="muted small">({engageCurrent.type.code})</span></h3>
-      {#if engageError}<p class="inline-error">{engageError}</p>{/if}
+  <Modal wide title={`Armer — ${engageCurrent.libelle} (${engageCurrent.type.code})`} onclose={closeEngage}>
+    {#if engageError}<p class="inline-error">{engageError}</p>{/if}
 
       <label class="field-label">Statut du véhicule <span class="muted small">(état système : {engageCurrent.etat.label})</span>
         <select value={engageCurrent.statut.id} onchange={e => changeStatut(e.target.value)}>
@@ -342,11 +338,10 @@
         {/if}
       </div>
 
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={closeEngage}>Fermer</button>
-      </div>
-    </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost-sm" onclick={closeEngage}>Fermer</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>
@@ -392,8 +387,7 @@
   .garde-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
   .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  .modal.wide { width: 560px; }
-  .modal select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
+  .field-label select, .postes select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
   .postes { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow-y: auto; }
   .poste { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 12px; }
   .poste-head { display: flex; align-items: center; justify-content: space-between; }

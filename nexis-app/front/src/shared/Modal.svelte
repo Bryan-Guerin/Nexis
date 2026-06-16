@@ -1,17 +1,33 @@
+<script module>
+  // Pile des modales ouvertes : l'Échap ne ferme que celle du dessus.
+  let stack = []
+  let uidSeq = 0
+</script>
+
 <script>
-  import {onMount} from 'svelte'
+  import {onMount, onDestroy} from 'svelte'
+  import {get} from 'svelte/store'
+  import {confirmState} from './confirm.js'
 
-  // Modale réutilisable : backdrop, Échap ferme, focus initial, ✕ systématique.
-  let { title = '', onclose, wide = false, width = null, children, actions } = $props()
+  // Modale réutilisable : backdrop, Échap (couche du dessus), focus initial, ✕ systématique.
+  let { title = '', onclose, wide = false, width = null, z = null, children, actions } = $props()
 
+  const uid = ++uidSeq
   let panel
-  onMount(() => { panel?.focus() })
-  function onkey(e) { if (e.key === 'Escape') onclose?.() }
+  onMount(() => { stack.push(uid); panel?.focus() })
+  onDestroy(() => { stack = stack.filter(x => x !== uid) })
+
+  function onkey(e) {
+    if (e.key !== 'Escape') return
+    if (get(confirmState)) return                 // un confirm est au-dessus
+    if (stack[stack.length - 1] !== uid) return   // pas la modale du dessus
+    onclose?.()
+  }
 </script>
 
 <svelte:window onkeydown={onkey} />
 
-<div class="backdrop" onclick={() => onclose?.()}>
+<div class="backdrop" style={z ? `z-index:${z}` : ''} onclick={() => onclose?.()}>
   <div class="modal" class:wide style={width ? `width:${width}` : ''} tabindex="-1"
        bind:this={panel} onclick={e => e.stopPropagation()} role="dialog" aria-modal="true">
     <button class="modal-x" title="Fermer" aria-label="Fermer" onclick={() => onclose?.()}>✕</button>

@@ -10,7 +10,7 @@
 
 <style>
   .toasts {
-    position: fixed; top: calc(var(--header-h) + 12px); right: 16px; z-index: 2000;
+    position: fixed; bottom: 16px; right: 16px; z-index: 2000;
     display: flex; flex-direction: column; gap: 8px; max-width: min(360px, 90vw);
   }
   .toast {
@@ -24,5 +24,5 @@
   }
   .toast.error { border-left-color: var(--color-danger); }
   .toast.info  { border-left-color: var(--color-primary); }
-  @keyframes t-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @keyframes t-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 </style>
