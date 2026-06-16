@@ -34,9 +34,6 @@
   const VECTOR_LAYERS = [
     // Surfaces / lignes
     { file: 'forest',           style: { stroke: false, fillColor: '#2f6d43', fillOpacity: 0.55 } },
-    { file: 'rockarea',         style: { stroke: false, fillColor: '#6b6256', fillOpacity: 0.4 } },
-    { file: 'rock',             style: { color: '#8a8378', weight: 0.6, fillColor: '#8a8378', fillOpacity: 0.35 } },
-    { file: 'rocks',            style: { color: '#8a8378', weight: 0.6, fillColor: '#8a8378', fillOpacity: 0.35 } },
     { file: 'mounts',           style: { color: '#7d6b4f', weight: 0.5, opacity: 0.5 } },
     { file: 'track',            style: { color: '#8a8f96', weight: 0.7, dashArray: '3' } },
     { file: 'road',             style: { color: '#aab0b6', weight: 1.2 } },
@@ -72,9 +69,10 @@
   // Couches lourdes (house/tree) : tuilées (scripts/split-map-layers.mjs), chargées à la
   // demande au zoom (seules les cellules visibles sont fetchées). Mode vecteur uniquement.
   const HEAVY_N = 32, HEAVY_CS = IMG / HEAVY_N
+  const HEAVY_MAX_CELLS = 100   // garde-fou : trop dézoomé = trop de tuiles → on saute (sinon on charge ~toute la map)
   const HEAVY_LAYERS = [
-    { file: 'house', minZoom: -1, style: { stroke: false, fillColor: '#5b554f', fillOpacity: 0.65 } },
-    { file: 'tree',  minZoom: 0,  color: '#3c7a4a' },
+    { file: 'house', minZoom: -2, style: { stroke: false, fillColor: '#5b554f', fillOpacity: 0.65 } },
+    { file: 'tree',  minZoom: -1, color: '#3c7a4a' },
   ]
   let heavyGroup, heavyIndex = {}, heavyCells = new Map()   // 'file/cx/cy' → couche Leaflet (ou null = en cours)
 
@@ -156,6 +154,7 @@
       if (!idx || z < h.minZoom) continue
       const cxA = Math.max(0, Math.floor(b.getWest() / HEAVY_CS)), cxB = Math.min(HEAVY_N - 1, Math.floor(b.getEast() / HEAVY_CS))
       const cyA = Math.max(0, Math.floor(b.getSouth() / HEAVY_CS)), cyB = Math.min(HEAVY_N - 1, Math.floor(b.getNorth() / HEAVY_CS))
+      if ((cxB - cxA + 1) * (cyB - cyA + 1) > HEAVY_MAX_CELLS) continue   // trop dézoomé
       for (let cx = cxA; cx <= cxB; cx++) for (let cy = cyA; cy <= cyB; cy++) {
         const ck = `${cx}/${cy}`; if (!idx.has(ck)) continue
         const fk = `${h.file}/${ck}`; wanted.add(fk)
