@@ -3,6 +3,7 @@
   import {api} from '../shared/api.js'
   import {refNatures} from '../shared/referentials.js'
   import {currentUser} from '../shared/stores.js'
+  import MapView from '../shared/MapView.svelte'
 
   // Modal de création d'intervention, réutilisable (écran interventions + bouton rapide dispatch).
   let { onclose, oncreated } = $props()
@@ -140,6 +141,14 @@
         <button type="button" class="lot-btn" onclick={engagerLot}>⚡ Engager le lot de départ</button>
       {/if}
 
+      <!-- Mini-carte : clic = pose les coordonnées (aide à localiser l'appelant) -->
+      <div class="loc-map">
+        <span class="pick-label">Localisation <span class="hint">— clic sur la carte = coordonnées {#if form.coordonnees.length === 6}({coordDisplay(form.coordonnees)}){/if}</span></span>
+        <MapView height="240px"
+                 interventions={form.coordonnees.length === 6 ? [{ coordonnees: form.coordonnees, motif: 'Localisation', nature: { code: '📍' } }] : []}
+                 oncoordpick={c => form.coordonnees = c} />
+      </div>
+
       <!-- Détails complémentaires (repliable) -->
       <button type="button" class="sec-toggle" onclick={() => showDetails = !showDetails}>
         <span class="caret">{showDetails ? '▾' : '▸'}</span> Détails — appelant, localisation, qualification
@@ -213,6 +222,7 @@
   .veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 
+  .loc-map { display: flex; flex-direction: column; gap: 5px; }
   .auto-chk { margin-right: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text); }
   .lot-btn { align-self: flex-start; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius); font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer; }
   .sec-alerte { display: flex; gap: 10px; flex-wrap: wrap; }
