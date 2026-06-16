@@ -6,6 +6,7 @@
   import {refNatures} from '../shared/referentials.js'
   import {currentUser} from '../shared/stores.js'
   import MapView from '../shared/MapView.svelte'
+  import Modal from '../shared/Modal.svelte'
 
   // Modal de création d'intervention, réutilisable (écran interventions + bouton rapide dispatch).
   let { onclose, oncreated } = $props()
@@ -127,10 +128,7 @@
   }
 </script>
 
-<div class="backdrop">
-  <div class="modal create-modal">
-    <button class="modal-x" title="Fermer" onclick={onclose}>✕</button>
-    <h3>Nouvelle intervention</h3>
+<Modal title="Nouvelle intervention" width="880px" onclose={onclose}>
     {#if createError}<p class="inline-error">{createError}</p>{/if}
     {#snippet enginRow(v)}
       <label class="veh-check" class:propose={matchPrincipal(v)} class:propose-sec={matchSecondaire(v)}>
@@ -227,12 +225,9 @@
         <button type="submit" class="btn-primary">Déclencher l'intervention</button>
       </div>
     </form>
-  </div>
-</div>
+</Modal>
 
 <style>
-  .create-modal { width: 880px; max-width: 94vw; max-height: 90vh; overflow-y: auto; position: relative; }
-
   /* 2 colonnes : formulaire (gauche) + carte (droite, repère visuel) */
   .cm-cols { display: flex; gap: 16px; align-items: stretch; }
   .cm-form { flex: 1.1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -244,13 +239,11 @@
     .cm-cols { flex-direction: column; }
     .cm-map-box { min-height: 240px; }
   }
-  .modal-x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--color-muted); font-size: 18px; cursor: pointer; line-height: 1; }
-  .modal-x:hover { color: var(--color-danger); }
   .create-modal-form { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
-  .create-modal label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
-  .create-modal label.full { width: 100%; }
-  .create-modal input, .create-modal select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; text-transform: none; letter-spacing: 0; }
-  .create-modal .veh-check { text-transform: none; letter-spacing: 0; flex-direction: row; align-items: center; gap: 8px; }
+  .create-modal-form label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
+  .create-modal-form label.full { width: 100%; }
+  .create-modal-form input, .create-modal-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; text-transform: none; letter-spacing: 0; }
+  .create-modal-form .veh-check { text-transform: none; letter-spacing: 0; flex-direction: row; align-items: center; gap: 8px; }
   .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
   .form-row label { flex: 1; min-width: 140px; }
   .veh-pick { display: flex; flex-direction: column; gap: 6px; }
@@ -261,8 +254,8 @@
   .lot-btn { align-self: flex-start; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius); font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer; }
   .sec-alerte { display: flex; gap: 10px; flex-wrap: wrap; }
   .sec-alerte .big { flex: 1; min-width: 180px; }
-  .create-modal .big { font-size: 12px; font-weight: 700; color: var(--color-text); }
-  .create-modal .big input, .create-modal .big select { font-size: 15px; padding: 9px 11px; }
+  .create-modal-form .big { font-size: 12px; font-weight: 700; color: var(--color-text); }
+  .create-modal-form .big input, .create-modal-form .big select { font-size: 15px; padding: 9px 11px; }
   .sec-toggle { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; text-align: left; padding: 2px 0; }
   .caret { display: inline-block; width: 12px; color: var(--color-muted); }
   .sec-body { display: flex; flex-direction: column; gap: 10px; border-left: 2px solid var(--color-border); padding-left: 12px; }
