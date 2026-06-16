@@ -20,6 +20,10 @@ nexis-app/front/node_modules/
 nexis-app/front/.vite/
 nexis-app/src/main/resources/public/
 
+# Fonds de carte : hors git/jar, servis depuis un volume en prod (NEXIS_MAP_DIR).
+# Gardés en local pour le dev (Vite sert public/ directement). Voir docs/carte.md.
+nexis-app/front/public/map/
+
 # Node.js téléchargé par frontend-maven-plugin
 node/
 /logs/

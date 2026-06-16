@@ -48,6 +48,9 @@ services:
       # Branding paramétrable (logo caserne SP…) servi sur /branding/** par l'app.
       # Dépose tes images dans /opt/volumes/nexis/branding/ (ex: sp-logo.png).
       - /opt/volumes/nexis/branding:/branding:ro
+      # Fonds de carte (tuiles sat, geojson, meta…) servis sur /map/** par l'app.
+      # Dépose-les dans /opt/volumes/nexis/map/ (structure : voir docs/carte.md).
+      - /opt/volumes/nexis/map:/map:ro
     # /health (Micronaut Management) : healthcheck applicatif → DOWN si la DB tombe.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
