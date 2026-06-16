@@ -13,14 +13,18 @@
 
   let natures   = $state([])
   let vehicules = $state([])
+  let centres   = $state([])
+  let hopitaux  = $state([])
   let form      = $state({ motif: '', natureId: '', requerant: '', telephone: '', observation: '', commune: '', coordonnees: '', nbVictimes: '', incendie: false, vehiculeImplique: false })
   let createSel = $state([])
   let createError = $state('')
 
   onMount(async () => {
-    ;[vehicules, natures] = await Promise.all([
+    ;[vehicules, natures, centres, hopitaux] = await Promise.all([
       api.get('/sp/vehicules/engageables').catch(() => []),
       refNatures().catch(() => []),
+      api.get('/sp/centres').catch(() => []),
+      api.get('/sp/hopitaux').catch(() => []),
     ])
   })
 
@@ -144,7 +148,7 @@
       <!-- Mini-carte : clic = pose les coordonnées (aide à localiser l'appelant) -->
       <div class="loc-map">
         <span class="pick-label">Localisation <span class="hint">— clic sur la carte = coordonnées {#if form.coordonnees.length === 6}({coordDisplay(form.coordonnees)}){/if}</span></span>
-        <MapView height="240px"
+        <MapView height="240px" centres={centres} hopitaux={hopitaux}
                  interventions={form.coordonnees.length === 6 ? [{ coordonnees: form.coordonnees, motif: 'Localisation', nature: { code: '📍' } }] : []}
                  oncoordpick={c => form.coordonnees = c} />
       </div>

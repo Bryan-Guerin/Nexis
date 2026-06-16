@@ -35,7 +35,7 @@
           if (caserne) out.push({ from: dest || i.coordonnees, to: caserne, couleur, label, icone })
           else out.push({ at: dest || i.coordonnees, couleur, label, icone })
         } else if (caserne) {
-          out.push({ from: caserne, to: i.coordonnees, couleur, label, icone })   // en route (défaut)
+          out.push({ from: caserne, to: i.coordonnees, couleur, label, icone, depart: i.debut })   // en route (défaut, ETA animée)
         } else {
           out.push({ at: i.coordonnees, couleur, label, icone })
         }

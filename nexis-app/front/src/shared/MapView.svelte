@@ -42,8 +42,9 @@
   ]
   const NAME_LAYERS = ['namecity', 'namevillage', 'namemarine']
 
-  let el, map, satGroup, vectorGroup, layer, baseGroup
+  let el, map, satGroup, vectorGroup, layer, baseGroup, clockTimer
   let mode = $state('sat')   // 'sat' | 'vecteur'
+  let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
 
   onMount(() => {
     const L = window.L
@@ -66,8 +67,9 @@
     if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
     renderBase()
     render()
+    clockTimer = setInterval(() => tick++, 1000)
   })
-  onDestroy(() => { if (map) { map.remove(); map = null } })
+  onDestroy(() => { clearInterval(clockTimer); if (map) { map.remove(); map = null } })
 
   async function buildVector() {
     const L = window.L
@@ -104,8 +106,8 @@
     baseGroup.clearLayers()
     for (const c of centres) {
       const ll = llOf(c.coordonnees); if (!ll) continue
-      const icon = L.divIcon({ className: 'itv-pin', html: `<div class="poi caserne">🚒</div>`, iconSize: [22, 22], iconAnchor: [11, 11] })
-      L.marker(ll, { icon }).addTo(baseGroup).bindPopup(`🚒 <b>${c.label ?? ''}</b>`)
+      const icon = L.divIcon({ className: 'itv-pin', html: `<div class="poi caserne">⛑️</div>`, iconSize: [22, 22], iconAnchor: [11, 11] })
+      L.marker(ll, { icon }).addTo(baseGroup).bindPopup(`⛑️ <b>${c.label ?? ''}</b>`)
     }
     for (const h of hopitaux) {
       const ll = llOf(h.coordonnees); if (!ll) continue
@@ -114,31 +116,45 @@
     }
   }
 
+  const MIN_PER_KM = 2   // vitesse retenue (≈ 2 min/km), à peaufiner
+  function fmtClock(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+  function vehDiv(t) { return `<div class="veh-marker" style="--c:${t.couleur || '#4f6ef7'}">${t.icone || '🚒'}</div>` }
+
   function render() {
     if (!map || !layer || !window.L) return
     const L = window.L
     layer.clearLayers()
-    // Transits : trait selon l'action carte du statut ; on collecte les 🚒 pour les décaler côte à côte.
-    const vehPts = []
+    const now = Date.now()
+    const atMap = new Map()   // engins garés à un point → barre horizontale sous le point
     for (const t of transits) {
-      const at = t.at ? llOf(t.at) : null
-      if (at) { vehPts.push({ ll: at, couleur: t.couleur, label: t.label, icone: t.icone }); continue }
+      if (t.at) {
+        const ll = llOf(t.at); if (!ll) continue
+        const key = `${Math.round(ll[0] / 8)}_${Math.round(ll[1] / 8)}`
+        ;(atMap.get(key) ?? atMap.set(key, { ll, items: [] }).get(key)).items.push(t)
+        continue
+      }
       const a = llOf(t.from), b = llOf(t.to)
       if (!a || !b) continue
       L.polyline([a, b], { color: t.couleur || '#4f6ef7', weight: 2, dashArray: '6 5', opacity: 0.9 }).addTo(layer)
-      vehPts.push({ ll: a, couleur: t.couleur, label: t.label, icone: t.icone })
+      // Distance (1 px = 1 m) + ETA ; le 🚒 progresse le long du trait selon le temps écoulé.
+      const distKm = Math.hypot(a[0] - b[0], a[1] - b[1]) / 1000
+      const etaMin = distKm * MIN_PER_KM
+      let frac = 0, eta = `~${etaMin.toFixed(0)} min`
+      if (t.depart && etaMin > 0) {
+        const d0 = new Date(t.depart).getTime()
+        frac = Math.max(0, Math.min(1, (now - d0) / 60000 / etaMin))
+        eta = frac >= 1 ? 'arrivé' : `arrivée ~${fmtClock(new Date(d0 + etaMin * 60000))}`
+      }
+      const pos = [a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac]
+      const icon = L.divIcon({ className: 'itv-pin', html: vehDiv(t), iconSize: [24, 24], iconAnchor: [12, 12] })
+      L.marker(pos, { icon }).addTo(layer).bindPopup(`🚒 ${t.label ?? ''}<br>${eta} · ${distKm.toFixed(2)} km`)
     }
-    // Décalage horizontal des 🚒 partageant un même point (≈ même position au sol).
-    const groups = new Map()
-    for (const v of vehPts) {
-      const key = `${Math.round(v.ll[0] / 8)}_${Math.round(v.ll[1] / 8)}`
-      ;(groups.get(key) ?? groups.set(key, []).get(key)).push(v)
-    }
-    for (const grp of groups.values()) {
-      grp.forEach((v, k) => {
-        const dx = (k - (grp.length - 1) / 2) * 24   // px écran, indépendant du zoom
-        const icon = L.divIcon({ className: 'itv-pin', html: `<div class="veh-marker" style="--c:${v.couleur || '#4f6ef7'}">${v.icone || '🚒'}</div>`, iconSize: [24, 24], iconAnchor: [12 - dx, 12] })
-        L.marker(v.ll, { icon }).addTo(layer).bindPopup(`🚒 ${v.label ?? ''}`)
+    // Barre d'engins sous chaque point (sur place) : côte à côte, jamais empilés.
+    for (const grp of atMap.values()) {
+      grp.items.forEach((t, k) => {
+        const dx = (k - (grp.items.length - 1) / 2) * 24
+        const icon = L.divIcon({ className: 'itv-pin', html: vehDiv(t), iconSize: [24, 24], iconAnchor: [12 - dx, -12] })
+        L.marker(grp.ll, { icon }).addTo(layer).bindPopup(`🚒 ${t.label ?? ''}`)
       })
     }
     for (const i of interventions) {
@@ -149,7 +165,7 @@
         .bindPopup(`<b>${i.code ?? ''}</b><br>${(i.motif ?? '').replace(/</g, '&lt;')}`)
     }
   }
-  $effect(() => { interventions; transits; render() })
+  $effect(() => { interventions; transits; tick; render() })
   $effect(() => { centres; hopitaux; renderBase() })
 </script>
 
