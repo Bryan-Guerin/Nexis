@@ -1,0 +1,18 @@
+[
+    {
+        "geometry": {
+            "coordinates": [
+                7780.18017578125,
+                7494.14013671875
+            ],
+            "type": "Point"
+        },
+        "properties": {
+            "angle": 0.0,
+            "name": "Aeroport de Bezine",
+            "radiusA": 500.0,
+            "radiusB": 500.0
+        },
+        "type": "Feature"
+    }
+]

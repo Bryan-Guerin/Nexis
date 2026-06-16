@@ -1,0 +1,34 @@
+[
+    {
+        "geometry": {
+            "coordinates": [
+                6834.8701171875,
+                4550.93017578125
+            ],
+            "type": "Point"
+        },
+        "properties": {
+            "angle": 0.0,
+            "name": "Industrie miniere",
+            "radiusA": 500.0,
+            "radiusB": 500.0
+        },
+        "type": "Feature"
+    },
+    {
+        "geometry": {
+            "coordinates": [
+                5146.81982421875,
+                7827.2099609375
+            ],
+            "type": "Point"
+        },
+        "properties": {
+            "angle": 0.0,
+            "name": "Mine a ciel ouvert",
+            "radiusA": 500.0,
+            "radiusB": 500.0
+        },
+        "type": "Feature"
+    }
+]

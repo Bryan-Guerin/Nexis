@@ -1,0 +1,24 @@
+[
+    {
+        "geometry": {
+            "coordinates": [
+                3554.390625,
+                6313.43310546875
+            ],
+            "type": "Point"
+        },
+        "properties": {},
+        "type": "Feature"
+    },
+    {
+        "geometry": {
+            "coordinates": [
+                8027.53125,
+                7837.06591796875
+            ],
+            "type": "Point"
+        },
+        "properties": {},
+        "type": "Feature"
+    }
+]

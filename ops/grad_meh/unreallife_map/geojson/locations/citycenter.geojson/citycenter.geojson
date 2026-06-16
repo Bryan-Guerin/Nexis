@@ -1,0 +1,18 @@
+[
+    {
+        "geometry": {
+            "coordinates": [
+                3254.0400390625,
+                5465.830078125
+            ],
+            "type": "Point"
+        },
+        "properties": {
+            "angle": 0.0,
+            "name": "Circuit Ales",
+            "radiusA": 500.0,
+            "radiusB": 500.0
+        },
+        "type": "Feature"
+    }
+]

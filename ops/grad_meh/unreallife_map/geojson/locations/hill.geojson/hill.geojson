@@ -1,0 +1,34 @@
+[
+    {
+        "geometry": {
+            "coordinates": [
+                3956.110107421875,
+                2935.800048828125
+            ],
+            "type": "Point"
+        },
+        "properties": {
+            "angle": 0.0,
+            "name": "Stand de tir",
+            "radiusA": 500.0,
+            "radiusB": 500.0
+        },
+        "type": "Feature"
+    },
+    {
+        "geometry": {
+            "coordinates": [
+                4847.89013671875,
+                5170.89990234375
+            ],
+            "type": "Point"
+        },
+        "properties": {
+            "angle": 0.0,
+            "name": "Zone militaire",
+            "radiusA": 600.0,
+            "radiusB": 600.0
+        },
+        "type": "Feature"
+    }
+]
