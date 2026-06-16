@@ -4,6 +4,7 @@
     import {realtime} from '../shared/realtime.js'
     import {refStatutsVeh} from '../shared/referentials.js'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
+    import MapView from '../shared/MapView.svelte'
 
     let vehicules    = $state([])
   let membres      = $state([])
@@ -11,6 +12,8 @@
   let loading      = $state(true)
   let error        = $state('')
   let showCreate   = $state(false)   // création rapide d'intervention
+  let showMap      = $state(true)    // carte des interventions en cours
+  let interCarte   = $state([])      // interventions en cours (pour la carte)
 
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
@@ -55,12 +58,15 @@
   async function load() {
     loading = true; error = ''
     try {
-      ;[vehicules, membres, enServiceIds, statuts] = await Promise.all([
+      let inters
+      ;[vehicules, membres, enServiceIds, statuts, inters] = await Promise.all([
         api.get('/sp/dispatch'),
         api.get('/sp/membres?actif=true'),
         api.get('/sp/membres/en-service'),
         refStatutsVeh(),   // référentiel en cache
+        api.get('/sp/interventions'),
       ])
+      interCarte = (inters ?? []).filter(i => i.enCours)
     } catch (e) { error = e.message }
     finally { loading = false }
   }
@@ -191,6 +197,16 @@
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
+    <!-- Carte des interventions en cours (repliable) -->
+    <section class="map-panel">
+      <button class="map-head" onclick={() => showMap = !showMap}>
+        <span class="caret">{showMap ? '▾' : '▸'}</span> Carte — {interCarte.length} intervention(s) en cours
+      </button>
+      {#if showMap}
+        <MapView interventions={interCarte} height="360px" />
+      {/if}
+    </section>
+
     <!-- Compteurs d'état de la flotte -->
     <div class="stat-bar">
       <span class="stat"><b>{stats.total}</b> engins</span>
@@ -350,6 +366,10 @@
     box-shadow: 0 1px 4px rgba(0,0,0,.25);
   }
   .btn-nouvelle-inter:hover { filter: brightness(1.08); }
+
+  .map-panel { margin-bottom: 12px; }
+  .map-head { background: none; border: none; color: var(--color-text); font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 0; }
+  .map-head .caret { color: var(--color-muted); font-size: 11px; }
 
   .stat-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .stat { font-size: 13px; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 12px; }
