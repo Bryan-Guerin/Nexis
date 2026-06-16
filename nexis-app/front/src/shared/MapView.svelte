@@ -6,7 +6,8 @@
   // - oncoordpick : callback(coord6) quand on clique la carte (mode saisie)
   let { interventions = [], height = '380px', oncoordpick = null } = $props()
 
-  const IMG = 2048   // preview.png = 2048×2048
+  const TILE = 2560, NTILE = 4
+  const IMG = TILE * NTILE   // mosaïque sat 4×4 de 2560 → 10240×10240 (= worldSize, 1 px = 1 m)
 
   // ── Conversion coordonnées jeu (6 chiffres) → pixel image ────────────────────
   // Calibré sur points connus : X au pas 100 m (000→102.4), Y au pas 10 m (000→1000).
@@ -32,9 +33,16 @@
   onMount(() => {
     const L = window.L
     if (!L) return
-    map = L.map(el, { crs: L.CRS.Simple, minZoom: -2, maxZoom: 2, attributionControl: false, zoomSnap: 0.25 })
+    map = L.map(el, { crs: L.CRS.Simple, minZoom: -5, maxZoom: 3, attributionControl: false, zoomSnap: 0.25 })
     const bounds = [[0, 0], [IMG, IMG]]
-    L.imageOverlay('/map/unreallife/preview.png', bounds).addTo(map)
+    // Mosaïque sat : tuile sat/{x}/{y}.png → colonne x (gauche→droite), ligne y (haut→bas).
+    for (let x = 0; x < NTILE; x++) {
+      for (let y = 0; y < NTILE; y++) {
+        const sw = [IMG - (y + 1) * TILE, x * TILE]
+        const ne = [IMG - y * TILE, (x + 1) * TILE]
+        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, [sw, ne]).addTo(map)
+      }
+    }
     map.fitBounds(bounds)
     layer = L.layerGroup().addTo(map)
     if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
