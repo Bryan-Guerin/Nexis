@@ -86,11 +86,12 @@
     map = L.map(el, { crs: L.CRS.Simple, minZoom: -5, maxZoom: 3, attributionControl: false, zoomSnap: 0.25, preferCanvas: true })
     map.fitBounds([[0, 0], [IMG, IMG]])
 
-    // Fond satellite (mosaïque sat/{x}/{y}.png)
+    // Fond satellite (mosaïque sat/{x}/{y}.png) — dans tilePane (toujours sous les vecteurs).
+    // Toujours présent : pleine opacité en mode sat, atténué en fond du mode vecteur (eau + sol).
     satGroup = L.layerGroup()
     for (let x = 0; x < NTILE; x++)
       for (let y = 0; y < NTILE; y++)
-        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]]).addTo(satGroup)
+        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]], { pane: 'tilePane' }).addTo(satGroup)
 
     vectorGroup = L.layerGroup()
     buildVector()
@@ -135,11 +136,14 @@
     }
   }
 
+  const SAT_DIM = 0.4   // opacité du sat en fond du mode vecteur
   function setMode(m) {
     if (!map) return
     mode = m
-    if (m === 'vecteur') { map.removeLayer(satGroup); vectorGroup.addTo(map); heavyGroup.addTo(map) }
-    else { map.removeLayer(vectorGroup); map.removeLayer(heavyGroup); satGroup.addTo(map) }
+    // Le sat reste toujours affiché (tilePane) ; on baisse juste son opacité en vecteur.
+    satGroup.eachLayer(l => l.setOpacity(m === 'vecteur' ? SAT_DIM : 1))
+    if (m === 'vecteur') { vectorGroup.addTo(map); heavyGroup.addTo(map) }
+    else { map.removeLayer(vectorGroup); map.removeLayer(heavyGroup) }
     updateHeavy()
   }
 
