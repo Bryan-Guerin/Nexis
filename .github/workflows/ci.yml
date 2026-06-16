@@ -40,5 +40,11 @@ jobs:
       - name: Fix mvnw permissions
         run: chmod +x mvnw
 
-      - name: Build + tests (front + back)
-        run: ./mvnw -B -ntp verify -Denforcer.skip=true
+      # `verify -DskipTests` : build front (npm) + back, package, ET compile les sources
+      # de test (attrape les ruptures de signature) — sans EXÉCUTER les tests.
+      # Les tests @MicronautTest (ex. NexisTest) bootent le contexte → datasource via
+      # Micronaut test-resources = conteneur Postgres (Docker), indisponible sur le runner.
+      # Le déploiement (Dockerfile) skip déjà les tests. Pour exécuter les tests en CI,
+      # voir option « service Postgres » (datasource explicite, test-resources désactivé).
+      - name: Build + compilation des tests (front + back)
+        run: ./mvnw -B -ntp verify -DskipTests -Denforcer.skip=true
