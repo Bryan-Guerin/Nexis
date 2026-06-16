@@ -2,6 +2,7 @@
     import {onMount} from 'svelte'
     import Nav from './Nav.svelte'
     import MonAffectation from './MonAffectation.svelte'
+    import Modal from '../shared/Modal.svelte'
     import {authToken, currentUser, theme as themeMode} from '../shared/stores.js'
     import {api} from '../shared/api.js'
     import {realtime, startBipLoop, stopBipLoop} from '../shared/realtime.js'
@@ -227,46 +228,40 @@
 
 <!-- ── Modale : choix d'avatar ──────────────────────────────────────────────── -->
 {#if showAvatar}
-  <div class="backdrop" onclick={() => showAvatar = false}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Choisir un avatar</h3>
-      <div class="avatar-grid">
-        {#each AVATARS as a}
-          <button class="avatar-choice" class:selected={a === avatar} onclick={() => chooseAvatar(a)}>{a}</button>
-        {/each}
-      </div>
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={() => showAvatar = false}>Fermer</button>
-      </div>
+  <Modal title="Choisir un avatar" onclose={() => showAvatar = false}>
+    <div class="avatar-grid">
+      {#each AVATARS as a}
+        <button class="avatar-choice" class:selected={a === avatar} onclick={() => chooseAvatar(a)}>{a}</button>
+      {/each}
     </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost-sm" onclick={() => showAvatar = false}>Fermer</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ── Modale : changer son mot de passe ────────────────────────────────────── -->
 {#if showPwd}
-  <div class="backdrop" onclick={() => showPwd = false}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Modifier mon mot de passe</h3>
-      {#if pwdError}<p class="inline-error">{pwdError}</p>{/if}
-      {#if pwdSuccess}<p class="success-msg">{pwdSuccess}</p>{/if}
+  <Modal title="Modifier mon mot de passe" onclose={() => showPwd = false}>
+    {#if pwdError}<p class="inline-error">{pwdError}</p>{/if}
+    {#if pwdSuccess}<p class="success-msg">{pwdSuccess}</p>{/if}
 
-      <form onsubmit={submitPwd} style="display:flex;flex-direction:column;gap:12px">
-        <label class="field-label">Mot de passe actuel
-          <input type="password" bind:value={pwdForm.current} autocomplete="current-password" required />
-        </label>
-        <label class="field-label">Nouveau mot de passe
-          <input type="password" bind:value={pwdForm.next} autocomplete="new-password" required />
-        </label>
-        <label class="field-label">Confirmer
-          <input type="password" bind:value={pwdForm.confirm} autocomplete="new-password" required />
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="btn-ghost-sm" onclick={() => showPwd = false}>Fermer</button>
-          <button type="submit" class="btn-primary" disabled={pwdBusy}>{pwdBusy ? '…' : 'Valider'}</button>
-        </div>
-      </form>
-    </div>
-  </div>
+    <form onsubmit={submitPwd} style="display:flex;flex-direction:column;gap:12px">
+      <label class="field-label">Mot de passe actuel
+        <input type="password" bind:value={pwdForm.current} autocomplete="current-password" required />
+      </label>
+      <label class="field-label">Nouveau mot de passe
+        <input type="password" bind:value={pwdForm.next} autocomplete="new-password" required />
+      </label>
+      <label class="field-label">Confirmer
+        <input type="password" bind:value={pwdForm.confirm} autocomplete="new-password" required />
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost-sm" onclick={() => showPwd = false}>Fermer</button>
+        <button type="submit" class="btn-primary" disabled={pwdBusy}>{pwdBusy ? '…' : 'Valider'}</button>
+      </div>
+    </form>
+  </Modal>
 {/if}
 
 <style>

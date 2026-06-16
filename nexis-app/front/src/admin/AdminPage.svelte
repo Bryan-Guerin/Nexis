@@ -2,6 +2,7 @@
     import {onMount} from 'svelte'
     import {currentUser} from '../shared/stores.js'
     import {api} from '../shared/api.js'
+    import Modal from '../shared/Modal.svelte'
 
     let users    = $state([])
   let roles    = $state([])
@@ -233,38 +234,32 @@
 
 <!-- ── Modale édition des rôles ─────────────────────────────────────────────── -->
 {#if editUser}
-  <div class="backdrop" onclick={() => editUser = null}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Rôles de {editUser.username}</h3>
-      {#if editError}<p class="inline-error">{editError}</p>{/if}
-      <div class="role-picker col">
-        {#each roles as role}
-          <label class="role-check">
-            <input type="checkbox" checked={editRoles.includes(role.code)} onchange={() => toggleEditRole(role.code)} />
-            {role.label} <span class="chip-code">{role.code}</span>
-          </label>
-        {/each}
-      </div>
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={() => editUser = null}>Annuler</button>
-        <button class="btn-primary" onclick={saveRoles}>Enregistrer</button>
-      </div>
+  <Modal title={`Rôles de ${editUser.username}`} onclose={() => editUser = null}>
+    {#if editError}<p class="inline-error">{editError}</p>{/if}
+    <div class="role-picker col">
+      {#each roles as role}
+        <label class="role-check">
+          <input type="checkbox" checked={editRoles.includes(role.code)} onchange={() => toggleEditRole(role.code)} />
+          {role.label} <span class="chip-code">{role.code}</span>
+        </label>
+      {/each}
     </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost-sm" onclick={() => editUser = null}>Annuler</button>
+      <button class="btn-primary" onclick={saveRoles}>Enregistrer</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ── Modale résultat reset mot de passe ───────────────────────────────────── -->
 {#if resetResult}
-  <div class="backdrop" onclick={() => resetResult = null}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Mot de passe réinitialisé</h3>
-      <p class="muted small">Communiquez ce mot de passe temporaire à <strong>{resetResult.username}</strong>. Il ne sera plus affiché ensuite.</p>
-      <div class="pwd-box">{resetResult.password}</div>
-      <div class="modal-actions">
-        <button class="btn-primary" onclick={() => resetResult = null}>Fermer</button>
-      </div>
-    </div>
-  </div>
+  <Modal title="Mot de passe réinitialisé" onclose={() => resetResult = null}>
+    <p class="muted small">Communiquez ce mot de passe temporaire à <strong>{resetResult.username}</strong>. Il ne sera plus affiché ensuite.</p>
+    <div class="pwd-box">{resetResult.password}</div>
+    {#snippet actions()}
+      <button class="btn-primary" onclick={() => resetResult = null}>Fermer</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>
