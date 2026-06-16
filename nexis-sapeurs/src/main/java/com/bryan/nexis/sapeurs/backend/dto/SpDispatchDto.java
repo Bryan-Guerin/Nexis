@@ -17,7 +17,8 @@ public record SpDispatchDto(
         List<SpDispatchMembreDto> equipe,
         List<String> postesManquants,
         String derniereVerifLe,
-        String centreCoordonnees
+        String centreCoordonnees,
+        String hopitalDestinationCoordonnees
 ) {
     @Serdeable
     public record SpDispatchMembreDto(UUID membreId, String matricule, String username, String gradeCode,

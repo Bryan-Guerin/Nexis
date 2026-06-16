@@ -134,10 +134,14 @@ public class SpVehiculeController {
         return vehiculeService.updateEtat(id, etatId);
     }
 
-    /** Bascule le statut RP (équipier affecté, transition avant uniquement). */
+    /**
+     * Bascule le statut RP (équipier affecté, transition avant uniquement).
+     * hopitalId optionnel : destination posée quand le statut porte l'action TRANSPORT_HOPITAL.
+     */
     @Put("/vehicules/{id}/statut")
-    SpVehiculeDto updateStatut(UUID id, @QueryValue UUID statutId) {
-        return vehiculeService.updateStatut(id, statutId);
+    SpVehiculeDto updateStatut(UUID id, @QueryValue UUID statutId,
+                               @QueryValue @io.micronaut.core.annotation.Nullable UUID hopitalId) {
+        return vehiculeService.updateStatut(id, statutId, hopitalId);
     }
 
     /** Fait sonner l'équipage actif du véhicule. Retourne le nombre de personnes bipées. */

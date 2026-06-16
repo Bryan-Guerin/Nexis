@@ -3,7 +3,7 @@
 
   // Carte (Leaflet, CRS.Simple sur le terrain UnRealLife). Fond satellite (mosaïque) ou
   // vectoriel (geojson : forêts, routes, bâtiments-repères, noms). Réutilisable.
-  let { interventions = [], transits = [], height = '380px', oncoordpick = null } = $props()
+  let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null } = $props()
 
   const TILE = 2560, NTILE = 4
   const IMG = TILE * NTILE   // 10240 = worldSize, 1 px = 1 m
@@ -42,7 +42,7 @@
   ]
   const NAME_LAYERS = ['namecity', 'namevillage', 'namemarine']
 
-  let el, map, satGroup, vectorGroup, layer
+  let el, map, satGroup, vectorGroup, layer, baseGroup
   let mode = $state('sat')   // 'sat' | 'vecteur'
 
   onMount(() => {
@@ -61,8 +61,10 @@
     buildVector()
 
     satGroup.addTo(map)
+    baseGroup = L.layerGroup().addTo(map)   // casernes + hôpitaux (permanents, les 2 modes)
     layer = L.layerGroup().addTo(map)
     if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
+    renderBase()
     render()
   })
   onDestroy(() => { if (map) { map.remove(); map = null } })
@@ -93,29 +95,62 @@
 
   function iconHtml(i) { return i.nature?.icone || (i.incendie ? '🔥' : '🚨') }
   function numero(i) { return (i.code ?? '').replace(/^INT-?/i, '') }
+  function llOf(coord) { const p = gridToImg(coord); return p ? toLatLng(p[0], p[1]) : null }
+
+  // Casernes (🚒) + hôpitaux (🏥) : repères permanents, depuis la config (les 2 modes).
+  function renderBase() {
+    if (!map || !baseGroup || !window.L) return
+    const L = window.L
+    baseGroup.clearLayers()
+    for (const c of centres) {
+      const ll = llOf(c.coordonnees); if (!ll) continue
+      const icon = L.divIcon({ className: 'itv-pin', html: `<div class="poi caserne">🚒</div>`, iconSize: [22, 22], iconAnchor: [11, 11] })
+      L.marker(ll, { icon }).addTo(baseGroup).bindPopup(`🚒 <b>${c.label ?? ''}</b>`)
+    }
+    for (const h of hopitaux) {
+      const ll = llOf(h.coordonnees); if (!ll) continue
+      const icon = L.divIcon({ className: 'itv-pin', html: `<div class="poi hopital">🏥</div>`, iconSize: [22, 22], iconAnchor: [11, 11] })
+      L.marker(ll, { icon }).addTo(baseGroup).bindPopup(`🏥 <b>${h.label ?? ''}</b>`)
+    }
+  }
 
   function render() {
     if (!map || !layer || !window.L) return
     const L = window.L
     layer.clearLayers()
-    // Véhicules en transit : trait pointillé caserne → intervention + 🚒 au départ.
+    // Transits : trait selon l'action carte du statut ; on collecte les 🚒 pour les décaler côte à côte.
+    const vehPts = []
     for (const t of transits) {
-      const a = gridToImg(t.from), b = gridToImg(t.to)
+      const at = t.at ? llOf(t.at) : null
+      if (at) { vehPts.push({ ll: at, couleur: t.couleur, label: t.label }); continue }
+      const a = llOf(t.from), b = llOf(t.to)
       if (!a || !b) continue
-      L.polyline([toLatLng(a[0], a[1]), toLatLng(b[0], b[1])],
-        { color: t.couleur || '#4f6ef7', weight: 2, dashArray: '6 5', opacity: 0.9 }).addTo(layer)
-      const vic = L.divIcon({ className: 'itv-pin', html: `<div class="veh-marker" style="--c:${t.couleur || '#4f6ef7'}">🚒</div>`, iconSize: [24, 24], iconAnchor: [12, 12] })
-      L.marker(toLatLng(a[0], a[1]), { icon: vic }).addTo(layer).bindPopup(`🚒 ${t.label ?? ''}`)
+      L.polyline([a, b], { color: t.couleur || '#4f6ef7', weight: 2, dashArray: '6 5', opacity: 0.9 }).addTo(layer)
+      vehPts.push({ ll: a, couleur: t.couleur, label: t.label })
+    }
+    // Décalage horizontal des 🚒 partageant un même point (≈ même position au sol).
+    const groups = new Map()
+    for (const v of vehPts) {
+      const key = `${Math.round(v.ll[0] / 8)}_${Math.round(v.ll[1] / 8)}`
+      ;(groups.get(key) ?? groups.set(key, []).get(key)).push(v)
+    }
+    for (const grp of groups.values()) {
+      grp.forEach((v, k) => {
+        const dx = (k - (grp.length - 1) / 2) * 24   // px écran, indépendant du zoom
+        const icon = L.divIcon({ className: 'itv-pin', html: `<div class="veh-marker" style="--c:${v.couleur || '#4f6ef7'}">🚒</div>`, iconSize: [24, 24], iconAnchor: [12 - dx, 12] })
+        L.marker(v.ll, { icon }).addTo(layer).bindPopup(`🚒 ${v.label ?? ''}`)
+      })
     }
     for (const i of interventions) {
-      const p = gridToImg(i.coordonnees); if (!p) continue
+      const ll = llOf(i.coordonnees); if (!ll) continue
       const html = `<div class="itv-marker"><span class="ic">${iconHtml(i)}</span>${numero(i) ? `<span class="num">${numero(i)}</span>` : ''}</div>`
       const icon = L.divIcon({ className: 'itv-pin', html, iconSize: [34, 38], iconAnchor: [17, 19] })
-      L.marker(toLatLng(p[0], p[1]), { icon }).addTo(layer)
+      L.marker(ll, { icon }).addTo(layer)
         .bindPopup(`<b>${i.code ?? ''}</b><br>${(i.motif ?? '').replace(/</g, '&lt;')}`)
     }
   }
   $effect(() => { interventions; transits; render() })
+  $effect(() => { centres; hopitaux; renderBase() })
 </script>
 
 <div class="mapwrap" style="height:{height}">
@@ -139,4 +174,7 @@
   :global(.itv-marker .num) { font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.65); border-radius: 6px; padding: 0 4px; margin-top: -2px; }
   :global(.map-label) { color: #e8eef5; font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; text-align: center; pointer-events: none; }
   :global(.veh-marker) { font-size: 18px; line-height: 1; filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 1px 2px rgba(0,0,0,.7)); cursor: pointer; }
+  :global(.poi) { font-size: 15px; line-height: 18px; width: 22px; height: 22px; text-align: center; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  :global(.poi.caserne) { background: rgba(79,110,247,.28); border: 1px solid #4f6ef7; }
+  :global(.poi.hopital) { background: rgba(224,92,92,.28); border: 1px solid #e05c5c; }
 </style>

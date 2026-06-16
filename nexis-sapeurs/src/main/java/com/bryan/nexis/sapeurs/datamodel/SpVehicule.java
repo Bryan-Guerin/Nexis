@@ -37,6 +37,11 @@ public class SpVehicule {
     @JoinColumn(name = "centre_id")
     private SpCentre centre;
 
+    /** Hôpital de destination courant (transport) — posé au passage en statut transport, effacé au retour. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "hopital_destination_id")
+    private SpHopital hopitalDestination;
+
     /** Capacité en eau (litres) — optionnel. */
     @Column(name = "capacite_eau")
     private Integer capaciteEau;
@@ -60,6 +65,7 @@ public class SpVehicule {
     public SpVehiculeEtat getEtat()         { return etat; }
     public SpVehiculeStatut getStatut()     { return statut; }
     public SpCentre getCentre()             { return centre; }
+    public SpHopital getHopitalDestination() { return hopitalDestination; }
     public Integer getCapaciteEau()         { return capaciteEau; }
     public String getNotes()                { return notes; }
 
@@ -69,6 +75,7 @@ public class SpVehicule {
     public void setEtat(SpVehiculeEtat etat)              { this.etat = etat; }
     public void setStatut(SpVehiculeStatut statut)        { this.statut = statut; }
     public void setCentre(SpCentre centre)                { this.centre = centre; }
+    public void setHopitalDestination(SpHopital h)        { this.hopitalDestination = h; }
     public void setCapaciteEau(Integer capaciteEau)       { this.capaciteEau = capaciteEau; }
     public void setNotes(String notes)                    { this.notes = notes; }
 

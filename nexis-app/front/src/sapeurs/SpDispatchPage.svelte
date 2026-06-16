@@ -14,15 +14,31 @@
   let showCreate   = $state(false)   // création rapide d'intervention
   let showMap      = $state(true)    // carte des interventions en cours
   let interCarte   = $state([])      // interventions en cours (pour la carte)
-  // Véhicules en transit : trait caserne → intervention pour chaque engin engagé localisé.
+  let centres      = $state([])      // casernes (repères carte permanents)
+  let hopitaux     = $state([])      // hôpitaux (repères carte + destinations transport)
+  // Transits : le trait dépend de l'action carte du statut courant de l'engin.
   let transits = $derived.by(() => {
     const vmap = new Map(vehicules.map(v => [v.id, v]))
     const out = []
     for (const i of interCarte) {
       if (!i.coordonnees) continue
       for (const e of (i.engins ?? [])) {
-        const v = vmap.get(e.vehiculeId)
-        if (v?.centreCoordonnees) out.push({ from: v.centreCoordonnees, to: i.coordonnees, couleur: v.statut?.couleur, label: v.libelle })
+        const v = vmap.get(e.vehiculeId); if (!v) continue
+        const couleur = v.statut?.couleur, label = v.libelle
+        const action = v.statut?.actionCarte, dest = v.hopitalDestinationCoordonnees, caserne = v.centreCoordonnees
+        if (action === 'TRANSPORT_HOPITAL') {
+          if (dest) out.push({ from: i.coordonnees, to: dest, couleur, label })
+          else out.push({ at: i.coordonnees, couleur, label })   // destination non choisie : garé sur l'inter
+        } else if (action === 'SUR_PLACE') {
+          out.push({ at: dest || i.coordonnees, couleur, label })
+        } else if (action === 'RETOUR_CASERNE') {
+          if (caserne) out.push({ from: dest || i.coordonnees, to: caserne, couleur, label })
+          else out.push({ at: dest || i.coordonnees, couleur, label })
+        } else if (caserne) {
+          out.push({ from: caserne, to: i.coordonnees, couleur, label })   // en route (défaut)
+        } else {
+          out.push({ at: i.coordonnees, couleur, label })
+        }
       }
     }
     return out
@@ -72,12 +88,14 @@
     loading = true; error = ''
     try {
       let inters
-      ;[vehicules, membres, enServiceIds, statuts, inters] = await Promise.all([
+      ;[vehicules, membres, enServiceIds, statuts, inters, centres, hopitaux] = await Promise.all([
         api.get('/sp/dispatch'),
         api.get('/sp/membres?actif=true'),
         api.get('/sp/membres/en-service'),
         refStatutsVeh(),   // référentiel en cache
         api.get('/sp/interventions'),
+        api.get('/sp/centres'),
+        api.get('/sp/hopitaux'),
       ])
       interCarte = (inters ?? []).filter(i => i.enCours)
     } catch (e) { error = e.message }
@@ -165,12 +183,26 @@
     } catch (e) { engageError = e.message }
   }
 
+  // Picker d'hôpital affiché quand le statut cible porte l'action TRANSPORT_HOPITAL.
+  let hopitalPick = $state(null)   // { vehId, statutId }
+  function statutById(id) { return statuts.find(s => s.id === id) }
+
+  // Applique le changement de statut ; ouvre le picker d'hôpital si l'action l'exige.
+  async function doChangeStatut(vehId, statutId, hopitalId = null) {
+    const s = statutById(statutId)
+    if (s?.actionCarte === 'TRANSPORT_HOPITAL' && hopitalId === null && !hopitalPick) {
+      hopitalPick = { vehId, statutId }; return
+    }
+    const q = hopitalId ? `&hopitalId=${hopitalId}` : ''
+    await api.put(`/sp/vehicules/${vehId}/statut?statutId=${statutId}${q}`)
+    hopitalPick = null
+    await load()
+  }
+
   async function changeStatut(statutId) {
     engageError = ''
-    try {
-      await api.put(`/sp/vehicules/${engageVeh.id}/statut?statutId=${statutId}`)
-      await load()
-    } catch (e) { engageError = e.message }
+    try { await doChangeStatut(engageVeh.id, statutId) }
+    catch (e) { engageError = e.message }
   }
   // Transition avant uniquement : statut courant + suivants
   let statutOptions = $derived(
@@ -186,7 +218,7 @@
   function statutsPour(v) { return statuts.filter(s => s.position >= (v.statut?.position ?? 0)) }
   async function changeStatutVeh(v, statutId) {
     if (!statutId || statutId === v.statut.id) return
-    try { await api.put(`/sp/vehicules/${v.id}/statut?statutId=${statutId}`); await load() }
+    try { await doChangeStatut(v.id, statutId) }
     catch (e) { error = e.message }
   }
 </script>
@@ -216,7 +248,7 @@
         <span class="caret">{showMap ? '▾' : '▸'}</span> Carte — {interCarte.length} intervention(s) en cours
       </button>
       {#if showMap}
-        <MapView interventions={interCarte} transits={transits} height="360px" />
+        <MapView interventions={interCarte} transits={transits} centres={centres} hopitaux={hopitaux} height="360px" />
       {/if}
     </section>
 
@@ -314,6 +346,27 @@
     {/if}
   {/if}
 </div>
+
+<!-- ── Modal : choix de l'hôpital de destination (transport) ─────────────────── -->
+{#if hopitalPick}
+  <div class="backdrop" onclick={() => hopitalPick = null}>
+    <div class="modal" onclick={e => e.stopPropagation()}>
+      <h3>Destination — transport hôpital</h3>
+      {#if hopitaux.length === 0}
+        <p class="muted small">Aucun hôpital configuré (Config → Centres &amp; hôpitaux).</p>
+      {/if}
+      <div class="hopital-list">
+        {#each hopitaux as h (h.id)}
+          <button class="btn-secondary" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
+        {/each}
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost-sm" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, '')}>Sans destination</button>
+        <button class="btn-ghost-sm" onclick={() => hopitalPick = null}>Annuler</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- ── Modal armement / engagement ──────────────────────────────────────────── -->
 {#if engageVeh}
@@ -441,4 +494,6 @@
   .poste-add select { flex: 1; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
   .rm-btn:hover { color: var(--color-danger); }
+  .hopital-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+  .hopital-list .btn-secondary { text-align: left; }
 </style>

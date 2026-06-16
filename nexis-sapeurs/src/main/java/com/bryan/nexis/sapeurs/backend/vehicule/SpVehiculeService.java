@@ -32,6 +32,7 @@ public class SpVehiculeService {
     private final SpVehiculeEtatRepository        etatRepo;
     private final SpVehiculeStatutRepository      statutRepo;
     private final SpCentreRepository              centreRepo;
+    private final SpHopitalRepository             hopitalRepo;
     private final SpVehiculeAffectationRepository affectationRepo;
     private final SpVehiculeTypePosteRepository   posteRepo;
     private final SpInterventionService           interventionService;
@@ -40,7 +41,8 @@ public class SpVehiculeService {
 
     public SpVehiculeService(SpVehiculeRepository vehiculeRepo, SpVehiculeTypeRepository typeRepo,
                              SpVehiculeEtatRepository etatRepo, SpVehiculeStatutRepository statutRepo,
-                             SpCentreRepository centreRepo, SpVehiculeAffectationRepository affectationRepo,
+                             SpCentreRepository centreRepo, SpHopitalRepository hopitalRepo,
+                             SpVehiculeAffectationRepository affectationRepo,
                              SpVehiculeTypePosteRepository posteRepo, SpInterventionService interventionService,
                              ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
         this.vehiculeRepo    = vehiculeRepo;
@@ -48,6 +50,7 @@ public class SpVehiculeService {
         this.etatRepo        = etatRepo;
         this.statutRepo      = statutRepo;
         this.centreRepo      = centreRepo;
+        this.hopitalRepo     = hopitalRepo;
         this.affectationRepo = affectationRepo;
         this.posteRepo       = posteRepo;
         this.interventionService = interventionService;
@@ -150,7 +153,7 @@ public class SpVehiculeService {
      * et applique automatiquement l'état lié au statut.
      */
     @Transactional
-    public SpVehiculeDto updateStatut(UUID id, UUID statutId) {
+    public SpVehiculeDto updateStatut(UUID id, UUID statutId, UUID hopitalId) {
         var vehicule = vehiculeRepo.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Véhicule SP introuvable : " + id));
         var cible = statutRepo.findById(statutId)
@@ -176,6 +179,21 @@ public class SpVehiculeService {
                 courant != null ? courant.getCode() : "?", cible.getCode(), cible.getEtat().getCode(), actor());
         vehicule.setStatut(cible);
         vehicule.setEtat(cible.getEtat());   // le statut pilote l'état maître
+
+        // Destination hôpital selon l'action carte du statut (souple : non bloquant).
+        switch (cible.getActionCarte()) {
+            case TRANSPORT_HOPITAL -> {
+                if (hopitalId != null) {
+                    vehicule.setHopitalDestination(hopitalRepo.findById(hopitalId)
+                            .orElseThrow(() -> new NoSuchElementException("Hôpital introuvable : " + hopitalId)));
+                }
+                // hopitalId null : on conserve l'éventuelle destination déjà posée (warning côté front).
+            }
+            case RETOUR_CASERNE -> vehicule.setHopitalDestination(null);
+            default -> { /* SUR_PLACE conserve la destination (garé à l'hôpital) ; AUCUNE/DEPANNEUR inchangé */ }
+        }
+        if (cible.isClotureIntervention()) vehicule.setHopitalDestination(null);
+
         var updated = vehiculeRepo.update(vehicule);
 
         var ev = RealtimeEvent.faction(RealtimeEvent.ETAT_VEHICULE, "SP",

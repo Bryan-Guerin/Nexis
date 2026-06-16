@@ -47,6 +47,11 @@ public class SpVehiculeStatut {
     @Column(name = "cloture_intervention", nullable = false)
     private boolean clotureIntervention;
 
+    /** Action carte branchée sur ce statut (transport hôpital, sur place, retour caserne…). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "action_carte", nullable = false, length = 20)
+    private StatutActionCarte actionCarte = StatutActionCarte.AUCUNE;
+
     protected SpVehiculeStatut() {}
 
     public SpVehiculeStatut(String code, String label, String couleur, SpVehiculeEtat etat) {
@@ -64,9 +69,11 @@ public class SpVehiculeStatut {
     public boolean isParDefaut() { return parDefaut; }
     public SpVehiculeEtat getEtat() { return etat; }
     public boolean isClotureIntervention() { return clotureIntervention; }
+    public StatutActionCarte getActionCarte() { return actionCarte; }
 
     public void setPosition(int position)       { this.position = position; }
     public void setParDefaut(boolean parDefaut) { this.parDefaut = parDefaut; }
     public void setEtat(SpVehiculeEtat etat)    { this.etat = etat; }
     public void setClotureIntervention(boolean v) { this.clotureIntervention = v; }
+    public void setActionCarte(StatutActionCarte a) { this.actionCarte = a == null ? StatutActionCarte.AUCUNE : a; }
 }

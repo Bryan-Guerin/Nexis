@@ -9,6 +9,7 @@ import com.bryan.nexis.sapeurs.backend.effectif.SpGradeService;
 import com.bryan.nexis.sapeurs.backend.intervention.SpNatureInterventionService;
 import com.bryan.nexis.sapeurs.backend.inventaire.SpCasierService;
 import com.bryan.nexis.sapeurs.backend.inventaire.SpCentreService;
+import com.bryan.nexis.sapeurs.backend.inventaire.SpHopitalService;
 import com.bryan.nexis.sapeurs.backend.inventaire.SpObjetInventaireService;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningStatutService;
 import com.bryan.nexis.sapeurs.backend.vehicule.SpVehiculeEtatService;
@@ -32,6 +33,7 @@ public class SpConfigController {
     private final SpPlanningStatutService    planningStatutService;
     private final SpVehiculeStatutService    statutService;
     private final SpCentreService            centreService;
+    private final SpHopitalService           hopitalService;
     private final SpNatureInterventionService natureService;
     private final SpObjetInventaireService   objetInventaireService;
 
@@ -39,6 +41,7 @@ public class SpConfigController {
                               SpVehiculeEtatService etatService, SpCasierService casierService,
                               SpPlanningStatutService planningStatutService,
                               SpVehiculeStatutService statutService, SpCentreService centreService,
+                              SpHopitalService hopitalService,
                               SpNatureInterventionService natureService,
                               SpObjetInventaireService objetInventaireService) {
         this.gradeService          = gradeService;
@@ -48,6 +51,7 @@ public class SpConfigController {
         this.planningStatutService = planningStatutService;
         this.statutService         = statutService;
         this.centreService         = centreService;
+        this.hopitalService        = hopitalService;
         this.natureService         = natureService;
         this.objetInventaireService = objetInventaireService;
     }
@@ -147,6 +151,12 @@ public class SpConfigController {
         return statutService.toggleClotureIntervention(id);
     }
 
+    /** Définit l'action carte branchée sur le statut (transport hôpital, sur place…). */
+    @Put("/statuts/{id}/action-carte")
+    SpVehiculeStatutDto setStatutActionCarte(UUID id, @Body SetActionCarteRequest req) {
+        return statutService.setActionCarte(id, req.action());
+    }
+
     @Put("/statuts/order")
     @Status(HttpStatus.NO_CONTENT)
     void reorderStatuts(@Body ReorderRequest req) {
@@ -236,6 +246,38 @@ public class SpConfigController {
     @Status(HttpStatus.NO_CONTENT)
     void reorderCentres(@Body ReorderRequest req) {
         centreService.reorder(req.ids());
+    }
+
+    // ── Hôpitaux ─────────────────────────────────────────────────────────────────
+
+    @Get("/hopitaux")
+    @Secured("ROLE_SP")
+    List<SpHopitalDto> listHopitaux() {
+        return hopitalService.listAll();
+    }
+
+    @Post("/hopitaux")
+    @Status(HttpStatus.CREATED)
+    SpHopitalDto createHopital(@Body CreateSpHopitalRequest req) {
+        return hopitalService.create(req.code(), req.label());
+    }
+
+    @Delete("/hopitaux/{id}")
+    @Status(HttpStatus.NO_CONTENT)
+    void deleteHopital(UUID id) {
+        hopitalService.delete(id);
+    }
+
+    /** Définit les coordonnées jeu de l'hôpital (pour la carte). */
+    @Put("/hopitaux/{id}/coordonnees")
+    SpHopitalDto setHopitalCoordonnees(UUID id, @Body SetCoordonneesRequest req) {
+        return hopitalService.setCoordonnees(id, req.coordonnees());
+    }
+
+    @Put("/hopitaux/order")
+    @Status(HttpStatus.NO_CONTENT)
+    void reorderHopitaux(@Body ReorderRequest req) {
+        hopitalService.reorder(req.ids());
     }
 
     // ── Natures d'intervention ───────────────────────────────────────────────────

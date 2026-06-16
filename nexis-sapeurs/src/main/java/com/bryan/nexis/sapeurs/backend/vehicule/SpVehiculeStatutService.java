@@ -52,6 +52,15 @@ public class SpVehiculeStatutService {
         return SpVehiculeStatutDto.from(repo.update(statut));
     }
 
+    /** Définit l'action carte branchée sur le statut. */
+    @Transactional
+    public SpVehiculeStatutDto setActionCarte(UUID id, com.bryan.nexis.sapeurs.datamodel.StatutActionCarte action) {
+        var statut = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Statut véhicule introuvable : " + id));
+        statut.setActionCarte(action);
+        return SpVehiculeStatutDto.from(repo.update(statut));
+    }
+
     @Transactional
     public void reorder(List<UUID> orderedIds) {
         for (int i = 0; i < orderedIds.size(); i++) {

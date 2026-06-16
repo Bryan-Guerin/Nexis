@@ -11,7 +11,7 @@
     { key: 'statutsveh', label: 'Statuts véhicule', list: '/sp/statuts', order: '/sp/statuts/order', kind: 'statutveh', deletable: true },
     { key: 'casiers',   label: 'Casiers',        list: '/sp/casiers',   order: '/sp/casiers/order',   kind: 'casier', deletable: true },
     { key: 'statuts',   label: 'Statuts planning', list: '/sp/planning/statuts', order: '/sp/planning/statuts/order', kind: 'statut' },
-    { key: 'centres',   label: 'Centres',        list: '/sp/centres',   order: '/sp/centres/order',   kind: 'codelabel', deletable: true },
+    { key: 'centres',   label: 'Centres & hôpitaux', list: '/sp/centres', order: '/sp/centres/order', kind: 'codelabel', deletable: true },
     { key: 'natures',   label: 'Natures intervention', list: '/sp/natures', order: '/sp/natures/order', kind: 'codelabel', deletable: true },
     { key: 'objets',    label: 'Objets inventaire', list: '/sp/objets-inventaire', order: '/sp/objets-inventaire/order', kind: 'codelabel', deletable: true },
     { key: 'evenements', label: 'Événements', kind: 'evenements' },
@@ -44,7 +44,10 @@
     // Les catégories à pane custom (ex. Événements) gèrent leurs propres données.
     if (!cat.list) { items = []; loading = false; return }
     loading = true; error = ''; resetForm()
-    try { items = await api.get(cat.list) }
+    try {
+      items = await api.get(cat.list)
+      if (cat.key === 'centres') await loadHopitaux()
+    }
     catch (e) { error = e.message; items = [] }
     finally { loading = false }
   }
@@ -156,6 +159,37 @@
       invalidateRef()
     } catch (e) { error = e.message }
   }
+
+  // Action carte branchée sur un statut véhicule (transport hôpital, sur place…).
+  const ACTIONS_CARTE = [['AUCUNE', '— action carte'], ['SUR_PLACE', 'Sur place'],
+    ['TRANSPORT_HOPITAL', 'Transport hôpital'], ['RETOUR_CASERNE', 'Retour caserne'], ['DEPANNEUR', 'Dépanneur']]
+  async function setStatutAction(it, action) {
+    try {
+      const u = await api.put(`/sp/statuts/${it.id}/action-carte`, { action })
+      items = items.map(x => x.id === u.id ? u : x)
+      invalidateRef()
+    } catch (e) { error = e.message }
+  }
+
+  // ── Hôpitaux (sous-section de l'écran Centres : référentiel + coords carte) ──
+  let hopitaux = $state([])
+  let hopForm  = $state({ code: '', label: '' })
+  let hopError = $state('')
+  async function loadHopitaux() { hopitaux = await api.get('/sp/hopitaux').catch(() => []) }
+  async function addHopital(e) {
+    e.preventDefault(); hopError = ''
+    try { hopitaux = [...hopitaux, await api.post('/sp/hopitaux', { ...hopForm })]; hopForm = { code: '', label: '' } }
+    catch (err) { hopError = err.message }
+  }
+  async function setHopitalCoord(it, coordonnees) {
+    try { const u = await api.put(`/sp/hopitaux/${it.id}/coordonnees`, { coordonnees }); hopitaux = hopitaux.map(x => x.id === u.id ? u : x) }
+    catch (err) { error = err.message }
+  }
+  async function removeHopital(it) {
+    if (!window.confirm(`Supprimer l'hôpital « ${it.label} » ?`)) return
+    try { await api.delete(`/sp/hopitaux/${it.id}`); hopitaux = hopitaux.filter(x => x.id !== it.id) }
+    catch (err) { window.alert(err.message) }
+  }
 </script>
 
 <div class="page">
@@ -222,6 +256,10 @@
               {#if cat.kind === 'statut'}<span class="cat-badge">{it.categorie}</span>{/if}
               {#if cat.kind === 'statutveh' && it.etat}<span class="cat-badge" title="État appliqué">→ {it.etat.label}</span>{/if}
               {#if cat.key === 'statutsveh'}
+                <select class="type-fonction-sel" value={it.actionCarte ?? 'AUCUNE'} title="Action carte déclenchée par ce statut"
+                        onchange={e => setStatutAction(it, e.target.value)}>
+                  {#each ACTIONS_CARTE as [v, l]}<option value={v}>{l}</option>{/each}
+                </select>
                 <button class="defaut-btn" class:on={it.clotureIntervention}
                         title="Si coché : quand TOUS les engins d'une intervention ont (au moins) un statut coché, elle se clôture automatiquement"
                         onclick={() => toggleCloture(it)}>
@@ -274,6 +312,32 @@
           </div>
           <button type="submit" class="btn-primary">Ajouter</button>
         </form>
+
+        {#if cat.key === 'centres'}
+          <h3 style="margin-top:18px">Hôpitaux <span class="hint">— destinations de transport &amp; repères carte</span></h3>
+          <ul class="order-list">
+            {#each hopitaux as h (h.id)}
+              <li class="order-item" style="cursor:default">
+                <span class="it-label">{h.label}</span>
+                <span class="chip-code">{h.code}</span>
+                <input class="coord-input" type="text" inputmode="numeric" maxlength="6" placeholder="coord. 6 ch."
+                       title="Coordonnées jeu de l'hôpital (carte)" value={h.coordonnees ?? ''}
+                       oninput={e => e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6)}
+                       onchange={e => setHopitalCoord(h, e.target.value)} />
+                <button class="rm-btn" onclick={() => removeHopital(h)} title="Supprimer">×</button>
+              </li>
+            {/each}
+            {#if hopitaux.length === 0}<p class="muted small">Aucun hôpital</p>{/if}
+          </ul>
+          <form class="add-form" onsubmit={addHopital}>
+            {#if hopError}<p class="inline-error">{hopError}</p>{/if}
+            <div class="form-row">
+              <label>Code<input type="text" bind:value={hopForm.code} placeholder="ex: CH_CENTRAL" required /></label>
+              <label>Libellé<input type="text" bind:value={hopForm.label} placeholder="ex: CH Central" required /></label>
+            </div>
+            <button type="submit" class="btn-primary">Ajouter un hôpital</button>
+          </form>
+        {/if}
       {/if}
       {/if}
     </div>
