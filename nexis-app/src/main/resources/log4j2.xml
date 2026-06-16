@@ -3,8 +3,10 @@
 
     <Properties>
         <Property name="PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{user}] %-40logger{40} %msg%n</Property>
-        <!-- Surchargeable via -DLOG_DIR=... (prod : volume monté). Défaut dev : ./logs -->
-        <Property name="LOG_DIR">${sys:LOG_DIR:-logs}</Property>
+        <!-- Surchargeable via -DLOG_DIR=... (prod : volume monté). Défaut dev : ./logs.
+             NB : la property NE DOIT PAS s'appeler LOG_DIR (collision avec sys:LOG_DIR →
+             boucle infinie d'interpolation au démarrage). -->
+        <Property name="LOG_PATH">${sys:LOG_DIR:-logs}</Property>
     </Properties>
 
     <Appenders>
@@ -14,15 +16,15 @@
 
         <!-- 1 fichier de log par jour. Rétention : 10 jours OU 2 Go cumulés (le 1er atteint). -->
         <RollingFile name="File"
-                     fileName="${LOG_DIR}/nexis.log"
-                     filePattern="${LOG_DIR}/nexis-%d{yyyy-MM-dd}.log.gz">
+                     fileName="${LOG_PATH}/nexis.log"
+                     filePattern="${LOG_PATH}/nexis-%d{yyyy-MM-dd}.log.gz">
             <PatternLayout pattern="${PATTERN}"/>
             <Policies>
                 <!-- modulate : bascule à minuit pile -->
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
             </Policies>
             <DefaultRolloverStrategy>
-                <Delete basePath="${LOG_DIR}" maxDepth="1">
+                <Delete basePath="${LOG_PATH}" maxDepth="1">
                     <IfFileName glob="nexis-*.log.gz">
                         <IfAny>
                             <IfLastModified age="10d"/>
