@@ -69,6 +69,14 @@ public class SpNatureInterventionService {
     }
 
     @Transactional
+    public SpNatureInterventionDto setIcone(UUID id, String icone) {
+        var n = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Nature introuvable : " + id));
+        n.setIcone(icone == null || icone.isBlank() ? null : icone.trim());
+        return SpNatureInterventionDto.from(repo.update(n));
+    }
+
+    @Transactional
     public void reorder(List<UUID> orderedIds) {
         for (int i = 0; i < orderedIds.size(); i++) {
             var id = orderedIds.get(i);

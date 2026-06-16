@@ -22,6 +22,10 @@ public class SpNatureIntervention {
     @Column(name = "ordre", nullable = false)
     private int position;
 
+    /** Icône (emoji) repérant l'intervention sur la carte. Optionnel. */
+    @Column(length = 16)
+    private String icone;
+
     protected SpNatureIntervention() {}
 
     public SpNatureIntervention(String code, String label) {
@@ -32,6 +36,8 @@ public class SpNatureIntervention {
     public String getCode()  { return code; }
     public String getLabel() { return label; }
     public int getPosition() { return position; }
+    public String getIcone() { return icone; }
 
     public void setPosition(int position) { this.position = position; }
+    public void setIcone(String icone)    { this.icone = icone; }
 }

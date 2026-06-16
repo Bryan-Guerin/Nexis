@@ -258,6 +258,12 @@ public class SpConfigController {
         natureService.reorder(req.ids());
     }
 
+    /** Icône (emoji) repérant la nature sur la carte. */
+    @Put("/natures/{id}/icone")
+    SpNatureInterventionDto setNatureIcone(UUID id, @Body SetIconeRequest req) {
+        return natureService.setIcone(id, req.icone());
+    }
+
     /** Supprime une nature (refusée si des interventions l'utilisent ; détachée des types). */
     @Delete("/natures/{id}")
     io.micronaut.http.HttpResponse<?> deleteNature(UUID id) {
