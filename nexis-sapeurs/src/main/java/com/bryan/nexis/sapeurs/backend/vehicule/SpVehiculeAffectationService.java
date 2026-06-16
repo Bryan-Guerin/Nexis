@@ -67,6 +67,17 @@ public class SpVehiculeAffectationService {
         return affectationRepo.findByFinIsNull().stream().map(SpVehiculeAffectationDto::from).toList();
     }
 
+    /** Affectation(s) active(s) de l'utilisateur courant (chip « mon affectation »). */
+    @Transactional
+    public List<com.bryan.nexis.sapeurs.backend.dto.SpMonAffectationDto> findMine() {
+        String username = actor();
+        if (username == null) return List.of();
+        return affectationRepo.findByFinIsNull().stream()
+                .filter(a -> username.equals(a.getMembre().getUser().getUsername()))
+                .map(com.bryan.nexis.sapeurs.backend.dto.SpMonAffectationDto::from)
+                .toList();
+    }
+
     @Transactional
     public SpVehiculeAffectationDto affecter(UUID vehiculeId, UUID membreId, UUID posteId, Instant debut) {
         var vehicule = vehiculeRepo.findById(vehiculeId)

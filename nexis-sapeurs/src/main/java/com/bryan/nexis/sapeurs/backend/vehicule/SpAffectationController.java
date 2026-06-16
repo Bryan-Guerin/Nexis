@@ -28,6 +28,12 @@ public class SpAffectationController {
         return affectationService.findActives();
     }
 
+    /** Affectation(s) active(s) de l'utilisateur courant (chip « mon affectation »). */
+    @Get("/affectations/moi")
+    List<com.bryan.nexis.sapeurs.backend.dto.SpMonAffectationDto> findMine() {
+        return affectationService.findMine();
+    }
+
     @Post("/affectations")
     @Status(HttpStatus.CREATED)
     SpVehiculeAffectationDto affecter(@Body SpAffecterRequest req) {

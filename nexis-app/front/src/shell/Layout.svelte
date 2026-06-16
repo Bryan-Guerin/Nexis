@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import Nav from './Nav.svelte'
+    import MonAffectation from './MonAffectation.svelte'
     import {authToken, currentUser, theme as themeMode} from '../shared/stores.js'
     import {api} from '../shared/api.js'
     import {realtime, startBipLoop, stopBipLoop} from '../shared/realtime.js'
@@ -164,6 +165,7 @@
     </div>
     <div class="user-area">
       {#if $currentUser}
+        <MonAffectation />
         <div class="notif-wrap">
           <button class="notif-btn" onclick={toggleNotif} title="Notifications">
             🔔{#if $unread > 0}<span class="notif-badge">{$unread > 9 ? '9+' : $unread}</span>{/if}
