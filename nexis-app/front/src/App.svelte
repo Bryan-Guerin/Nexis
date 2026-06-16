@@ -5,6 +5,7 @@
     import {realtime} from './shared/realtime.js'
     import {titleForHash} from './shared/pageTitle.js'
     import Toasts from './shared/Toasts.svelte'
+    import ConfirmHost from './shared/ConfirmHost.svelte'
     import Layout from './shell/Layout.svelte'
     import Login from './auth/Login.svelte'
     import Dashboard from './home/Dashboard.svelte'
@@ -75,3 +76,4 @@
 {/if}
 
 <Toasts />
+<ConfirmHost />

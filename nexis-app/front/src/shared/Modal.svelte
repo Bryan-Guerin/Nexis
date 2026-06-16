@@ -1,0 +1,29 @@
+<script>
+  import {onMount} from 'svelte'
+
+  // Modale réutilisable : backdrop, Échap ferme, focus initial, ✕ systématique.
+  let { title = '', onclose, wide = false, width = null, children, actions } = $props()
+
+  let panel
+  onMount(() => { panel?.focus() })
+  function onkey(e) { if (e.key === 'Escape') onclose?.() }
+</script>
+
+<svelte:window onkeydown={onkey} />
+
+<div class="backdrop" onclick={() => onclose?.()}>
+  <div class="modal" class:wide style={width ? `width:${width}` : ''} tabindex="-1"
+       bind:this={panel} onclick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+    <button class="modal-x" title="Fermer" aria-label="Fermer" onclick={() => onclose?.()}>✕</button>
+    {#if title}<h3>{title}</h3>{/if}
+    {@render children?.()}
+    {#if actions}<div class="modal-actions">{@render actions()}</div>{/if}
+  </div>
+</div>
+
+<style>
+  .modal { position: relative; }
+  .modal.wide { width: 560px; max-width: 94vw; }
+  .modal-x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--color-muted); font-size: 18px; cursor: pointer; line-height: 1; }
+  .modal-x:hover { color: var(--color-danger); }
+</style>

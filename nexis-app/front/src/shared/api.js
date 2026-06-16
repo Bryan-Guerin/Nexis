@@ -1,6 +1,6 @@
 import {get} from 'svelte/store'
 import {authToken} from './stores.js'
-import {pushToast} from './toasts.js'
+import {toast} from './toasts.js'
 
 // Empêche plusieurs redirections concurrentes (ex. Promise.all qui renvoie plusieurs 401)
 let redirectingToLogin = false
@@ -38,10 +38,12 @@ async function request(method, path, body) {
       msg = j?._embedded?.errors?.[0]?.message ?? j?.message ?? msg
     } catch { /* corps non-JSON : on garde le texte brut */ }
     msg = String(msg).replace(/^Internal Server Error:\s*/i, '')
-    throw new Error(msg || String(res.status))
+    const err = new Error(msg || String(res.status))
+    toast.error(err.message)   // feedback d'erreur centralisé (toast partout)
+    throw err
   }
-  // Petite notif de succès pour les actions (mutations) ; les GET restent silencieux.
-  if (method !== 'GET') pushToast('Action réussie')
+  // Plus de toast de succès systématique : les succès « lourds » sont signalés
+  // explicitement par les écrans (évite le spam sur chaque mutation).
 
   // Corps potentiellement vide (204, ou 200 sans contenu comme les endpoints /order) :
   // on lit le texte et on ne parse en JSON que s'il y a effectivement du contenu.

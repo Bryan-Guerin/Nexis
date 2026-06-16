@@ -190,10 +190,7 @@
     try {
       await api.delete(`/sp/vehicules/postes/${poste.id}`)
       postes = { ...postes, [typeId]: postes[typeId].filter(p => p.id !== poste.id) }
-    } catch (e) {
-      // Garde-fou back : poste occupé par un équipage actif → message engin + poste.
-      window.alert(e.message)
-    }
+    } catch { /* garde-fou back (poste occupé) déjà signalé par toast */ }
   }
 
   // Tags type ↔ nature

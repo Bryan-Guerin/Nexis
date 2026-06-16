@@ -1,6 +1,8 @@
 <script>
   import {onMount} from 'svelte'
   import {api} from '../shared/api.js'
+  import {toast} from '../shared/toasts.js'
+  import {confirm} from '../shared/confirm.js'
   import {refNatures} from '../shared/referentials.js'
   import {currentUser} from '../shared/stores.js'
   import MapView from '../shared/MapView.svelte'
@@ -73,10 +75,11 @@
     createSel = sel
     if (manques.length) createError = `Lot partiel — indisponible : ${manques.join(', ')}. Tu peux déclencher quand même.`
   }
-  function avertirNonArmes(ids) {
+  async function avertirNonArmes(ids) {
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
     if (nonArmes.length === 0) return true
-    return window.confirm(`⚠ ${nonArmes.map(v => v.libelle).join(', ')} non armé(s) (poste obligatoire non couvert).\nEngager quand même ?`)
+    return await confirm({ title: 'Engins non armés', danger: true, confirmLabel: 'Engager quand même',
+      message: `${nonArmes.map(v => v.libelle).join(', ')} non armé(s) (poste obligatoire non couvert).` })
   }
   async function avertirDesaffectation(ids) {
     if (!ids || ids.length === 0) return true
@@ -85,14 +88,15 @@
     catch { preview = [] }
     if (!preview || preview.length === 0) return true
     const lignes = preview.map(p => `• ${p.gradeCode} ${p.nom} — ${p.fonction} (${p.vehicule})`).join('\n')
-    return window.confirm(`Au déclenchement, ces effectifs sur un poste NON obligatoire seront désaffectés :\n\n${lignes}\n\nDéclencher quand même ?`)
+    return await confirm({ title: 'Désaffectations au départ', danger: true, confirmLabel: 'Déclencher quand même',
+      message: `Ces effectifs sur un poste NON obligatoire seront désaffectés :\n\n${lignes}` })
   }
 
   async function submitCreate(e) {
     e.preventDefault(); createError = ''
     if (!form.motif.trim()) { createError = 'Motif requis'; return }
     if (!form.natureId) { createError = 'La nature est obligatoire'; return }
-    if (!avertirNonArmes(createSel)) return
+    if (!(await avertirNonArmes(createSel))) return
     if (!(await avertirDesaffectation(createSel))) return
     try {
       const created = await api.post('/sp/interventions', {
@@ -116,6 +120,7 @@
           .filter(e => nonArmes.has(e.vehiculeId))
           .map(e => api.post(`/sp/vehicules/${e.vehiculeId}/affecter-auto`).catch(() => null)))
       }
+      toast.success(`Intervention ${created?.code ?? ''} déclenchée.`)
       oncreated?.()
       onclose()
     } catch (err) { createError = err.message }

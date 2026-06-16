@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {confirm} from '../shared/confirm.js'
 
     let paie    = $state(null)
   let grades  = $state([])
@@ -45,7 +46,7 @@
     catch (e) { error = e.message }
   }
   async function deleteCategorie(id) {
-    if (!window.confirm('Supprimer cette catégorie ? Les mouvements liés la perdront.')) return
+    if (!await confirm({ title: 'Supprimer la catégorie', message: 'Supprimer cette catégorie ? Les mouvements liés la perdront.', danger: true })) return
     try { finance = await api.delete(`/sp/rh/finance/categories/${id}`) }
     catch (e) { error = e.message }
   }
@@ -124,7 +125,7 @@
     downloadCsv(rows, `paie-${paie.debut}.csv`)
   }
   async function contrePasser(m) {
-    if (!window.confirm(`Contre-passer « ${m.libelle} » (${eur(m.montant)}) ?\nCrée l'écriture inverse.`)) return
+    if (!await confirm({ title: 'Contre-passer', message: `Contre-passer « ${m.libelle} » (${eur(m.montant)}) ?\nCrée l'écriture inverse.` })) return
     try {
       finance = await api.post('/sp/rh/finance/mouvements', {
         type: m.type === 'GAIN' ? 'DEPENSE' : 'GAIN', montant: Number(m.montant),

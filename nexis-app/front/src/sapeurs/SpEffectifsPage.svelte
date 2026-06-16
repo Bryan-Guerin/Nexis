@@ -3,6 +3,7 @@
 
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {confirm} from '../shared/confirm.js'
     import {currentUser} from '../shared/stores.js'
 
     // ── Données ──────────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@
     catch (e) { relError = e.message }
   }
   async function supprimerRelance(r) {
-    if (!window.confirm('Supprimer cette relance ?')) return
+    if (!await confirm({ title: 'Supprimer la relance', message: 'Supprimer cette relance ?', danger: true })) return
     try { await api.delete(`/sp/rh/relances/${r.id}`); await loadRelancesMembre(selected); await loadRelancesOuvertes() }
     catch (e) { relError = e.message }
   }
@@ -106,7 +107,7 @@
     } catch (e) { sancError = e.message }
   }
   async function supprimerSanction(s) {
-    if (!window.confirm('Supprimer cette sanction ?')) return
+    if (!await confirm({ title: 'Supprimer la sanction', message: 'Supprimer cette sanction ?', danger: true })) return
     try { await api.delete(`/sp/rh/sanctions/${s.id}`); await loadSanctions(selected) }
     catch (e) { sancError = e.message }
   }
@@ -238,7 +239,7 @@
     const msg = next
       ? `Réintégrer ${selected.nomComplet || selected.username} ? Le compte sera réactivé.`
       : `Radier ${selected.nomComplet || selected.username} ?\nLe compte sera désactivé (login bloqué). L'historique (formations, sanctions, notations) est conservé.`
-    if (!window.confirm(msg)) return
+    if (!await confirm({ title: 'Confirmer', message: msg, danger: true })) return
     saveError = ''
     try {
       const updated = await api.put(`/sp/membres/${selectedId}/actif?actif=${next}`)

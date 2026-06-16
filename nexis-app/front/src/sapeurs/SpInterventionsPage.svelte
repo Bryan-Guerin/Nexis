@@ -1,6 +1,8 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {toast} from '../shared/toasts.js'
+    import {confirm} from '../shared/confirm.js'
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
     import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
@@ -107,15 +109,16 @@
     return vehicules.filter(v => !inter.engins.some(e => e.vehiculeId === v.vehiculeId))
   }
 
-  function avertirNonArmes(ids) {
+  async function avertirNonArmes(ids) {
     const nonArmes = vehicules.filter(v => ids.includes(v.vehiculeId) && !v.arme)
     if (nonArmes.length === 0) return true
-    return window.confirm(`⚠ ${nonArmes.map(v => v.libelle).join(', ')} non armé(s) (poste obligatoire non couvert).\nEngager quand même ?`)
+    return await confirm({ title: 'Engins non armés', danger: true, confirmLabel: 'Engager quand même',
+      message: `${nonArmes.map(v => v.libelle).join(', ')} non armé(s) (poste obligatoire non couvert).` })
   }
 
   async function submitRenfort(inter) {
     if (renfortSel.length === 0) return
-    if (!avertirNonArmes(renfortSel)) return
+    if (!(await avertirNonArmes(renfortSel))) return
     try {
       await api.post(`/sp/interventions/${inter.id}/engins`, { vehiculeIds: renfortSel })
       renfortFor = null; renfortSel = []
@@ -124,8 +127,8 @@
   }
 
   async function cloturer(inter) {
-    if (!window.confirm(`Clôturer l'intervention « ${inter.motif} » ?`)) return
-    try { await api.put(`/sp/interventions/${inter.id}/cloture`); await load() }
+    if (!await confirm({ title: 'Clôturer l\'intervention', message: `Clôturer « ${inter.motif} » ?` })) return
+    try { await api.put(`/sp/interventions/${inter.id}/cloture`); toast.success('Intervention clôturée.'); await load() }
     catch (e) { error = e.message }
   }
 
@@ -177,7 +180,7 @@
   }
 
   async function retirerEngin(engin) {
-    if (!window.confirm(`Retirer ${engin.libelle} de l'intervention ?`)) return
+    if (!await confirm({ title: 'Retirer l\'engin', message: `Retirer ${engin.libelle} de l'intervention ?`, danger: true })) return
     try { await api.delete(`/sp/interventions/${detailInter.id}/engins/${engin.vehiculeId}`); await refreshDetail() }
     catch (e) { error = e.message }
   }

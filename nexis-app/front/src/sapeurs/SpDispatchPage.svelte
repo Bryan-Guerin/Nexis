@@ -1,6 +1,8 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {toast} from '../shared/toasts.js'
+    import {confirm} from '../shared/confirm.js'
     import {realtime} from '../shared/realtime.js'
     import {refStatutsVeh} from '../shared/referentials.js'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
@@ -106,19 +108,18 @@
   }
 
   async function affecterAuto(v) {
-    error = ''
     try {
       const ajout = await api.post(`/sp/vehicules/${v.id}/affecter-auto`)
-      if (!ajout || ajout.length === 0) error = `Aucun effectif de garde disponible pour armer ${v.libelle}.`
+      if (!ajout || ajout.length === 0) toast.info(`Aucun effectif de garde disponible pour armer ${v.libelle}.`)
+      else toast.success(`${ajout.length} affecté(s) sur ${v.libelle}.`)
       await load()
-    } catch (e) { error = e.message }
+    } catch { /* toast */ }
   }
 
   async function desaffecterTout() {
-    if (!window.confirm('Désaffecter TOUT le personnel embarqué de tous les véhicules ?')) return
-    error = ''
-    try { await api.put('/sp/affectations/desaffecter-tout'); await load() }
-    catch (e) { error = e.message }
+    if (!await confirm({ title: 'Tout désaffecter', message: 'Désaffecter TOUT le personnel embarqué de tous les véhicules ?', danger: true })) return
+    try { const n = await api.put('/sp/affectations/desaffecter-tout'); toast.success(`${n} effectif(s) désaffecté(s).`); await load() }
+    catch { /* erreur déjà signalée (toast) */ }
   }
 
   // ── Armement / engagement d'un véhicule ─────────────────────────────────────

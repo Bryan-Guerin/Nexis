@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {confirm} from '../shared/confirm.js'
 
     // Gestion admin des événements (intégrée à l'écran Configuration).
     let evenements = $state([])
@@ -41,7 +42,7 @@
     }
 
     async function remove(ev) {
-      if (!window.confirm(`Supprimer l'événement « ${ev.titre} » ?`)) return
+      if (!await confirm({ title: 'Supprimer l\'événement', message: `Supprimer « ${ev.titre} » ?`, danger: true })) return
       try { await api.delete(`/sp/evenements/${ev.id}`); evenements = evenements.filter(e => e.id !== ev.id) }
       catch (e) { error = e.message }
     }

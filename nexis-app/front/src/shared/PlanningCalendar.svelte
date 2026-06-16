@@ -13,6 +13,7 @@
      */
     import {onMount} from 'svelte'
     import {api} from './api.js'
+    import {confirm} from './confirm.js'
 
     let { planningPath, membresPath, selfPath, title, canManageGarde = false, gardeBase = null, mePath = null } = $props()
 
@@ -108,7 +109,7 @@
     catch (e) { error = e.message }
   }
   async function terminerGarde(m) {
-    if (!window.confirm(`Terminer la garde de ${m.nomComplet || m.username} ?`)) return
+    if (!await confirm({ title: 'Terminer la garde', message: `Terminer la garde de ${m.nomComplet || m.username} ?` })) return
     error = ''
     try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(true); await loadEnService() }
     catch (e) { error = e.message }

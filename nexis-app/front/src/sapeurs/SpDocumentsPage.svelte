@@ -4,6 +4,7 @@
     import {api} from '../shared/api.js'
     import {authToken, currentUser} from '../shared/stores.js'
     import {pushToast} from '../shared/toasts.js'
+    import {confirm} from '../shared/confirm.js'
 
     let categories = $state([])
   let error      = $state('')
@@ -28,7 +29,7 @@
   }
 
   async function deleteCat(c) {
-    if (!window.confirm(`Supprimer le dossier « ${c.nom} » et tous ses documents ?`)) return
+    if (!await confirm({ title: 'Supprimer le dossier', message: `Supprimer « ${c.nom} » et tous ses documents ?`, danger: true })) return
     try { await api.delete(`/sp/documents/categories/${c.id}`); await load() }
     catch (e) { error = e.message }
   }
@@ -86,7 +87,7 @@
   }
 
   async function deleteDoc(catId, d) {
-    if (!window.confirm(`Supprimer « ${d.nom} » ?`)) return
+    if (!await confirm({ title: 'Supprimer le document', message: `Supprimer « ${d.nom} » ?`, danger: true })) return
     try { await api.delete(`/sp/documents/${d.id}`); await load() }
     catch (e) { error = e.message }
   }

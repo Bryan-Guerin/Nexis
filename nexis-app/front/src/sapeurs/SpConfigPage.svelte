@@ -1,6 +1,8 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {toast} from '../shared/toasts.js'
+    import {confirm} from '../shared/confirm.js'
     import {invalidateRef} from '../shared/referentials.js'
     import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
 
@@ -109,16 +111,13 @@
     const extra = cat.confirmDelete ? '\nLes postes liés seront aussi supprimés.'
                 : cat.kind === 'statutveh' ? '\nLes véhicules concernés repasseront au statut par défaut.'
                 : cat.key === 'natures' ? '\nElle sera retirée des types de véhicule (les véhicules sont conservés). Refusé si des interventions l’utilisent.' : ''
-    if (!window.confirm(`Supprimer « ${itemLabel(it)} » ?${extra}`)) return
+    if (!await confirm({ title: 'Supprimer', message: `Supprimer « ${itemLabel(it)} » ?${extra}`, danger: true })) return
     error = ''
     try {
       await api.delete(`${cat.list}/${it.id}`)
       items = items.filter(x => x.id !== it.id)
       invalidateRef()
-    } catch (e) {
-      // Garde-fou back (ex: grade encore porté par des effectifs) → message détaillé.
-      window.alert(e.message)
-    }
+    } catch { /* garde-fou back (ex: grade encore porté) déjà signalé par toast */ }
   }
 
   // ── Drag & drop : réordonne en direct, persiste à la fin ────────────────────
@@ -186,9 +185,9 @@
     catch (err) { error = err.message }
   }
   async function removeHopital(it) {
-    if (!window.confirm(`Supprimer l'hôpital « ${it.label} » ?`)) return
+    if (!await confirm({ title: 'Supprimer l\'hôpital', message: `Supprimer l'hôpital « ${it.label} » ?`, danger: true })) return
     try { await api.delete(`/sp/hopitaux/${it.id}`); hopitaux = hopitaux.filter(x => x.id !== it.id) }
-    catch (err) { window.alert(err.message) }
+    catch { /* toast */ }
   }
 </script>
 
