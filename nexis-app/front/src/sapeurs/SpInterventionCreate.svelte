@@ -104,9 +104,12 @@
         vehiculeImplique: form.vehiculeImplique,
         vehiculeIds: createSel,
       })
-      // Affectation auto de l'équipage de garde sur chaque engin engagé (dispatch).
+      // Affectation auto de l'équipage de garde — uniquement sur les engins NON armés
+      // (un engin déjà armé garde son équipage en place).
       if (isDispatch && affecterAutoApresDepart) {
+        const nonArmes = new Set(vehicules.filter(v => !v.arme).map(v => v.vehiculeId))
         await Promise.all((created?.engins ?? [])
+          .filter(e => nonArmes.has(e.vehiculeId))
           .map(e => api.post(`/sp/vehicules/${e.vehiculeId}/affecter-auto`).catch(() => null)))
       }
       oncreated?.()
