@@ -30,15 +30,42 @@
   // coords geojson (mètres monde [x,y]) → latlng CRS.Simple
   function geoToLatLng(c) { return window.L.latLng(c[1], c[0]) }
 
-  // Couches vectorielles (geojson) : polygones/lignes + style.
+  // Couches vectorielles (geojson). style = lignes/polygones ; emoji/color = points.
   const VECTOR_LAYERS = [
-    { file: 'forest',      style: { stroke: false, fillColor: '#2f6d43', fillOpacity: 0.55 } },
-    { file: 'track',       style: { color: '#8a8f96', weight: 0.7, dashArray: '3' } },
-    { file: 'road',        style: { color: '#aab0b6', weight: 1.2 } },
-    { file: 'main_road',   style: { color: '#e0c24a', weight: 2.2 } },
-    { file: 'church',      style: { color: '#9aa0a6', weight: 1, fillColor: '#b9bfc6', fillOpacity: 0.6 } },
-    { file: 'fuelstation', style: { color: '#e0a23c', weight: 1, fillColor: '#e0a23c', fillOpacity: 0.5 } },
-    { file: 'hospital',    style: { color: '#e05c5c', weight: 1, fillColor: '#e05c5c', fillOpacity: 0.6 } },
+    // Surfaces / lignes
+    { file: 'forest',           style: { stroke: false, fillColor: '#2f6d43', fillOpacity: 0.55 } },
+    { file: 'rockarea',         style: { stroke: false, fillColor: '#6b6256', fillOpacity: 0.4 } },
+    { file: 'rock',             style: { color: '#8a8378', weight: 0.6, fillColor: '#8a8378', fillOpacity: 0.35 } },
+    { file: 'rocks',            style: { color: '#8a8378', weight: 0.6, fillColor: '#8a8378', fillOpacity: 0.35 } },
+    { file: 'mounts',           style: { color: '#7d6b4f', weight: 0.5, opacity: 0.5 } },
+    { file: 'track',            style: { color: '#8a8f96', weight: 0.7, dashArray: '3' } },
+    { file: 'road',             style: { color: '#aab0b6', weight: 1.2 } },
+    { file: 'road-bridge',      style: { color: '#c3c8cd', weight: 1.4 } },
+    { file: 'main_road',        style: { color: '#e0c24a', weight: 2.2 } },
+    { file: 'main_road-bridge', style: { color: '#ecd06a', weight: 2.4 } },
+    { file: 'railway',          style: { color: '#5a6066', weight: 1.2, dashArray: '4 3' } },
+    { file: 'powerline',        style: { color: '#caa83c', weight: 0.6, opacity: 0.55, dashArray: '2 4' } },
+    { file: 'church',           style: { color: '#9aa0a6', weight: 1, fillColor: '#b9bfc6', fillOpacity: 0.6 } },
+    { file: 'hospital',         style: { color: '#e05c5c', weight: 1, fillColor: '#e05c5c', fillOpacity: 0.5 } },
+    // Points (emoji = repère lisible ; sinon petit cercle de la couleur donnée)
+    { file: 'fuelstation', emoji: '⛽' },
+    { file: 'watertower',  emoji: '🚰' },
+    { file: 'lighthouse',  emoji: '🗼' },
+    { file: 'view-tower',  emoji: '🗼' },
+    { file: 'transmitter', emoji: '📡' },
+    { file: 'chapel',      emoji: '⛪' },
+    { file: 'cross',       emoji: '✝️' },
+    { file: 'busstop',     emoji: '🚏' },
+    { file: 'fountain',    emoji: '⛲' },
+    { file: 'ruin',        emoji: '🏚️' },
+    { file: 'shipwreck',   emoji: '🚢' },
+    { file: 'tourism',     emoji: '📷' },
+    { file: 'airport',     emoji: '✈️' },
+    { file: 'hill',        emoji: '⛰️' },
+    { file: 'powersolar',  emoji: '☀️' },
+    { file: 'powerwind',   emoji: '🌬️' },
+    { file: 'bunker',      color: '#9aa0a6' },
+    { file: 'citycenter',  color: '#c9b06a' },
   ]
   const NAME_LAYERS = ['namecity', 'namevillage', 'namemarine']
 
@@ -71,12 +98,20 @@
   })
   onDestroy(() => { clearInterval(clockTimer); if (map) { map.remove(); map = null } })
 
+  function emojiIcon(e) { return window.L.divIcon({ className: 'poi-pt', html: `<span>${e}</span>`, iconSize: [16, 16], iconAnchor: [8, 8] }) }
+
   async function buildVector() {
     const L = window.L
     for (const lyr of VECTOR_LAYERS) {
       const arr = await fetch(`/map/unreallife/geojson/${lyr.file}.geojson`).then(r => r.json()).catch(() => null)
       if (!arr) continue
-      L.geoJSON({ type: 'FeatureCollection', features: arr }, { coordsToLatLng: geoToLatLng, style: lyr.style }).addTo(vectorGroup)
+      L.geoJSON({ type: 'FeatureCollection', features: arr }, {
+        coordsToLatLng: geoToLatLng,
+        style: lyr.style,
+        pointToLayer: (f, latlng) => lyr.emoji
+          ? L.marker(latlng, { icon: emojiIcon(lyr.emoji), interactive: false })
+          : L.circleMarker(latlng, { radius: 2, color: lyr.color || '#9aa0a6', weight: 1, fillOpacity: 0.8 }),
+      }).addTo(vectorGroup)
     }
     for (const nf of NAME_LAYERS) {
       const arr = await fetch(`/map/unreallife/geojson/${nf}.geojson`).then(r => r.json()).catch(() => null)
@@ -193,4 +228,5 @@
   :global(.poi) { font-size: 15px; line-height: 18px; width: 22px; height: 22px; text-align: center; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
   :global(.poi.caserne) { background: rgba(79,110,247,.28); border: 1px solid #4f6ef7; }
   :global(.poi.hopital) { background: rgba(224,92,92,.28); border: 1px solid #e05c5c; }
+  :global(.poi-pt) { background: none; border: none; font-size: 12px; line-height: 16px; text-align: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
 </style>

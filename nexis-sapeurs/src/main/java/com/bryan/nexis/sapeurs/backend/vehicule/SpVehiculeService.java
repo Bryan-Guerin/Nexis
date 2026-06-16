@@ -180,7 +180,7 @@ public class SpVehiculeService {
         vehicule.setStatut(cible);
         vehicule.setEtat(cible.getEtat());   // le statut pilote l'état maître
 
-        // Destination hôpital selon l'action carte du statut (souple : non bloquant).
+        // Destination hôpital + position selon l'action carte du statut (souple : non bloquant).
         switch (cible.getActionCarte()) {
             case TRANSPORT_HOPITAL -> {
                 if (hopitalId != null) {
@@ -189,10 +189,19 @@ public class SpVehiculeService {
                 }
                 // hopitalId null : on conserve l'éventuelle destination déjà posée (warning côté front).
             }
-            case RETOUR_CASERNE -> vehicule.setHopitalDestination(null);
-            default -> { /* SUR_PLACE conserve la destination (garé à l'hôpital) ; AUCUNE/DEPANNEUR inchangé */ }
+            case SUR_PLACE -> {
+                // Arrivé à l'hôpital : mémorise la position (origine d'un futur retour).
+                if (vehicule.getHopitalDestination() != null) {
+                    vehicule.setPositionCoordonnees(vehicule.getHopitalDestination().getCoordonnees());
+                }
+            }
+            case RETOUR_CASERNE -> vehicule.setHopitalDestination(null);   // garde positionCoordonnees comme origine du retour
+            default -> { /* AUCUNE / DEPANNEUR : inchangé */ }
         }
-        if (cible.isClotureIntervention()) vehicule.setHopitalDestination(null);
+        if (cible.isClotureIntervention()) {   // libéré : on efface destination + position
+            vehicule.setHopitalDestination(null);
+            vehicule.setPositionCoordonnees(null);
+        }
 
         var updated = vehiculeRepo.update(vehicule);
 

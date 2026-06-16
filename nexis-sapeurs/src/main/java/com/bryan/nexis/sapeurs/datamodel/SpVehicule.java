@@ -42,6 +42,11 @@ public class SpVehicule {
     @JoinColumn(name = "hopital_destination_id")
     private SpHopital hopitalDestination;
 
+    /** Dernière position connue (coords 6 ch.) : point où l'engin s'est mis « sur place ».
+     *  Sert d'origine au trajet de retour (ex. retour depuis l'hôpital, pas depuis l'intervention). */
+    @Column(name = "position_coordonnees", length = 6)
+    private String positionCoordonnees;
+
     /** Capacité en eau (litres) — optionnel. */
     @Column(name = "capacite_eau")
     private Integer capaciteEau;
@@ -66,6 +71,7 @@ public class SpVehicule {
     public SpVehiculeStatut getStatut()     { return statut; }
     public SpCentre getCentre()             { return centre; }
     public SpHopital getHopitalDestination() { return hopitalDestination; }
+    public String getPositionCoordonnees()  { return positionCoordonnees; }
     public Integer getCapaciteEau()         { return capaciteEau; }
     public String getNotes()                { return notes; }
 
@@ -76,6 +82,7 @@ public class SpVehicule {
     public void setStatut(SpVehiculeStatut statut)        { this.statut = statut; }
     public void setCentre(SpCentre centre)                { this.centre = centre; }
     public void setHopitalDestination(SpHopital h)        { this.hopitalDestination = h; }
+    public void setPositionCoordonnees(String c)          { this.positionCoordonnees = c; }
     public void setCapaciteEau(Integer capaciteEau)       { this.capaciteEau = capaciteEau; }
     public void setNotes(String notes)                    { this.notes = notes; }
 

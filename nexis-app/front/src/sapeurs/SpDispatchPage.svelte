@@ -25,15 +25,16 @@
       for (const e of (i.engins ?? [])) {
         const v = vmap.get(e.vehiculeId); if (!v) continue
         const couleur = v.statut?.couleur, label = v.libelle, icone = v.type?.icone
-        const action = v.statut?.actionCarte, dest = v.hopitalDestinationCoordonnees, caserne = v.centreCoordonnees
+        const action = v.statut?.actionCarte, dest = v.hopitalDestinationCoordonnees, caserne = v.centreCoordonnees, pos = v.positionCoordonnees
         if (action === 'TRANSPORT_HOPITAL') {
           if (dest) out.push({ from: i.coordonnees, to: dest, couleur, label, icone })
           else out.push({ at: i.coordonnees, couleur, label, icone })   // destination non choisie : garé sur l'inter
         } else if (action === 'SUR_PLACE') {
           out.push({ at: dest || i.coordonnees, couleur, label, icone })
         } else if (action === 'RETOUR_CASERNE') {
-          if (caserne) out.push({ from: dest || i.coordonnees, to: caserne, couleur, label, icone })
-          else out.push({ at: dest || i.coordonnees, couleur, label, icone })
+          const from = pos || dest || i.coordonnees   // origine = dernière position (ex. hôpital)
+          if (caserne) out.push({ from, to: caserne, couleur, label, icone })
+          else out.push({ at: from, couleur, label, icone })
         } else if (caserne) {
           out.push({ from: caserne, to: i.coordonnees, couleur, label, icone, depart: i.debut })   // en route (défaut, ETA animée)
         } else {
@@ -292,6 +293,7 @@
               {#if v.immatriculation}
                 <span class="veh-immat">{v.immatriculation}</span>
               {/if}
+              {#if v.centreLabel}<span class="veh-centre">⛑️ {v.centreLabel}</span>{/if}
             </div>
             <div class="badges">
               <select class="statut-sel" title="Changer le statut (transition avant)"
@@ -432,6 +434,8 @@
     box-shadow: 0 1px 4px rgba(0,0,0,.25);
   }
   .btn-nouvelle-inter:hover { filter: brightness(1.08); }
+
+  .veh-centre { font-size: 11px; color: var(--color-muted); }
 
   .map-panel { margin-bottom: 12px; }
   .map-head { background: none; border: none; color: var(--color-text); font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 0; }
