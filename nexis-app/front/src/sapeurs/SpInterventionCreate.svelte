@@ -50,7 +50,11 @@
   let autres     = $derived(engageablesTries.filter(v => !matchPrincipal(v) && !matchSecondaire(v)))
   let showAutres = $state(false)
   let openAutres = $derived(showAutres || proposes.length === 0)
-  let showDetails = $state(false)
+  // Recherche dans « Autres engins » (la liste peut être longue : tous les engins).
+  let vehSearch  = $state('')
+  let autresFiltres = $derived(vehSearch.trim()
+    ? autres.filter(v => `${v.libelle} ${v.typeCode}`.toLowerCase().includes(vehSearch.trim().toLowerCase()))
+    : autres)
 
   // « Engager le lot » : présélectionne les engins du template de la nature (souple : avertit si manque).
   async function engagerLot() {
@@ -134,74 +138,81 @@
     {/snippet}
 
     <form class="create-modal-form" onsubmit={submitCreate}>
-      <!-- Alerte (mise en avant) -->
-      <div class="sec-alerte">
-        <label class="big">Nature *
-          <select bind:value={form.natureId} required>
-            <option value="" disabled>— choisir —</option>
-            {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
-          </select>
-        </label>
-        <label class="big">Motif *<input type="text" bind:value={form.motif} placeholder="ex: Feu d'habitation" required /></label>
-      </div>
-      {#if form.natureId}
-        <button type="button" class="lot-btn" onclick={engagerLot}>⚡ Engager le lot de départ</button>
-      {/if}
-
-      <!-- Mini-carte : clic = pose les coordonnées (aide à localiser l'appelant) -->
-      <div class="loc-map">
-        <span class="pick-label">Localisation <span class="hint">— clic sur la carte = coordonnées {#if form.coordonnees.length === 6}({coordDisplay(form.coordonnees)}){/if}</span></span>
-        <MapView height="240px" centres={centres} hopitaux={hopitaux}
-                 interventions={form.coordonnees.length === 6 ? [{ coordonnees: form.coordonnees, motif: 'Localisation', nature: { code: '📍' } }] : []}
-                 oncoordpick={c => form.coordonnees = c} />
-      </div>
-
-      <!-- Détails complémentaires (repliable) -->
-      <button type="button" class="sec-toggle" onclick={() => showDetails = !showDetails}>
-        <span class="caret">{showDetails ? '▾' : '▸'}</span> Détails — appelant, localisation, qualification
-      </button>
-      {#if showDetails}
-        <div class="sec-body">
-          <span class="sec-h">Appelant</span>
-          <div class="form-row">
-            <label>Requérant<input type="text" bind:value={form.requerant} maxlength="40" /></label>
-            <label>Téléphone<input type="tel" bind:value={form.telephone} maxlength="10" placeholder="10 chiffres" /></label>
+      <div class="cm-cols">
+        <!-- Colonne gauche : formulaire -->
+        <div class="cm-form">
+          <div class="sec-alerte">
+            <label class="big">Nature *
+              <select bind:value={form.natureId} required>
+                <option value="" disabled>— choisir —</option>
+                {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
+              </select>
+            </label>
+            <label class="big">Motif *<input type="text" bind:value={form.motif} placeholder="ex: Feu d'habitation" required /></label>
           </div>
-          <span class="sec-h">Localisation</span>
-          <div class="form-row">
-            <label>Commune<input type="text" bind:value={form.commune} maxlength="40" /></label>
-            <label>Coordonnées<input type="text" inputmode="numeric" maxlength="7" value={coordDisplay(form.coordonnees)} oninput={onCoordInput} placeholder="ex: 060 150" /></label>
+          {#if form.natureId}
+            <button type="button" class="lot-btn" onclick={engagerLot}>⚡ Engager le lot de départ</button>
+          {/if}
+
+          <!-- Détails (toujours visibles) -->
+          <div class="sec-body">
+            <span class="sec-h">Appelant</span>
+            <div class="form-row">
+              <label>Requérant<input type="text" bind:value={form.requerant} maxlength="40" /></label>
+              <label>Téléphone<input type="tel" bind:value={form.telephone} maxlength="10" placeholder="10 chiffres" /></label>
+            </div>
+            <span class="sec-h">Localisation</span>
+            <div class="form-row">
+              <label>Commune<input type="text" bind:value={form.commune} maxlength="40" /></label>
+              <label>Coordonnées<input type="text" inputmode="numeric" maxlength="7" value={coordDisplay(form.coordonnees)} oninput={onCoordInput} placeholder="ex: 060 150" /></label>
+            </div>
+            <label class="full">Observation<input type="text" bind:value={form.observation} placeholder="Précisions / description" /></label>
+            <span class="sec-h">Qualification</span>
+            <div class="qualif-row">
+              <label class="q-vic">Nb victimes<input type="number" min="0" bind:value={form.nbVictimes} placeholder="0" /></label>
+              <label class="q-chk"><input type="checkbox" bind:checked={form.incendie} /> Incendie</label>
+              <label class="q-chk"><input type="checkbox" bind:checked={form.vehiculeImplique} /> Véhicule impliqué</label>
+            </div>
           </div>
-          <label class="full">Observation<input type="text" bind:value={form.observation} placeholder="Précisions / description" /></label>
-          <span class="sec-h">Qualification</span>
-          <div class="qualif-row">
-            <label class="q-vic">Nb victimes<input type="number" min="0" bind:value={form.nbVictimes} placeholder="0" /></label>
-            <label class="q-chk"><input type="checkbox" bind:checked={form.incendie} /> Incendie</label>
-            <label class="q-chk"><input type="checkbox" bind:checked={form.vehiculeImplique} /> Véhicule impliqué</label>
+
+          <!-- Engins -->
+          <div class="veh-pick">
+            <span class="sec-h">Engins proposés</span>
+            {#if proposes.length > 0}
+              <div class="veh-grid">
+                {#each proposes as v (v.vehiculeId)}{@render enginRow(v)}{/each}
+              </div>
+            {:else}
+              <span class="muted small">{form.natureId ? 'Aucun engin proposé pour cette nature.' : 'Choisis une nature pour la proposition.'}</span>
+            {/if}
+
+            <div class="autres-head">
+              <button type="button" class="sec-toggle" onclick={() => showAutres = !showAutres}>
+                <span class="caret">{openAutres ? '▾' : '▸'}</span> Autres engins ({autresFiltres.length})
+              </button>
+              {#if openAutres && autres.length > 6}
+                <input class="veh-search" type="text" placeholder="filtrer…" bind:value={vehSearch} />
+              {/if}
+            </div>
+            {#if openAutres}
+              <div class="veh-grid">
+                {#each autresFiltres as v (v.vehiculeId)}{@render enginRow(v)}{/each}
+              </div>
+              {#if vehicules.length === 0}<span class="muted small">Aucun véhicule</span>{/if}
+              {#if autres.length > 0 && autresFiltres.length === 0}<span class="muted small">Aucun engin ne correspond à « {vehSearch} »</span>{/if}
+            {/if}
           </div>
         </div>
-      {/if}
 
-      <!-- Engins -->
-      <div class="veh-pick">
-        <span class="sec-h">Engins proposés</span>
-        {#if proposes.length > 0}
-          <div class="veh-grid">
-            {#each proposes as v (v.vehiculeId)}{@render enginRow(v)}{/each}
+        <!-- Colonne droite : carte (repère visuel + clic = coordonnées) -->
+        <div class="cm-map">
+          <span class="pick-label">Localisation <span class="hint">— clic = coordonnées {#if form.coordonnees.length === 6}({coordDisplay(form.coordonnees)}){/if}</span></span>
+          <div class="cm-map-box">
+            <MapView height="100%" centres={centres} hopitaux={hopitaux}
+                     interventions={form.coordonnees.length === 6 ? [{ coordonnees: form.coordonnees, motif: 'Localisation', nature: { code: '📍' } }] : []}
+                     oncoordpick={c => form.coordonnees = c} />
           </div>
-        {:else}
-          <span class="muted small">{form.natureId ? 'Aucun engin proposé pour cette nature.' : 'Choisis une nature pour la proposition.'}</span>
-        {/if}
-
-        <button type="button" class="sec-toggle" onclick={() => showAutres = !showAutres}>
-          <span class="caret">{openAutres ? '▾' : '▸'}</span> Autres engins ({autres.length})
-        </button>
-        {#if openAutres}
-          <div class="veh-grid">
-            {#each autres as v (v.vehiculeId)}{@render enginRow(v)}{/each}
-          </div>
-          {#if vehicules.length === 0}<span class="muted small">Aucun véhicule</span>{/if}
-        {/if}
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -215,7 +226,19 @@
 </div>
 
 <style>
-  .create-modal { width: 640px; max-height: 88vh; overflow-y: auto; position: relative; }
+  .create-modal { width: 880px; max-width: 94vw; max-height: 90vh; overflow-y: auto; position: relative; }
+
+  /* 2 colonnes : formulaire (gauche) + carte (droite, repère visuel) */
+  .cm-cols { display: flex; gap: 16px; align-items: stretch; }
+  .cm-form { flex: 1.1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  .cm-map  { flex: 0.9; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .cm-map-box { flex: 1; min-height: 340px; }
+  .autres-head { display: flex; align-items: center; gap: 10px; }
+  .veh-search { flex: 1; max-width: 220px; }
+  @media (max-width: 760px) {
+    .cm-cols { flex-direction: column; }
+    .cm-map-box { min-height: 240px; }
+  }
   .modal-x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--color-muted); font-size: 18px; cursor: pointer; line-height: 1; }
   .modal-x:hover { color: var(--color-danger); }
   .create-modal-form { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
@@ -229,7 +252,6 @@
   .veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 
-  .loc-map { display: flex; flex-direction: column; gap: 5px; }
   .auto-chk { margin-right: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text); }
   .lot-btn { align-self: flex-start; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius); font-size: 12px; font-weight: 600; padding: 5px 12px; cursor: pointer; }
   .sec-alerte { display: flex; gap: 10px; flex-wrap: wrap; }
