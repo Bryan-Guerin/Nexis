@@ -23,17 +23,31 @@ Copier l'arborescence du terrain dans `/opt/volumes/nexis/map/` :
     │   ├── 1/0.png … 1/3.png
     │   ├── 2/0.png … 2/3.png
     │   └── 3/0.png … 3/3.png
-    └── geojson/             # couches vectorielles (tableau de Features, coords [x,y] mètres monde)
-        ├── forest.geojson
-        ├── track.geojson
-        ├── road.geojson
-        ├── main_road.geojson
-        ├── church.geojson
-        ├── fuelstation.geojson
-        ├── hospital.geojson
-        ├── namecity.geojson
-        ├── namevillage.geojson
-        └── namemarine.geojson
+    ├── geojson/             # couches vectorielles légères (tableau de Features, coords [x,y] m)
+    │   ├── forest / track / road(+road-bridge) / main_road(+bridge) / railway
+    │   ├── powerline / mounts / rock / rocks / rockarea
+    │   ├── church / fuelstation / hospital
+    │   ├── namecity / namevillage / namemarine
+    │   └── watertower / lighthouse / view-tower / transmitter / chapel / cross /
+    │       busstop / fountain / ruin / shipwreck / tourism / airport / hill /
+    │       powersolar / powerwind / bunker / citycenter        (exclus : bush)
+    └── tiles/               # couches lourdes tuilées (chargées à la demande au zoom)
+        ├── house/{cx}/{cy}.geojson  + house/index.json
+        └── tree/{cx}/{cy}.geojson   + tree/index.json
+```
+
+## Couches lourdes tuilées (house, tree)
+
+`house` (66 Mo) et `tree` (18 Mo) sont trop gros à charger d'un bloc. Le script
+`scripts/split-map-layers.mjs` les découpe en **tuiles spatiales** (grille 32 = cellule
+320 m). La carte (mode vecteur) ne fetch que les cellules **visibles** au-delà d'un zoom.
+
+Régénérer les tuiles (offline, à refaire si la map change) :
+
+```
+node scripts/split-map-layers.mjs \
+  ops/grad_meh/unreallife_map/geojson \
+  nexis-app/front/public/map/unreallife/tiles 32 house,tree
 ```
 
 `sat/{x}/{y}.png` : `x` = colonne (0 = ouest), `y` = ligne (0 = nord). Chaque tuile

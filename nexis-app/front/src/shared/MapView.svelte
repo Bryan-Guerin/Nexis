@@ -69,6 +69,15 @@
   ]
   const NAME_LAYERS = ['namecity', 'namevillage', 'namemarine']
 
+  // Couches lourdes (house/tree) : tuilées (scripts/split-map-layers.mjs), chargées à la
+  // demande au zoom (seules les cellules visibles sont fetchées). Mode vecteur uniquement.
+  const HEAVY_N = 32, HEAVY_CS = IMG / HEAVY_N
+  const HEAVY_LAYERS = [
+    { file: 'house', minZoom: -1, style: { stroke: false, fillColor: '#5b554f', fillOpacity: 0.65 } },
+    { file: 'tree',  minZoom: 0,  color: '#3c7a4a' },
+  ]
+  let heavyGroup, heavyIndex = {}, heavyCells = new Map()   // 'file/cx/cy' → couche Leaflet (ou null = en cours)
+
   let el, map, satGroup, vectorGroup, layer, baseGroup, clockTimer
   let mode = $state('sat')   // 'sat' | 'vecteur'
   let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
@@ -90,8 +99,13 @@
 
     satGroup.addTo(map)
     baseGroup = L.layerGroup().addTo(map)   // casernes + hôpitaux (permanents, les 2 modes)
+    heavyGroup = L.layerGroup()             // house/tree tuilés (vecteur, à la demande)
     layer = L.layerGroup().addTo(map)
     if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
+    for (const h of HEAVY_LAYERS)
+      fetch(`/map/unreallife/tiles/${h.file}/index.json`).then(r => r.json())
+        .then(keys => { heavyIndex[h.file] = new Set(keys); updateHeavy() }).catch(() => {})
+    map.on('moveend zoomend', updateHeavy)
     renderBase()
     render()
     clockTimer = setInterval(() => tick++, 1000)
@@ -126,8 +140,42 @@
   function setMode(m) {
     if (!map) return
     mode = m
-    if (m === 'vecteur') { map.removeLayer(satGroup); vectorGroup.addTo(map) }
-    else { map.removeLayer(vectorGroup); satGroup.addTo(map) }
+    if (m === 'vecteur') { map.removeLayer(satGroup); vectorGroup.addTo(map); heavyGroup.addTo(map) }
+    else { map.removeLayer(vectorGroup); map.removeLayer(heavyGroup); satGroup.addTo(map) }
+    updateHeavy()
+  }
+
+  // Charge/décharge les cellules house/tree visibles selon le zoom (mode vecteur seul).
+  function updateHeavy() {
+    if (!map || !heavyGroup) return
+    if (mode !== 'vecteur') { heavyGroup.clearLayers(); heavyCells.clear(); return }
+    const z = map.getZoom(), b = map.getBounds()
+    const wanted = new Set()
+    for (const h of HEAVY_LAYERS) {
+      const idx = heavyIndex[h.file]
+      if (!idx || z < h.minZoom) continue
+      const cxA = Math.max(0, Math.floor(b.getWest() / HEAVY_CS)), cxB = Math.min(HEAVY_N - 1, Math.floor(b.getEast() / HEAVY_CS))
+      const cyA = Math.max(0, Math.floor(b.getSouth() / HEAVY_CS)), cyB = Math.min(HEAVY_N - 1, Math.floor(b.getNorth() / HEAVY_CS))
+      for (let cx = cxA; cx <= cxB; cx++) for (let cy = cyA; cy <= cyB; cy++) {
+        const ck = `${cx}/${cy}`; if (!idx.has(ck)) continue
+        const fk = `${h.file}/${ck}`; wanted.add(fk)
+        if (!heavyCells.has(fk)) { heavyCells.set(fk, null); loadHeavyCell(h, ck, fk) }
+      }
+    }
+    for (const fk of [...heavyCells.keys()]) {
+      if (!wanted.has(fk)) { const c = heavyCells.get(fk); if (c) heavyGroup.removeLayer(c); heavyCells.delete(fk) }
+    }
+  }
+
+  async function loadHeavyCell(h, ck, fk) {
+    const arr = await fetch(`/map/unreallife/tiles/${h.file}/${ck}.geojson`).then(r => r.json()).catch(() => null)
+    if (!arr || !heavyCells.has(fk)) return   // cellule sortie de la vue entre-temps
+    const gj = window.L.geoJSON({ type: 'FeatureCollection', features: arr }, {
+      coordsToLatLng: geoToLatLng, style: h.style,
+      pointToLayer: (f, ll) => window.L.circleMarker(ll, { radius: 1.4, weight: 0, fillColor: h.color || '#3c7a4a', fillOpacity: 0.85 }),
+    })
+    if (!heavyCells.has(fk)) return            // retirée pendant le fetch
+    heavyCells.set(fk, gj); gj.addTo(heavyGroup)
   }
 
   function iconHtml(i) { return i.nature?.icone || (i.incendie ? '🔥' : '🚨') }
