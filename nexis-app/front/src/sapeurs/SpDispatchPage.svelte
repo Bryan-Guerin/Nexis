@@ -352,7 +352,7 @@
 
 <!-- ── Modal : choix de l'hôpital de destination (transport) ─────────────────── -->
 {#if hopitalPick}
-  <div class="backdrop" onclick={() => hopitalPick = null}>
+  <div class="backdrop" style="z-index:1100" onclick={() => hopitalPick = null}>
     <div class="modal" onclick={e => e.stopPropagation()}>
       <h3>Destination — transport hôpital</h3>
       {#if hopitaux.length === 0}

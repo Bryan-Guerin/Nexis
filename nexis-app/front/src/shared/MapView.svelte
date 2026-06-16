@@ -31,38 +31,39 @@
   function geoToLatLng(c) { return window.L.latLng(c[1], c[0]) }
 
   // Couches vectorielles (geojson). style = lignes/polygones ; emoji/color = points.
+  // detail:true = repère ponctuel affiché seulement zoomé (avec les bâtiments), sinon clutter.
   const VECTOR_LAYERS = [
-    // Surfaces / lignes
-    { file: 'forest',           style: { stroke: false, fillColor: '#2f6d43', fillOpacity: 0.55 } },
-    { file: 'mounts',           style: { color: '#7d6b4f', weight: 0.5, opacity: 0.5 } },
-    { file: 'track',            style: { color: '#8a8f96', weight: 0.7, dashArray: '3' } },
-    { file: 'road',             style: { color: '#aab0b6', weight: 1.2 } },
-    { file: 'road-bridge',      style: { color: '#c3c8cd', weight: 1.4 } },
-    { file: 'main_road',        style: { color: '#e0c24a', weight: 2.2 } },
-    { file: 'main_road-bridge', style: { color: '#ecd06a', weight: 2.4 } },
-    { file: 'railway',          style: { color: '#5a6066', weight: 1.2, dashArray: '4 3' } },
-    { file: 'powerline',        style: { color: '#caa83c', weight: 0.6, opacity: 0.55, dashArray: '2 4' } },
-    { file: 'church',           style: { color: '#9aa0a6', weight: 1, fillColor: '#b9bfc6', fillOpacity: 0.6 } },
-    { file: 'hospital',         style: { color: '#e05c5c', weight: 1, fillColor: '#e05c5c', fillOpacity: 0.5 } },
-    // Points (emoji = repère lisible ; sinon petit cercle de la couleur donnée)
-    { file: 'fuelstation', emoji: '⛽' },
-    { file: 'watertower',  emoji: '🚰' },
-    { file: 'lighthouse',  emoji: '🗼' },
-    { file: 'view-tower',  emoji: '🗼' },
-    { file: 'transmitter', emoji: '📡' },
-    { file: 'chapel',      emoji: '⛪' },
-    { file: 'cross',       emoji: '✝️' },
-    { file: 'busstop',     emoji: '🚏' },
-    { file: 'fountain',    emoji: '⛲' },
-    { file: 'ruin',        emoji: '🏚️' },
-    { file: 'shipwreck',   emoji: '🚢' },
-    { file: 'tourism',     emoji: '📷' },
-    { file: 'airport',     emoji: '✈️' },
-    { file: 'hill',        emoji: '⛰️' },
-    { file: 'powersolar',  emoji: '☀️' },
-    { file: 'powerwind',   emoji: '🌬️' },
-    { file: 'bunker',      color: '#9aa0a6' },
-    { file: 'citycenter',  color: '#c9b06a' },
+    // Surfaces / lignes (toujours visibles en vecteur)
+    { file: 'forest',           label: 'Forêt',            style: { stroke: false, fillColor: '#2f6d43', fillOpacity: 0.55 } },
+    { file: 'mounts',           label: 'Relief',           style: { color: '#7d6b4f', weight: 0.5, opacity: 0.5 } },
+    { file: 'track',            label: 'Piste',            style: { color: '#8a8f96', weight: 0.7, dashArray: '3' } },
+    { file: 'road',             label: 'Route',            style: { color: '#aab0b6', weight: 1.2 } },
+    { file: 'road-bridge',      label: 'Pont',             style: { color: '#c3c8cd', weight: 1.4 } },
+    { file: 'main_road',        label: 'Route principale', style: { color: '#e0c24a', weight: 2.2 } },
+    { file: 'main_road-bridge', label: 'Pont (princ.)',    style: { color: '#ecd06a', weight: 2.4 } },
+    { file: 'railway',          label: 'Voie ferrée',      style: { color: '#5a6066', weight: 1.2, dashArray: '4 3' } },
+    { file: 'powerline',        label: 'Ligne HT',         style: { color: '#caa83c', weight: 0.6, opacity: 0.55, dashArray: '2 4' } },
+    // Repères ponctuels (detail : apparaissent au zoom des bâtiments)
+    { file: 'church',      label: 'Église',          detail: true, style: { color: '#9aa0a6', weight: 1, fillColor: '#b9bfc6', fillOpacity: 0.6 } },
+    { file: 'hospital',    label: 'Hôpital (bât.)',  detail: true, style: { color: '#e05c5c', weight: 1, fillColor: '#e05c5c', fillOpacity: 0.5 } },
+    { file: 'fuelstation', label: 'Station-service', detail: true, emoji: '⛽' },
+    { file: 'watertower',  label: "Château d'eau",   detail: true, emoji: '🚰' },
+    { file: 'lighthouse',  label: 'Phare',           detail: true, emoji: '🗼' },
+    { file: 'view-tower',  label: "Tour d'observation", detail: true, emoji: '🔭' },
+    { file: 'transmitter', label: 'Antenne',         detail: true, emoji: '📡' },
+    { file: 'chapel',      label: 'Chapelle',        detail: true, emoji: '⛪' },
+    { file: 'cross',       label: 'Croix',           detail: true, emoji: '✝️' },
+    { file: 'busstop',     label: 'Arrêt de bus',    detail: true, emoji: '🚏' },
+    { file: 'fountain',    label: 'Fontaine',        detail: true, emoji: '⛲' },
+    { file: 'ruin',        label: 'Ruine',           detail: true, emoji: '🏚️' },
+    { file: 'shipwreck',   label: 'Épave',           detail: true, emoji: '🚢' },
+    { file: 'tourism',     label: 'Point touristique', detail: true, emoji: '📷' },
+    { file: 'airport',     label: 'Aéroport',        detail: true, emoji: '✈️' },
+    { file: 'hill',        label: 'Colline',         detail: true, emoji: '⛰️' },
+    { file: 'powersolar',  label: 'Centrale solaire', detail: true, emoji: '☀️' },
+    { file: 'powerwind',   label: 'Éolienne',        detail: true, emoji: '🌬️' },
+    { file: 'bunker',      label: 'Bunker',          detail: true, color: '#9aa0a6' },
+    { file: 'citycenter',  label: 'Centre-ville',    detail: true, color: '#c9b06a' },
   ]
   const NAME_LAYERS = ['namecity', 'namevillage', 'namemarine']
 
@@ -75,9 +76,11 @@
     { file: 'tree',  minZoom: -1, color: '#3c7a4a' },
   ]
   let heavyGroup, heavyIndex = {}, heavyCells = new Map()   // 'file/cx/cy' → couche Leaflet (ou null = en cours)
+  const DETAIL_MIN = -2   // zoom à partir duquel les repères ponctuels apparaissent (= bâtiments)
 
-  let el, map, satGroup, vectorGroup, layer, baseGroup, clockTimer, vectorBuilt = false
-  let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('nexis.mapMode') === 'vecteur') ? 'vecteur' : 'sat')
+  let el, map, satGroup, vectorGroup, detailGroup, layer, baseGroup, clockTimer, vectorBuilt = false
+  // Vecteur par défaut (mémorisé ensuite via localStorage).
+  let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('nexis.mapMode') === 'sat') ? 'sat' : 'vecteur')
   let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
   let showLegend = $state(false)
 
@@ -95,6 +98,7 @@
         L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]], { pane: 'tilePane' }).addTo(satGroup)
 
     vectorGroup = L.layerGroup()   // construit à la demande (1er passage en vecteur)
+    detailGroup = L.layerGroup()   // repères ponctuels, affichés seulement zoomé
 
     satGroup.addTo(map)
     baseGroup = L.layerGroup().addTo(map)   // casernes + hôpitaux (permanents, les 2 modes)
@@ -125,7 +129,7 @@
         pointToLayer: (f, latlng) => lyr.emoji
           ? L.marker(latlng, { icon: emojiIcon(lyr.emoji), interactive: false })
           : L.circleMarker(latlng, { radius: 2, color: lyr.color || '#9aa0a6', weight: 1, fillOpacity: 0.8 }),
-      }).addTo(vectorGroup)
+      }).addTo(lyr.detail ? detailGroup : vectorGroup)
     }
     for (const nf of NAME_LAYERS) {
       const arr = await fetch(`/map/unreallife/geojson/${nf}.geojson`).then(r => r.json()).catch(() => null)
@@ -146,15 +150,17 @@
     // Le sat reste toujours affiché (tilePane) ; on baisse juste son opacité en vecteur.
     satGroup.eachLayer(l => l.setOpacity(m === 'vecteur' ? SAT_DIM : 1))
     if (m === 'vecteur') { vectorGroup.addTo(map); heavyGroup.addTo(map) }
-    else { map.removeLayer(vectorGroup); map.removeLayer(heavyGroup) }
+    else { map.removeLayer(vectorGroup); map.removeLayer(heavyGroup); if (detailGroup) map.removeLayer(detailGroup) }
     updateHeavy()
   }
 
-  // Charge/décharge les cellules house/tree visibles selon le zoom (mode vecteur seul).
+  // Charge/décharge les cellules house/tree visibles + repères détail selon le zoom (vecteur seul).
   function updateHeavy() {
     if (!map || !heavyGroup) return
     if (mode !== 'vecteur') { heavyGroup.clearLayers(); heavyCells.clear(); return }
     const z = map.getZoom(), b = map.getBounds()
+    // Repères ponctuels : visibles seulement zoomé (= avec les bâtiments).
+    if (detailGroup) { if (z >= DETAIL_MIN) detailGroup.addTo(map); else map.removeLayer(detailGroup) }
     const wanted = new Set()
     for (const h of HEAVY_LAYERS) {
       const idx = heavyIndex[h.file]
@@ -274,11 +280,23 @@
     <button type="button" class="lg-toggle" onclick={() => showLegend = !showLegend}>{showLegend ? '✕ Légende' : 'ⓘ Légende'}</button>
     {#if showLegend}
       <ul>
-        <li>⛑️ Caserne</li>
-        <li>🏥 Hôpital</li>
-        <li>🚒 Engin <span class="muted">(couleur = statut)</span></li>
+        <li><span class="lg-sym">⛑️</span> Caserne</li>
+        <li><span class="lg-sym">🏥</span> Hôpital</li>
+        <li><span class="lg-sym">🚒</span> Engin <span class="muted">(couleur = statut)</span></li>
         <li><span class="lg-dash"></span> Trajet</li>
-        <li>🔥 / 🚨 Intervention</li>
+        <li><span class="lg-sym">🔥</span> Intervention</li>
+        <li class="lg-sep">Carte</li>
+        {#each VECTOR_LAYERS as l}
+          <li>
+            {#if l.emoji}<span class="lg-sym">{l.emoji}</span>
+            {:else if l.color}<span class="lg-dot" style="background:{l.color}"></span>
+            {:else if l.style?.fillColor && l.style?.fillOpacity}<span class="lg-box" style="background:{l.style.fillColor}"></span>
+            {:else}<span class="lg-line" style="border-color:{l.style?.color}"></span>{/if}
+            {l.label}
+          </li>
+        {/each}
+        <li><span class="lg-box" style="background:#5b554f"></span> Bâtiment</li>
+        <li><span class="lg-dot" style="background:#3c7a4a"></span> Arbre</li>
       </ul>
     {/if}
   </div>
@@ -303,8 +321,13 @@
   :global(.poi-pt) { background: none; border: none; font-size: 12px; line-height: 16px; text-align: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
   .map-legend { position: absolute; bottom: 8px; left: 8px; z-index: 500; font-size: 11px; }
   .lg-toggle { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 3px 8px; cursor: pointer; font-size: 11px; }
-  .map-legend ul { list-style: none; margin: 4px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 92%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 3px; }
+  .map-legend ul { list-style: none; margin: 4px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 94%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 3px; max-height: 60vh; overflow-y: auto; }
   .map-legend li { display: flex; align-items: center; gap: 6px; color: var(--color-text); white-space: nowrap; }
   .map-legend .muted { color: var(--color-muted); }
+  .lg-sep { margin-top: 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--color-muted); border-top: 1px solid var(--color-border); padding-top: 4px; }
+  .lg-sym { display: inline-block; width: 16px; text-align: center; }
+  .lg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .lg-box { display: inline-block; width: 12px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .lg-line { display: inline-block; width: 16px; border-top: 2px solid #aab0b6; }
   .lg-dash { display: inline-block; width: 18px; border-top: 2px dashed #aab0b6; }
 </style>
