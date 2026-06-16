@@ -3,7 +3,7 @@
 
   // Carte (Leaflet, CRS.Simple sur le terrain UnRealLife). Fond satellite (mosaïque) ou
   // vectoriel (geojson : forêts, routes, bâtiments-repères, noms). Réutilisable.
-  let { interventions = [], height = '380px', oncoordpick = null } = $props()
+  let { interventions = [], transits = [], height = '380px', oncoordpick = null } = $props()
 
   const TILE = 2560, NTILE = 4
   const IMG = TILE * NTILE   // 10240 = worldSize, 1 px = 1 m
@@ -98,6 +98,15 @@
     if (!map || !layer || !window.L) return
     const L = window.L
     layer.clearLayers()
+    // Véhicules en transit : trait pointillé caserne → intervention + 🚒 au départ.
+    for (const t of transits) {
+      const a = gridToImg(t.from), b = gridToImg(t.to)
+      if (!a || !b) continue
+      L.polyline([toLatLng(a[0], a[1]), toLatLng(b[0], b[1])],
+        { color: t.couleur || '#4f6ef7', weight: 2, dashArray: '6 5', opacity: 0.9 }).addTo(layer)
+      const vic = L.divIcon({ className: 'itv-pin', html: `<div class="veh-marker" style="--c:${t.couleur || '#4f6ef7'}">🚒</div>`, iconSize: [24, 24], iconAnchor: [12, 12] })
+      L.marker(toLatLng(a[0], a[1]), { icon: vic }).addTo(layer).bindPopup(`🚒 ${t.label ?? ''}`)
+    }
     for (const i of interventions) {
       const p = gridToImg(i.coordonnees); if (!p) continue
       const html = `<div class="itv-marker"><span class="ic">${iconHtml(i)}</span>${numero(i) ? `<span class="num">${numero(i)}</span>` : ''}</div>`
@@ -106,14 +115,14 @@
         .bindPopup(`<b>${i.code ?? ''}</b><br>${(i.motif ?? '').replace(/</g, '&lt;')}`)
     }
   }
-  $effect(() => { interventions; render() })
+  $effect(() => { interventions; transits; render() })
 </script>
 
 <div class="mapwrap" style="height:{height}">
   <div bind:this={el} class="mapview"></div>
   <div class="map-toggle">
-    <button class:on={mode === 'sat'} onclick={() => setMode('sat')}>Satellite</button>
-    <button class:on={mode === 'vecteur'} onclick={() => setMode('vecteur')}>Vecteur</button>
+    <button type="button" class:on={mode === 'sat'} onclick={() => setMode('sat')}>Satellite</button>
+    <button type="button" class:on={mode === 'vecteur'} onclick={() => setMode('vecteur')}>Vecteur</button>
   </div>
 </div>
 
@@ -129,4 +138,5 @@
   :global(.itv-marker .ic) { font-size: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
   :global(.itv-marker .num) { font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.65); border-radius: 6px; padding: 0 4px; margin-top: -2px; }
   :global(.map-label) { color: #e8eef5; font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; text-align: center; pointer-events: none; }
+  :global(.veh-marker) { font-size: 18px; line-height: 1; filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 1px 2px rgba(0,0,0,.7)); cursor: pointer; }
 </style>

@@ -102,7 +102,8 @@ public class SpDispatchService {
                     SpVehiculeTypeDto.from(v.getType()),
                     SpVehiculeEtatDto.from(v.getEtat()),
                     SpVehiculeStatutDto.from(v.getStatut()),
-                    arme, equipe, manquants, derniereVerif.get(v.getId()));
+                    arme, equipe, manquants, derniereVerif.get(v.getId()),
+                    v.getCentre() != null ? v.getCentre().getCoordonnees() : null);
         }).toList();
     }
 }

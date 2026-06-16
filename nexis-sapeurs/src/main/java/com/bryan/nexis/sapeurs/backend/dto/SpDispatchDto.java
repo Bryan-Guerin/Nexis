@@ -16,7 +16,8 @@ public record SpDispatchDto(
         boolean arme,
         List<SpDispatchMembreDto> equipe,
         List<String> postesManquants,
-        String derniereVerifLe
+        String derniereVerifLe,
+        String centreCoordonnees
 ) {
     @Serdeable
     public record SpDispatchMembreDto(UUID membreId, String matricule, String username, String gradeCode,

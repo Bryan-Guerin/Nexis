@@ -14,6 +14,19 @@
   let showCreate   = $state(false)   // création rapide d'intervention
   let showMap      = $state(true)    // carte des interventions en cours
   let interCarte   = $state([])      // interventions en cours (pour la carte)
+  // Véhicules en transit : trait caserne → intervention pour chaque engin engagé localisé.
+  let transits = $derived.by(() => {
+    const vmap = new Map(vehicules.map(v => [v.id, v]))
+    const out = []
+    for (const i of interCarte) {
+      if (!i.coordonnees) continue
+      for (const e of (i.engins ?? [])) {
+        const v = vmap.get(e.vehiculeId)
+        if (v?.centreCoordonnees) out.push({ from: v.centreCoordonnees, to: i.coordonnees, couleur: v.statut?.couleur, label: v.libelle })
+      }
+    }
+    return out
+  })
 
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
@@ -203,7 +216,7 @@
         <span class="caret">{showMap ? '▾' : '▸'}</span> Carte — {interCarte.length} intervention(s) en cours
       </button>
       {#if showMap}
-        <MapView interventions={interCarte} height="360px" />
+        <MapView interventions={interCarte} transits={transits} height="360px" />
       {/if}
     </section>
 
