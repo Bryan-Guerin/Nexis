@@ -139,6 +139,15 @@ public class SpVehiculeService {
         var etat = etatRepo.findById(etatId)
                 .orElseThrow(() -> new NoSuchElementException("État SP introuvable : " + etatId));
         vehicule.setEtat(etat);
+
+        // Retour à DISPONIBLE depuis un état système (maintenance, indispo…) : on réinitialise
+        // le statut RP au statut par défaut — sinon la règle « transition avant uniquement »
+        // bloque le retour (pas de rétrogradation). On efface aussi destination/position.
+        if ("DISPONIBLE".equals(etat.getCode())) {
+            statutRepo.findByParDefautTrue().ifPresent(vehicule::setStatut);
+            vehicule.setHopitalDestination(null);
+            vehicule.setPositionCoordonnees(null);
+        }
         var updated = vehiculeRepo.update(vehicule);
 
         events.publishEvent(RealtimeEvent.faction(RealtimeEvent.ETAT_VEHICULE, "SP",

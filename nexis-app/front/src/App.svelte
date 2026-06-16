@@ -20,6 +20,7 @@
     import SpPlanningPage from './sapeurs/SpPlanningPage.svelte'
     import SpConfigPage from './sapeurs/SpConfigPage.svelte'
     import SpDispatchPage from './sapeurs/SpDispatchPage.svelte'
+    import SpFeuilleGarde from './sapeurs/SpFeuilleGarde.svelte'
     import SpInterventionsPage from './sapeurs/SpInterventionsPage.svelte'
     import SpMainCourantePage from './sapeurs/SpMainCourantePage.svelte'
     import SpStatsPage from './sapeurs/SpStatsPage.svelte'
@@ -41,6 +42,7 @@
     '/sp/effectifs':    SpEffectifsPage,
     '/sp/planning':     SpPlanningPage,
     '/sp/dispatch':     SpDispatchPage,
+    '/sp/feuille-garde': SpFeuilleGarde,
     '/sp/interventions': SpInterventionsPage,
     '/sp/main-courante': SpMainCourantePage,
     '/sp/stats':        SpStatsPage,

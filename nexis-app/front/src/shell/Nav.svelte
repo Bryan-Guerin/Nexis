@@ -8,6 +8,7 @@
     { section: 'Sapeurs-Pompiers',                           icon: '🚒', roles: ['ROLE_SP'] },
     { path: '/sp',                 label: 'Tableau de bord', icon: '📊', roles: ['ROLE_SP'] },
     { path: '/sp/dispatch',        label: 'Dispatch',        icon: '🚨', roles: ['ROLE_SP'] },
+    { path: '/sp/feuille-garde',   label: 'Feuille de garde', icon: '🗒️', roles: ['ROLE_SP'] },
     { path: '/sp/interventions',   label: 'Interventions',   icon: '🔥', roles: ['ROLE_SP'] },
     { path: '/sp/planning',        label: 'Planning',        icon: '📅', roles: ['ROLE_SP'] },
     { path: '/sp/vehicules',       label: 'Véhicules',       icon: '🚒', roles: ['ROLE_SP'] },
