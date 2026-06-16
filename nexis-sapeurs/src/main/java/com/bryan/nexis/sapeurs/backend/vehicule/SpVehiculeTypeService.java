@@ -45,6 +45,15 @@ public class SpVehiculeTypeService {
         return SpVehiculeTypeDto.from(typeRepo.save(new SpVehiculeType(code, label)));
     }
 
+    /** Définit l'icône (emoji) du type pour la carte. */
+    @Transactional
+    public SpVehiculeTypeDto setIcone(UUID typeId, String icone) {
+        var type = typeRepo.findById(typeId)
+                .orElseThrow(() -> new NoSuchElementException("Type véhicule SP introuvable : " + typeId));
+        type.setIcone(icone == null || icone.isBlank() ? null : icone.trim());
+        return SpVehiculeTypeDto.from(typeRepo.update(type));
+    }
+
     @Transactional
     public List<SpVehiculeTypePosteDto> listPostes(UUID typeId) {
         return posteRepo.findByVehiculeTypeIdOrderByOrdreAsc(typeId).stream().map(SpVehiculeTypePosteDto::from).toList();

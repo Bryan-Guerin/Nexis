@@ -24,20 +24,20 @@
       if (!i.coordonnees) continue
       for (const e of (i.engins ?? [])) {
         const v = vmap.get(e.vehiculeId); if (!v) continue
-        const couleur = v.statut?.couleur, label = v.libelle
+        const couleur = v.statut?.couleur, label = v.libelle, icone = v.type?.icone
         const action = v.statut?.actionCarte, dest = v.hopitalDestinationCoordonnees, caserne = v.centreCoordonnees
         if (action === 'TRANSPORT_HOPITAL') {
-          if (dest) out.push({ from: i.coordonnees, to: dest, couleur, label })
-          else out.push({ at: i.coordonnees, couleur, label })   // destination non choisie : garé sur l'inter
+          if (dest) out.push({ from: i.coordonnees, to: dest, couleur, label, icone })
+          else out.push({ at: i.coordonnees, couleur, label, icone })   // destination non choisie : garé sur l'inter
         } else if (action === 'SUR_PLACE') {
-          out.push({ at: dest || i.coordonnees, couleur, label })
+          out.push({ at: dest || i.coordonnees, couleur, label, icone })
         } else if (action === 'RETOUR_CASERNE') {
-          if (caserne) out.push({ from: dest || i.coordonnees, to: caserne, couleur, label })
-          else out.push({ at: dest || i.coordonnees, couleur, label })
+          if (caserne) out.push({ from: dest || i.coordonnees, to: caserne, couleur, label, icone })
+          else out.push({ at: dest || i.coordonnees, couleur, label, icone })
         } else if (caserne) {
-          out.push({ from: caserne, to: i.coordonnees, couleur, label })   // en route (défaut)
+          out.push({ from: caserne, to: i.coordonnees, couleur, label, icone })   // en route (défaut)
         } else {
-          out.push({ at: i.coordonnees, couleur, label })
+          out.push({ at: i.coordonnees, couleur, label, icone })
         }
       }
     }

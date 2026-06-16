@@ -122,11 +122,11 @@
     const vehPts = []
     for (const t of transits) {
       const at = t.at ? llOf(t.at) : null
-      if (at) { vehPts.push({ ll: at, couleur: t.couleur, label: t.label }); continue }
+      if (at) { vehPts.push({ ll: at, couleur: t.couleur, label: t.label, icone: t.icone }); continue }
       const a = llOf(t.from), b = llOf(t.to)
       if (!a || !b) continue
       L.polyline([a, b], { color: t.couleur || '#4f6ef7', weight: 2, dashArray: '6 5', opacity: 0.9 }).addTo(layer)
-      vehPts.push({ ll: a, couleur: t.couleur, label: t.label })
+      vehPts.push({ ll: a, couleur: t.couleur, label: t.label, icone: t.icone })
     }
     // Décalage horizontal des 🚒 partageant un même point (≈ même position au sol).
     const groups = new Map()
@@ -137,7 +137,7 @@
     for (const grp of groups.values()) {
       grp.forEach((v, k) => {
         const dx = (k - (grp.length - 1) / 2) * 24   // px écran, indépendant du zoom
-        const icon = L.divIcon({ className: 'itv-pin', html: `<div class="veh-marker" style="--c:${v.couleur || '#4f6ef7'}">🚒</div>`, iconSize: [24, 24], iconAnchor: [12 - dx, 12] })
+        const icon = L.divIcon({ className: 'itv-pin', html: `<div class="veh-marker" style="--c:${v.couleur || '#4f6ef7'}">${v.icone || '🚒'}</div>`, iconSize: [24, 24], iconAnchor: [12 - dx, 12] })
         L.marker(v.ll, { icon }).addTo(layer).bindPopup(`🚒 ${v.label ?? ''}`)
       })
     }

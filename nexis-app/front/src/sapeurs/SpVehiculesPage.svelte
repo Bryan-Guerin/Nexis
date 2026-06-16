@@ -215,6 +215,14 @@
     } catch (e) { error = e.message }
   }
 
+  // Icône (emoji) du type, repère carte.
+  async function setTypeIcone(t, icone) {
+    try {
+      const updated = await api.put(`/sp/vehicules/types/${t.id}/icone`, { icone })
+      types = types.map(x => x.id === updated.id ? updated : x)
+    } catch (e) { error = e.message }
+  }
+
   async function submitAddType(e) {
     e.preventDefault(); addTypeError = ''
     try {
@@ -470,8 +478,13 @@
     {#each types as t (t.id)}
       <div class="type-block">
         <div class="type-header" onclick={() => toggleType(t)} role="button" tabindex="0">
+          <span class="type-icone">{t.icone || '🚒'}</span>
           <span class="type-label">{t.label}</span>
           <span class="chip-code">{t.code}</span>
+          <input class="icone-input" type="text" maxlength="4" placeholder="icône"
+                 title="Icône (emoji) du type sur la carte" value={t.icone ?? ''}
+                 onclick={e => e.stopPropagation()}
+                 onchange={e => setTypeIcone(t, e.target.value)} />
           <span class="expand-icon">{typeExpanded[t.id] ? '▲' : '▼'}</span>
         </div>
 
@@ -691,7 +704,9 @@
   .type-block { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
   .type-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; transition: background 0.15s; }
   .type-header:hover { background: var(--hover); }
+  .type-icone { font-size: 18px; line-height: 1; }
   .type-label { font-size: 14px; font-weight: 500; flex: 1; }
+  .icone-input { width: 56px; text-align: center; font-size: 14px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 3px 6px; }
   .expand-icon { color: var(--color-muted); font-size: 11px; }
 
   .type-body { border-top: 1px solid var(--color-border); padding: 12px 16px; display: flex; flex-direction: column; gap: 16px; }

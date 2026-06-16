@@ -20,6 +20,10 @@ public class SpVehiculeType {
     @Column(nullable = false, length = 100)
     private String label;
 
+    /** Icône (emoji) repérant ce type sur la carte (🚒, 🪜, 🚑, 🚤…). Optionnel. */
+    @Column(length = 8)
+    private String icone;
+
     /** Natures d'intervention pour lesquelles ce type est pertinent (proposition d'engins). */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -44,10 +48,12 @@ public class SpVehiculeType {
     public UUID getId()      { return id; }
     public String getCode()  { return code; }
     public String getLabel() { return label; }
+    public String getIcone() { return icone; }
     public Set<SpNatureIntervention> getNatures() { return natures; }
     public SpNatureIntervention getNaturePrincipale() { return naturePrincipale; }
 
     public void setCode(String code)   { this.code = code; }
     public void setLabel(String label) { this.label = label; }
+    public void setIcone(String icone) { this.icone = icone; }
     public void setNaturePrincipale(SpNatureIntervention naturePrincipale) { this.naturePrincipale = naturePrincipale; }
 }
