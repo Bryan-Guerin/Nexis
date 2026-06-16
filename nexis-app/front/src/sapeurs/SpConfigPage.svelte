@@ -85,6 +85,14 @@
     } catch (e) { error = e.message }
   }
 
+  // Coordonnées jeu d'une caserne (pour la carte).
+  async function setCentreCoord(it, coordonnees) {
+    try {
+      const u = await api.put(`/sp/centres/${it.id}/coordonnees`, { coordonnees })
+      items = items.map(x => x.id === u.id ? u : x)
+    } catch (e) { error = e.message }
+  }
+
   async function removeItem(it) {
     if (!cat.deletable) return
     const extra = cat.confirmDelete ? '\nLes postes liés seront aussi supprimés.'
@@ -191,6 +199,12 @@
                         onchange={e => setFonctionType(it, e.target.value)}>
                   {#each TYPES_FONCTION as [v, l]}<option value={v}>{l}</option>{/each}
                 </select>
+              {/if}
+              {#if cat.key === 'centres'}
+                <input class="coord-input" type="text" inputmode="numeric" maxlength="6" placeholder="coord. 6 ch."
+                       title="Coordonnées jeu de la caserne (carte)" value={it.coordonnees ?? ''}
+                       oninput={e => e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6)}
+                       onchange={e => setCentreCoord(it, e.target.value)} />
               {/if}
               {#if cat.kind === 'statut'}<span class="cat-badge">{it.categorie}</span>{/if}
               {#if cat.kind === 'statutveh' && it.etat}<span class="cat-badge" title="État appliqué">→ {it.etat.label}</span>{/if}
@@ -323,6 +337,7 @@
   .defaut-btn { background: none; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-muted); font-size: 10px; padding: 1px 6px; cursor: pointer; }
   .defaut-btn.on { border-color: var(--accent); color: var(--accent); }
   .type-fonction-sel { font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; cursor: pointer; }
+  .coord-input { width: 90px; font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; }
 
   .add-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .check-label { display: flex; align-items: center; gap: 6px; font-size: 13px; align-self: flex-end; padding-bottom: 8px; white-space: nowrap; }

@@ -226,6 +226,12 @@ public class SpConfigController {
         centreService.delete(id);
     }
 
+    /** Définit les coordonnées jeu de la caserne (pour la carte). */
+    @Put("/centres/{id}/coordonnees")
+    SpCentreDto setCentreCoordonnees(UUID id, @Body SetCoordonneesRequest req) {
+        return centreService.setCoordonnees(id, req.coordonnees());
+    }
+
     @Put("/centres/order")
     @Status(HttpStatus.NO_CONTENT)
     void reorderCentres(@Body ReorderRequest req) {

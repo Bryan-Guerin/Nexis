@@ -35,6 +35,14 @@ public class SpCentreService {
     }
 
     @Transactional
+    public SpCentreDto setCoordonnees(UUID id, String coordonnees) {
+        var c = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Centre introuvable : " + id));
+        c.setCoordonnees(coordonnees == null || coordonnees.isBlank() ? null : coordonnees.trim());
+        return SpCentreDto.from(repo.update(c));
+    }
+
+    @Transactional
     public void delete(UUID id) {
         repo.deleteById(id);
     }

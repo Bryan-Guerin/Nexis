@@ -22,16 +22,22 @@ public class SpCentre {
     @Column(name = "ordre", nullable = false)
     private int position;
 
+    /** Coordonnées jeu (6 chiffres) de la caserne, pour la carte. Optionnel. */
+    @Column(length = 6)
+    private String coordonnees;
+
     protected SpCentre() {}
 
     public SpCentre(String code, String label) {
         this.code = code; this.label = label;
     }
 
-    public UUID getId()      { return id; }
-    public String getCode()  { return code; }
-    public String getLabel() { return label; }
-    public int getPosition() { return position; }
+    public UUID getId()        { return id; }
+    public String getCode()    { return code; }
+    public String getLabel()   { return label; }
+    public int getPosition()   { return position; }
+    public String getCoordonnees() { return coordonnees; }
 
-    public void setPosition(int position) { this.position = position; }
+    public void setPosition(int position)          { this.position = position; }
+    public void setCoordonnees(String coordonnees) { this.coordonnees = coordonnees; }
 }
