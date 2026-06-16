@@ -12,20 +12,25 @@
   // ── Conversion coordonnées jeu (6 chiffres) → pixel image ────────────────────
   // Calibré sur points connus : X au pas 100 m (000→102.4), Y au pas 10 m (000→1000).
   // Si décalage, ajuster UNIQUEMENT ces deux lignes.
+  // Origine jeu (0,0) = milieu du bord gauche → Y décalé d'une demi-hauteur (puis wrap).
+  const Y_OFFSET = IMG / 2
   function gridToImg(coord) {
     if (!coord || coord.length < 6) return null
     const gx = +coord.slice(0, 3), gy = +coord.slice(3, 6)
     if (Number.isNaN(gx) || Number.isNaN(gy)) return null
-    return [gx / 102.4 * IMG, gy / 1000 * IMG]   // [px depuis gauche, py depuis haut]
+    const px = gx / 102.4 * IMG
+    const py = ((gy / 1000 * IMG) + Y_OFFSET) % IMG
+    return [px, py]   // [px depuis gauche, py depuis haut]
   }
   // pixel image → latlng CRS.Simple (lat vers le haut → on inverse py)
   function toLatLng(px, py) { return [IMG - py, px] }
   // latlng → coordonnées jeu (pour le clic de saisie)
   function latLngToGrid(latlng) {
     const px = latlng.lng, py = IMG - latlng.lat
-    const gx = Math.round(px / IMG * 102.4), gy = Math.round(py / IMG * 1000)
+    const gx = Math.round(px / IMG * 102.4)
+    const gy = Math.round((((py - Y_OFFSET + IMG) % IMG) / IMG) * 1000)
     return String(Math.max(0, Math.min(102, gx))).padStart(3, '0')
-         + String(Math.max(0, Math.min(999, gy))).padStart(3, '0')
+         + String(((gy % 1000) + 1000) % 1000).padStart(3, '0')
   }
 
   let el, map, layer
