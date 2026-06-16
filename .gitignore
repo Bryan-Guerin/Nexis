@@ -14,6 +14,7 @@ out/
 .factorypath
 .logs
 .env
+nexis-app/logs/
 
 # Frontend
 nexis-app/front/node_modules/
