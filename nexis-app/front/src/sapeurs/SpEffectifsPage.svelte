@@ -871,7 +871,6 @@
 
   .detail-header { display: flex; flex-direction: column; gap: 6px; }
   .dh-main { display: flex; align-items: center; gap: 12px; }
-  .dh-matricule { font-family: monospace; font-size: 28px; font-weight: 700; letter-spacing: 1px; }
   .dh-title { font-size: 26px; font-weight: 700; letter-spacing: .3px; }
   .radier-btn { margin-left: auto; background: none; border: 1px solid var(--color-danger); color: var(--color-danger); border-radius: var(--radius); font-size: 12px; padding: 4px 12px; cursor: pointer; transition: background .12s; }
   .radier-btn:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
@@ -880,7 +879,6 @@
   .info-value.mono { font-family: monospace; }
   .dh-sub  { display: flex; align-items: center; gap: 10px; }
   .dh-grade { font-size: 14px; font-weight: 600; color: var(--accent); }
-  .dh-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
   .dh-username { font-size: 13px; color: var(--color-muted); }
 
   /* Badges contrat (sémantique propre : SPP=bleu, SPV=vert) */

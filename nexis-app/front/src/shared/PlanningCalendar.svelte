@@ -522,10 +522,6 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     flex: 1; min-width: 0;
   }
-  .m-mat {
-    font-family: monospace; font-size: 10px;
-    color: var(--color-muted); white-space: nowrap;
-  }
   .g-duree { flex-shrink: 0; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-text); font-size: 10px; padding: 2px 3px; outline: none; }
   .g-btn { flex-shrink: 0; border: 1px solid var(--color-border); background: var(--color-bg); border-radius: 4px; font-size: 10px; line-height: 1; padding: 3px 5px; cursor: pointer; }
   .g-btn.start { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border)); }
