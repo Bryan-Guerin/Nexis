@@ -49,6 +49,7 @@ public class SpInterventionService {
     private final com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage; // login → nom RP
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final SecurityService                securityService;
+    private final com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService;    // éval badges à la clôture
 
     public SpInterventionService(SpInterventionRepository interventionRepo, SpVehiculeRepository vehiculeRepo,
                                  SpNatureInterventionRepository natureRepo, SpVehiculeAffectationService affectationService,
@@ -56,7 +57,8 @@ public class SpInterventionService {
                                  SpVehiculeStatutRepository statutRepo, SpVehiculeEtatRepository etatRepo,
                                  JournalService journalService,
                                  com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage,
-                                 ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
+                                 ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService,
+                                 com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
         this.natureRepo         = natureRepo;
@@ -68,6 +70,7 @@ public class SpInterventionService {
         this.etatRepo           = etatRepo;
         this.journalService     = journalService;
         this.events             = events;
+        this.rpService          = rpService;
         this.securityService    = securityService;
     }
 
@@ -431,6 +434,10 @@ public class SpInterventionService {
                     Map.of("interventionId", id.toString()), actor()).withReference(inter.getCode()));
             libererEngins(inter);
             log.info("Intervention {} clôturée par {}", inter.getCode(), actor());
+            // Auto-éval badges : interventions/temps/nature peuvent franchir un seuil.
+            // Coût acceptable pour le volume RP ; sinon ciblerait les seuls porteurs.
+            try { rpService.evalAll(); }
+            catch (RuntimeException e) { log.warn("Éval badges après clôture : {}", e.getMessage()); }
         }
         return SpInterventionDto.from(inter);
     }

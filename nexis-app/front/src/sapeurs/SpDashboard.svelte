@@ -46,6 +46,22 @@
     catch { /* toast par api.js */ }
   }
 
+  // Accordéon dans la modale de vote : 1 intervention détaillée à la fois.
+  let expandedInter = $state(null)        // id de l'intervention dépliée
+  let interDetails  = $state({})          // cache : interId -> { engins[], journal[] }
+  async function toggleExpand(interId) {
+    if (expandedInter === interId) { expandedInter = null; return }
+    expandedInter = interId
+    if (!interDetails[interId]) {
+      const [inter, journal] = await Promise.all([
+        api.get(`/sp/interventions/${interId}`).catch(() => null),
+        api.get(`/sp/interventions/${interId}/journal`).catch(() => []),
+      ])
+      interDetails = { ...interDetails, [interId]: { inter, journal } }
+    }
+  }
+  function fmtHeure(iso) { return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
+
   // Logo caserne (paramétrable par instance : fichier déposé dans le volume,
   // servi sur /branding/sp-logo.png). Masqué si aucun fichier n'est présent.
   let showLogo = $state(true)
@@ -200,11 +216,6 @@
       <div class="stat-card">
         <span class="stat-label">Interventions en cours</span>
         <span class="stat-value" class:alert={stats.interventionsEnCoursTotal > 0}>{stats.interventionsEnCoursTotal}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Durée moy. (7 j)</span>
-        <span class="stat-value">{dureeTexte(stats.dureeMoyenneMinutes)}</span>
-        <span class="stat-sub">interventions clôturées</span>
       </div>
     </div>
 
@@ -462,24 +473,64 @@
   {/if}
 </div>
 
-<!-- Modale de vote : liste des candidates avec compteurs + bouton voter -->
+<!-- Modale de vote : liste des candidates avec accordéon (détails 1 à la fois) -->
 {#if voteOpen && voteEtat}
-  <Modal title="Vote intervention de la semaine" width="520px" onclose={() => voteOpen = false}>
-    <p class="muted small">Semaine du {fmtSemaine(voteEtat.semaineDate)} · 1 vote par personne.</p>
+  <Modal title="Vote intervention de la semaine" width="640px" onclose={() => voteOpen = false}>
+    <p class="muted small">Semaine du {fmtSemaine(voteEtat.semaineDate)} · 1 vote par personne. Clique sur une intervention pour voir le détail.</p>
     <div class="vote-list">
       {#each voteEtat.candidates as c (c.interventionId)}
-        {@const mine = voteEtat.monVote === c.interventionId}
-        <div class="vote-cand" class:mine>
-          <div class="vc-main">
-            <span class="vc-code mono">{c.code}</span>
-            <span class="vc-motif">{c.motif}</span>
-            {#if c.natureLabel}<span class="vc-nat">{c.natureLabel}</span>{/if}
+        {@const mine    = voteEtat.monVote === c.interventionId}
+        {@const open    = expandedInter === c.interventionId}
+        {@const details = interDetails[c.interventionId]}
+        <div class="vote-cand" class:mine class:open>
+          <button class="vc-head" onclick={() => toggleExpand(c.interventionId)} aria-expanded={open}>
+            <span class="vc-chev" class:open>▾</span>
+            <div class="vc-main">
+              <span class="vc-code mono">{c.code}</span>
+              <span class="vc-motif">{c.motif}</span>
+              {#if c.natureLabel}<span class="vc-nat">{c.natureLabel}</span>{/if}
+              {#if c.commune}<span class="muted small">· {c.commune}</span>{/if}
+            </div>
+            <span class="vc-votes">{c.votes}</span>
+          </button>
+          <div class="vc-foot">
+            {#if mine}
+              <span class="vc-mine">Mon vote</span>
+            {:else}
+              <button class="btn-ghost-sm" onclick={() => voter(c.interventionId)}>🗳️ Voter</button>
+            {/if}
           </div>
-          <span class="vc-votes">{c.votes}</span>
-          {#if mine}
-            <span class="vc-mine">Mon vote</span>
-          {:else}
-            <button class="btn-ghost-sm" onclick={() => voter(c.interventionId)}>Voter</button>
+          {#if open}
+            <div class="vc-detail">
+              {#if !details}
+                <p class="muted small">Chargement…</p>
+              {:else}
+                {#if details.inter?.engins?.length}
+                  <div class="vc-section">
+                    <span class="vc-sec-l">🚒 Engins ({details.inter.engins.length})</span>
+                    <div class="vc-engins">
+                      {#each details.inter.engins as e (e.vehiculeId)}
+                        <span class="vc-engin">{e.libelle ?? e.code ?? '—'}</span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+                {#if details.journal?.length}
+                  <div class="vc-section">
+                    <span class="vc-sec-l">📜 Main courante (extraits)</span>
+                    <ul class="vc-journal">
+                      {#each details.journal.slice(0, 6) as j (j.id)}
+                        <li><span class="vc-h">{fmtHeure(j.creeLe)}</span> <span>{j.message}</span></li>
+                      {/each}
+                      {#if details.journal.length > 6}<li class="muted small">+ {details.journal.length - 6} autre(s) entrée(s)</li>{/if}
+                    </ul>
+                  </div>
+                {/if}
+                {#if !details.inter?.engins?.length && !details.journal?.length}
+                  <p class="muted small">Pas de détails additionnels.</p>
+                {/if}
+              {/if}
+            </div>
           {/if}
         </div>
       {/each}
@@ -510,6 +561,7 @@
   .garde-quick select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
 
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 768px) { .cols { grid-template-columns: 1fr; } }
   .panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 16px; }
   .panel h3 { margin: 0 0 12px; font-size: 14px; }
   .panel-head { display: flex; align-items: center; justify-content: space-between; }
@@ -594,13 +646,27 @@
   .vw-nat { font-size: 11px; padding: 2px 8px; background: var(--color-bg); border-radius: 10px; color: var(--color-muted); }
   .vw-votes { font-size: 12px; color: var(--accent); font-weight: 600; }
   .vote-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .vote-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
-  .vote-cand { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .vote-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+  .vote-cand { display: flex; flex-direction: column; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
   .vote-cand.mine { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .vote-cand.open { border-color: color-mix(in srgb, var(--accent) 60%, var(--color-border)); }
+  .vc-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: none; border: none; color: inherit; font: inherit; cursor: pointer; text-align: left; width: 100%; }
+  .vc-head:hover { background: var(--hover); }
+  .vc-chev { color: var(--color-muted); font-size: 11px; transition: transform .15s; }
+  .vc-chev.open { transform: rotate(180deg); }
+  .vc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 12px 8px; }
   .vc-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .vc-code { font-size: 11px; color: var(--color-muted); }
   .vc-motif { font-weight: 500; }
   .vc-nat { font-size: 10px; color: var(--color-muted); }
   .vc-votes { font-family: monospace; font-size: 13px; font-weight: 700; color: var(--accent); min-width: 24px; text-align: right; }
-  .vc-mine { font-size: 11px; color: var(--accent); font-weight: 600; }
+  .vc-mine { font-size: 11px; color: var(--accent); font-weight: 600; align-self: center; }
+  .vc-detail { padding: 0 14px 12px; border-top: 1px dashed var(--color-border); display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+  .vc-section { display: flex; flex-direction: column; gap: 6px; }
+  .vc-sec-l { font-size: 11px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
+  .vc-engins { display: flex; flex-wrap: wrap; gap: 6px; }
+  .vc-engin { font-size: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; padding: 3px 10px; }
+  .vc-journal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+  .vc-journal li { display: flex; gap: 8px; }
+  .vc-h { font-family: monospace; color: var(--color-muted); flex-shrink: 0; min-width: 38px; }
 </style>

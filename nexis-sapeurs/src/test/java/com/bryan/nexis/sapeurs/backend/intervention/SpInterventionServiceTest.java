@@ -60,7 +60,8 @@ class SpInterventionServiceTest {
                 affectationRepo, posteRepo, statutRepo, etatRepo, mock(JournalService.class),
                 mock(com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage.class),
                 (ApplicationEventPublisher<RealtimeEvent>) mock(ApplicationEventPublisher.class),
-                securityService);
+                securityService,
+                mock(com.bryan.nexis.sapeurs.backend.effectif.SpRpService.class));
 
         typeFpt    = type("FPT");
         etatDispo  = etat("DISPONIBLE");
