@@ -158,6 +158,20 @@
   let qualifsOpen = $state(true)
   let fctsOrgaOpen = $state(true)
 
+  // Mode de visualisation : 'detail' (split sélection+détail) | 'annuaire' (table) | 'organigramme' (arbre)
+  let vueMode = $state('detail')
+  function switchVue(mode) { vueMode = mode }
+
+  // Arbre organigramme : construit depuis fonctionsOrga (racines = sans parent).
+  let racinesOrga = $derived(fonctionsOrga.filter(f => !f.parentId))
+  function enfantsDe(parentId) { return fonctionsOrga.filter(f => f.parentId === parentId) }
+  function membresPourFonction(fId) {
+    return membres.filter(m => (m.fonctionsOrga ?? []).some(f => f.id === fId))
+  }
+  function membresSansFonction() {
+    return membres.filter(m => !(m.fonctionsOrga ?? []).length)
+  }
+
   // Toggle d'une fonction d'organigramme sur le membre sélectionné (cumul possible).
   async function toggleFonctionOrga(fonctionId) {
     if (!selected) return
@@ -386,6 +400,33 @@
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
+{#snippet fonctionNode(f)}
+  {@const ms = membresPourFonction(f.id)}
+  {@const kids = enfantsDe(f.id)}
+  <div class="orga-node">
+    <div class="orga-node-head">
+      <span class="orga-node-ico">{f.icone || '🔹'}</span>
+      <span class="orga-node-label">{f.label}</span>
+      <span class="orga-node-count">{ms.length}</span>
+    </div>
+    {#if ms.length > 0}
+      <div class="orga-membres">
+        {#each ms as m (m.id)}
+          <button class="orga-membre" onclick={() => { switchVue('detail'); select(m) }} title={m.nomComplet || m.username}>
+            <span class="om-grade">{m.gradeCode}</span>
+            <span class="om-name">{m.nomComplet || m.username}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+    {#if kids.length > 0}
+      <div class="orga-children">
+        {#each kids as c (c.id)}{@render fonctionNode(c)}{/each}
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="page">
 
   <!-- ── En-tête ─────────────────────────────────────────────────────────── -->
@@ -398,11 +439,81 @@
     {/if}
   </div>
 
+  <!-- ── Tabs vue ─────────────────────────────────────────────────────────── -->
+  <div class="vue-tabs" role="tablist" aria-label="Mode d'affichage des effectifs">
+    <button role="tab" aria-selected={vueMode === 'detail'} class:active={vueMode === 'detail'} onclick={() => switchVue('detail')}>👤 Détail</button>
+    <button role="tab" aria-selected={vueMode === 'annuaire'} class:active={vueMode === 'annuaire'} onclick={() => switchVue('annuaire')}>📋 Annuaire</button>
+    <button role="tab" aria-selected={vueMode === 'organigramme'} class:active={vueMode === 'organigramme'} onclick={() => switchVue('organigramme')}>🌳 Organigramme</button>
+  </div>
+
   {#if loading}
     <Skeleton rows={6} />
-  {:else}
 
-  <!-- ── Split pane ──────────────────────────────────────────────────────── -->
+  <!-- ═════════ Vue Annuaire (table dense, full-width) ════════════════════════ -->
+  {:else if vueMode === 'annuaire'}
+    <table class="annuaire">
+      <thead>
+        <tr>
+          <th>Matricule</th><th>Grade</th><th>Nom / Login</th><th>Contrat</th><th>Fonctions</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each membresFiltres as m (m.id)}
+          <tr>
+            <td class="mono" data-label="Matricule">{m.matricule}</td>
+            <td data-label="Grade">{m.gradeCode}</td>
+            <td data-label="Nom">{m.nomComplet || m.username}</td>
+            <td data-label="Contrat">
+              <span class="contrat-pill" class:spp={m.contrat === 'SPP'} class:spv={m.contrat === 'SPV'}>{m.contrat}</span>
+            </td>
+            <td data-label="Fonctions">
+              {#each (m.fonctionsOrga ?? []) as f (f.id)}
+                <span class="fonc-chip" title={f.label}>{f.icone || '•'} {f.label}</span>
+              {/each}
+              {#if !(m.fonctionsOrga ?? []).length}<span class="muted small">—</span>{/if}
+            </td>
+            <td class="actions">
+              <button class="btn-ghost-sm" onclick={() => { switchVue('detail'); select(m) }}>Détail →</button>
+            </td>
+          </tr>
+        {/each}
+        {#if membresFiltres.length === 0}
+          <tr><td colspan="6" class="empty">{membres.length === 0 ? 'Aucun membre' : 'Aucun résultat'}</td></tr>
+        {/if}
+      </tbody>
+    </table>
+
+  <!-- ═════════ Vue Organigramme (arbre par fonction) ═════════════════════════ -->
+  {:else if vueMode === 'organigramme'}
+    {#if racinesOrga.length === 0}
+      <p class="muted">Aucune fonction d'organigramme configurée. Voir Configuration.</p>
+    {:else}
+      <div class="orga-tree">
+        {#each racinesOrga as r (r.id)}
+          {@render fonctionNode(r)}
+        {/each}
+        {#if membresSansFonction().length > 0}
+          <div class="orga-node sans-fonction">
+            <div class="orga-node-head">
+              <span class="orga-node-ico">👥</span>
+              <span class="orga-node-label">Sans fonction</span>
+              <span class="orga-node-count">{membresSansFonction().length}</span>
+            </div>
+            <div class="orga-membres">
+              {#each membresSansFonction() as m (m.id)}
+                <button class="orga-membre" onclick={() => { switchVue('detail'); select(m) }} title={m.nomComplet || m.username}>
+                  <span class="om-grade">{m.gradeCode}</span>
+                  <span class="om-name">{m.nomComplet || m.username}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+  <!-- ═════════ Vue Détail (split sélection + détail, comportement v1.5) ═══════ -->
+  {:else}
   <div class="split">
 
     <!-- ── Liste (gauche) ────────────────────────────────────────────────── -->
@@ -1087,6 +1198,33 @@
   .rel-add input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; padding: 0 4px; cursor: pointer; line-height: 1; }
   .rm-btn:hover { color: var(--color-danger); }
+  /* Tabs vue annuaire / organigramme / détail */
+  .vue-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }
+  .vue-tabs button { background: none; border: 1px solid transparent; border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+  .vue-tabs button:hover { color: var(--color-text); background: var(--hover); }
+  .vue-tabs button.active { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+
+  /* Annuaire (table dense) */
+  .annuaire .fonc-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); margin: 0 4px 2px 0; white-space: nowrap; }
+  .contrat-pill { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 8px; }
+  .contrat-pill.spp { background: rgba(79, 110, 247, .18); color: var(--color-primary); }
+  .contrat-pill.spv { background: rgba(76, 175, 130, .18); color: var(--color-success); }
+
+  /* Organigramme (arbre) */
+  .orga-tree { display: flex; flex-direction: column; gap: 12px; }
+  .orga-node { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px; }
+  .orga-node-head { display: flex; align-items: center; gap: 8px; }
+  .orga-node-ico { font-size: 18px; }
+  .orga-node-label { font-weight: 600; font-size: 14px; flex: 1; }
+  .orga-node-count { font-size: 11px; color: var(--color-muted); background: var(--color-bg); padding: 2px 8px; border-radius: 10px; }
+  .orga-membres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .orga-membre { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 16px; padding: 4px 10px; cursor: pointer; transition: border-color .12s, color .12s; }
+  .orga-membre:hover { border-color: var(--accent); color: var(--accent); }
+  .om-grade { font-family: monospace; font-size: 10px; color: var(--color-muted); }
+  .om-name { font-weight: 500; }
+  .orga-children { margin-top: 10px; padding-left: 16px; border-left: 2px solid var(--color-border); display: flex; flex-direction: column; gap: 10px; }
+  .orga-node.sans-fonction { border-style: dashed; opacity: .85; }
+
   /* Profil RP : XP, niveau, badges */
   .rp-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; }
   .rp-xp-head { display: flex; justify-content: space-between; align-items: baseline; }
