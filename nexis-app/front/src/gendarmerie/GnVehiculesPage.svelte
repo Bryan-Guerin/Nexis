@@ -1,7 +1,11 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {compareBy, nextSort} from '../shared/tableSort.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import SortableTh from '../shared/SortableTh.svelte'
+    import Pagination from '../shared/Pagination.svelte'
+    import EmptyState from '../shared/EmptyState.svelte'
 
     let types     = $state([])
   let vehicules = $state([])
@@ -15,6 +19,26 @@
   let showAddType = $state(false)
   let addType = $state({ code: '', label: '' })
   let addTypeError = $state('')
+
+  // Recherche + tri + pagination
+  let recherche = $state('')
+  let sort      = $state({ col: 'immatriculation', dir: 'asc' })
+  let vPage     = $state(1)
+  let vPageSize = $state(25)
+  const KEYS = {
+    immatriculation: v => v.immatriculation,
+    type:            v => v.type?.label,
+    libelle:         v => v.libelle,
+    etat:            v => v.etat?.label,
+  }
+  let vehiculesFiltres = $derived(vehicules.filter(v => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return true
+    return [v.immatriculation, v.libelle, v.type?.label, v.type?.code, v.etat?.label]
+      .filter(Boolean).some(s => s.toLowerCase().includes(q))
+  }))
+  let vehiculesTries = $derived([...vehiculesFiltres].sort(compareBy(KEYS[sort.col], sort.dir)))
+  let vehiculesPage  = $derived(vehiculesTries.slice((vPage - 1) * vPageSize, vPage * vPageSize))
 
   onMount(loadAll)
 
@@ -99,15 +123,22 @@
 
   {#if loading}
     <Skeleton rows={6} />
+  {:else if vehicules.length === 0}
+    <EmptyState icon="🚓" title="Aucun véhicule enregistré" message="Ajoutez votre premier véhicule." />
   {:else}
+    <input class="veh-search" type="search" bind:value={recherche} placeholder="Rechercher (immat, libellé, type, statut)…" />
     <table>
       <thead>
         <tr>
-          <th>Immat.</th><th>Type</th><th>Libellé</th><th>Statut</th><th>Changer le statut</th>
+          <SortableTh col="immatriculation" label="Immat." {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="type"            label="Type"   {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="libelle"         label="Libellé" {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="etat"            label="Statut" {sort} onsort={c => sort = nextSort(sort, c)} />
+          <th>Changer le statut</th>
         </tr>
       </thead>
       <tbody>
-        {#each vehicules as v (v.id)}
+        {#each vehiculesPage as v (v.id)}
           <tr>
             <td class="immat">{v.immatriculation ?? '—'}</td>
             <td class="muted">{v.type.label}</td>
@@ -126,11 +157,14 @@
             </td>
           </tr>
         {/each}
-        {#if vehicules.length === 0}
-          <tr><td colspan="5" class="empty">Aucun véhicule enregistré</td></tr>
+        {#if vehiculesFiltres.length === 0}
+          <tr><td colspan="5" class="empty">Aucun résultat</td></tr>
         {/if}
       </tbody>
     </table>
+    {#if vehiculesFiltres.length > 0}
+      <Pagination bind:page={vPage} bind:pageSize={vPageSize} total={vehiculesFiltres.length} />
+    {/if}
   {/if}
 
   <div class="section-header">
@@ -163,4 +197,6 @@
 
 <style>
   .etat-select { font-size: 12px; padding: 4px 8px; }
+  .veh-search { width: 100%; max-width: 360px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; margin-bottom: 10px; }
+  .veh-search:focus { border-color: var(--accent); }
 </style>

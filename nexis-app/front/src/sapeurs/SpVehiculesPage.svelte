@@ -2,8 +2,12 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {currentUser} from '../shared/stores.js'
+    import {compareBy, nextSort} from '../shared/tableSort.js'
     import Skeleton from '../shared/Skeleton.svelte'
     import Modal from '../shared/Modal.svelte'
+    import SortableTh from '../shared/SortableTh.svelte'
+    import Pagination from '../shared/Pagination.svelte'
+    import EmptyState from '../shared/EmptyState.svelte'
 
     let types      = $state([])
   let vehicules  = $state([])
@@ -16,14 +20,28 @@
   let inventaire = $state({})   // typeId → items d'inventaire
   let loading    = $state(true)
 
-  // Recherche
+  // Recherche + tri + pagination
   let recherche = $state('')
+  let sort      = $state({ col: 'libelle', dir: 'asc' })
+  let vPage     = $state(1)
+  let vPageSize = $state(25)
+  const KEYS = {
+    libelle:         v => v.libelle,
+    immatriculation: v => v.immatriculation,
+    type:            v => v.type?.code,
+    statut:          v => v.statut?.position ?? 0,
+    etat:            v => v.etat?.label,
+    centre:          v => v.centre?.label,
+    capaciteEau:     v => v.capaciteEau ?? -1,
+  }
   let vehiculesFiltres = $derived(vehicules.filter(v => {
     const q = recherche.trim().toLowerCase()
     if (!q) return true
     return [v.libelle, v.immatriculation, v.type?.label, v.type?.code, v.centre?.label]
       .filter(Boolean).some(s => s.toLowerCase().includes(q))
   }))
+  let vehiculesTries = $derived([...vehiculesFiltres].sort(compareBy(KEYS[sort.col], sort.dir)))
+  let vehiculesPage  = $derived(vehiculesTries.slice((vPage - 1) * vPageSize, vPage * vPageSize))
 
   // Ajout véhicule
   let showAddVehicule = $state(false)
@@ -412,14 +430,25 @@
 
   {#if loading}
     <Skeleton rows={6} />
+  {:else if vehicules.length === 0}
+    <EmptyState icon="🚒" title="Aucun véhicule enregistré" message="Ajoutez votre premier véhicule." />
   {:else}
     <input class="veh-search" type="search" bind:value={recherche} placeholder="Rechercher (libellé, immat, type, centre)…" />
     <table>
       <thead>
-        <tr><th>Libellé</th><th>Immat.</th><th>Type</th><th>Statut (RP)</th><th>État (système)</th><th>Centre</th><th>Eau</th><th>Commentaire</th><th></th></tr>
+        <tr>
+          <SortableTh col="libelle"         label="Libellé"        {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="immatriculation" label="Immat."         {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="type"            label="Type"           {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="statut"          label="Statut (RP)"    {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="etat"            label="État (système)" {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="centre"          label="Centre"         {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="capaciteEau"     label="Eau"            {sort} onsort={c => sort = nextSort(sort, c)} />
+          <th>Commentaire</th><th></th>
+        </tr>
       </thead>
       <tbody>
-        {#each vehiculesFiltres as v (v.id)}
+        {#each vehiculesPage as v (v.id)}
           <tr>
             <td><strong>{v.libelle}</strong></td>
             <td class="mono">{v.immatriculation ?? '—'}</td>
@@ -445,10 +474,13 @@
           </tr>
         {/each}
         {#if vehiculesFiltres.length === 0}
-          <tr><td colspan="8" class="empty">{vehicules.length === 0 ? 'Aucun véhicule enregistré' : 'Aucun résultat'}</td></tr>
+          <tr><td colspan="9" class="empty">Aucun résultat</td></tr>
         {/if}
       </tbody>
     </table>
+    {#if vehiculesFiltres.length > 0}
+      <Pagination bind:page={vPage} bind:pageSize={vPageSize} total={vehiculesFiltres.length} />
+    {/if}
   {/if}
 
   <!-- Types : postes + inventaire -->

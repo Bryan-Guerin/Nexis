@@ -112,21 +112,27 @@
     catch (e) { sancError = e.message }
   }
 
-  // ── Recherche + sélection / détail ─────────────────────────────────────────
+  // ── Recherche + filtre contrat + tri / sélection ───────────────────────────
   let recherche = $state('')
-  // Tri par grade (du plus gradé au moins gradé — l'ordre est croissant sur l'indice),
-  // puis par nom. L'indice de grade vient du référentiel `grades`.
+  let filtreContrat = $state('')   // '' = tous, 'SPP' | 'SPV'
+  let triBy = $state('grade')       // 'grade' | 'nom' | 'matricule'
+  // L'indice de grade vient du référentiel `grades`.
   let gradeOrdre = $derived(new Map(grades.map(g => [g.id, g.ordre ?? 0])))
   let membresFiltres = $derived(
     membres
       .filter(m => {
+        if (filtreContrat && m.contrat !== filtreContrat) return false
         const q = recherche.trim().toLowerCase()
         if (!q) return true
         return [m.matricule, m.username, m.nomComplet, m.grade, m.contrat].filter(Boolean).some(s => s.toLowerCase().includes(q))
       })
-      .sort((a, b) =>
-        (gradeOrdre.get(b.gradeId) ?? 0) - (gradeOrdre.get(a.gradeId) ?? 0)
-        || (a.nomComplet || a.username).localeCompare(b.nomComplet || b.username))
+      .sort((a, b) => {
+        if (triBy === 'nom')       return (a.nomComplet || a.username).localeCompare(b.nomComplet || b.username, 'fr')
+        if (triBy === 'matricule') return String(a.matricule).localeCompare(String(b.matricule), 'fr', { numeric: true })
+        // grade décroissant (plus gradé en premier), puis nom
+        return (gradeOrdre.get(b.gradeId) ?? 0) - (gradeOrdre.get(a.gradeId) ?? 0)
+            || (a.nomComplet || a.username).localeCompare(b.nomComplet || b.username, 'fr')
+      })
   )
   let selectedId = $state(null)
   // Détail chargé à la demande (GET dédié) — toujours frais, indépendant de la liste.
@@ -370,6 +376,19 @@
     <!-- ── Liste (gauche) ────────────────────────────────────────────────── -->
     <div class="list-pane">
       <input class="list-search" type="search" bind:value={recherche} placeholder="Rechercher…" />
+      <div class="list-tools">
+        <select bind:value={filtreContrat} title="Filtre contrat">
+          <option value="">Tous contrats</option>
+          <option value="SPP">SPP</option>
+          <option value="SPV">SPV</option>
+        </select>
+        <select bind:value={triBy} title="Trier par">
+          <option value="grade">Tri : grade</option>
+          <option value="nom">Tri : nom</option>
+          <option value="matricule">Tri : matricule</option>
+        </select>
+        <span class="list-count">{membresFiltres.length}</span>
+      </div>
       {#each membresFiltres as m (m.id)}
         <button
           class="list-item"
@@ -838,7 +857,10 @@
     max-height: calc(100vh - 130px);
     align-self: stretch;
   }
-  .list-search { width: calc(100% - 16px); margin: 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 6px 9px; outline: none; }
+  .list-search { width: calc(100% - 16px); margin: 8px 8px 4px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 6px 9px; outline: none; }
+  .list-tools { display: flex; align-items: center; gap: 6px; padding: 0 8px 8px; }
+  .list-tools select { flex: 1; min-width: 0; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 11px; padding: 4px 6px; }
+  .list-count { font-size: 11px; color: var(--color-muted); flex-shrink: 0; min-width: 22px; text-align: right; }
   .list-item {
     display: flex; align-items: center; gap: 8px;
     width: 100%; padding: 10px 12px;

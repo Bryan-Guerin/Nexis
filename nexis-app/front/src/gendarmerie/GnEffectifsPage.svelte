@@ -1,12 +1,35 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {compareBy, nextSort} from '../shared/tableSort.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import SortableTh from '../shared/SortableTh.svelte'
+    import Pagination from '../shared/Pagination.svelte'
+    import EmptyState from '../shared/EmptyState.svelte'
 
     let membres   = $state([])
   let users     = $state([])
   let grades    = $state([])
   let loading   = $state(true)
+
+  // Recherche + tri + pagination
+  let recherche = $state('')
+  let sort      = $state({ col: 'matricule', dir: 'asc' })
+  let mPage     = $state(1)
+  let mPageSize = $state(25)
+  const KEYS = {
+    matricule: m => m.matricule,
+    grade:     m => m.grade,
+    username:  m => m.username,
+    actif:     m => m.actif ? 0 : 1,
+  }
+  let membresFiltres = $derived(membres.filter(m => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return true
+    return [m.matricule, m.username, m.grade].filter(Boolean).some(s => s.toLowerCase().includes(q))
+  }))
+  let membresTries = $derived([...membresFiltres].sort(compareBy(KEYS[sort.col], sort.dir)))
+  let membresPage  = $derived(membresTries.slice((mPage - 1) * mPageSize, mPage * mPageSize))
 
   let showAdd   = $state(false)
   let addForm   = $state({ userId: '', gradeId: '', matricule: '' })
@@ -154,13 +177,22 @@
 
   {#if loading}
     <Skeleton rows={6} />
+  {:else if membres.length === 0}
+    <EmptyState icon="👮" title="Aucun membre enregistré" message="Ajoutez votre premier membre." />
   {:else}
+    <input class="mb-search" type="search" bind:value={recherche} placeholder="Rechercher (matricule, compte, grade)…" />
     <table>
       <thead>
-        <tr><th>Matricule</th><th>Grade</th><th>Compte</th><th>Statut</th><th></th></tr>
+        <tr>
+          <SortableTh col="matricule" label="Matricule" {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="grade"     label="Grade"     {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="username"  label="Compte"    {sort} onsort={c => sort = nextSort(sort, c)} />
+          <SortableTh col="actif"     label="Statut"    {sort} onsort={c => sort = nextSort(sort, c)} />
+          <th></th>
+        </tr>
       </thead>
       <tbody>
-        {#each membres as m (m.id)}
+        {#each membresPage as m (m.id)}
           <tr>
             <td class="mono">{m.matricule}</td>
             <td>{m.grade}</td>
@@ -223,11 +255,14 @@
             </tr>
           {/if}
         {/each}
-        {#if membres.length === 0}
-          <tr><td colspan="5" class="empty">Aucun membre enregistré</td></tr>
+        {#if membresFiltres.length === 0}
+          <tr><td colspan="5" class="empty">Aucun résultat</td></tr>
         {/if}
       </tbody>
     </table>
+    {#if membresFiltres.length > 0}
+      <Pagination bind:page={mPage} bind:pageSize={mPageSize} total={membresFiltres.length} />
+    {/if}
   {/if}
 </div>
 
@@ -236,4 +271,6 @@
   .planning-row td, .planning-form-row td { background: rgba(255,255,255,0.02); padding: 12px 16px; }
   .planning-list { display: flex; flex-direction: column; gap: 6px; }
   .plage { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .mb-search { width: 100%; max-width: 360px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; margin-bottom: 10px; }
+  .mb-search:focus { border-color: var(--accent); }
 </style>
