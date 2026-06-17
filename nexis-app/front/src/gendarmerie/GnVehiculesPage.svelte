@@ -140,15 +140,15 @@
       <tbody>
         {#each vehiculesPage as v (v.id)}
           <tr>
-            <td class="immat">{v.immatriculation ?? '—'}</td>
-            <td class="muted">{v.type.label}</td>
-            <td>{v.libelle}</td>
-            <td>
+            <td class="immat" data-label="Immat.">{v.immatriculation ?? '—'}</td>
+            <td class="muted" data-label="Type">{v.type.label}</td>
+            <td data-label="Libellé">{v.libelle}</td>
+            <td data-label="Statut">
               <span class="badge" style="background:{v.etat.couleur}22; color:{v.etat.couleur}; border:1px solid {v.etat.couleur}44">
                 {v.etat.label}
               </span>
             </td>
-            <td>
+            <td data-label="Changer">
               <select value={v.etat.id} onchange={e => changeEtat(v, e.target.value)} class="etat-select">
                 {#each etats as e}
                   <option value={e.id}>{e.label}</option>

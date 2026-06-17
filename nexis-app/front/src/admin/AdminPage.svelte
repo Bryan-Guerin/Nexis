@@ -167,14 +167,14 @@
         <tbody>
           {#each users as user (user.id)}
             <tr class:disabled={!user.enabled}>
-              <td class="username">{user.username}</td>
-              <td class="roles">
+              <td class="username" data-label="Identifiant">{user.username}</td>
+              <td class="roles" data-label="Rôles">
                 {#each user.roles as code}
                   <span class="badge {badgeColor(code)}">{roleLabel(code)}</span>
                 {/each}
               </td>
-              <td class="steam">{user.steamId ?? '—'}</td>
-              <td>
+              <td class="steam" data-label="Steam">{user.steamId ?? '—'}</td>
+              <td data-label="Statut">
                 <span class="status" class:active={user.enabled}>{user.enabled ? 'Actif' : 'Inactif'}</span>
               </td>
               <td class="actions">

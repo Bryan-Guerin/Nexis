@@ -257,14 +257,14 @@
         <tbody>
           {#each mvtsPage as m (m.id)}
             <tr>
-              <td class="mono">{jour(m.date)}</td>
-              <td>{m.libelle}</td>
-              <td class="muted">{m.categorieLibelle ?? '—'}</td>
-              <td class="r mono strong" class:gain={m.type === 'GAIN'} class:dep={m.type === 'DEPENSE'}>
+              <td class="mono" data-label="Date">{jour(m.date)}</td>
+              <td data-label="Libellé">{m.libelle}</td>
+              <td class="muted" data-label="Catégorie">{m.categorieLibelle ?? '—'}</td>
+              <td class="r mono strong" data-label="Montant" class:gain={m.type === 'GAIN'} class:dep={m.type === 'DEPENSE'}>
                 {m.type === 'GAIN' ? '+' : '−'}{eur(m.montant)}
               </td>
-              <td class="muted small">{m.creePar ?? '—'}</td>
-              <td><button class="cp-btn" title="Contre-passer (écriture inverse)" onclick={() => contrePasser(m)}>↺</button></td>
+              <td class="muted small" data-label="Par">{m.creePar ?? '—'}</td>
+              <td class="actions"><button class="cp-btn" title="Contre-passer (écriture inverse)" onclick={() => contrePasser(m)}>↺</button></td>
             </tr>
           {/each}
         </tbody>
@@ -298,12 +298,12 @@
         <tbody>
           {#each paie.lignes as l (l.membreId)}
             <tr>
-              <td class="mono">{l.matricule}</td>
-              <td>{l.username}</td>
-              <td class="muted">{l.grade}</td>
-              <td class="r mono">{l.heuresGarde.toFixed(2)} h <span class="muted">· {eur(l.tauxHoraire)}</span></td>
-              <td class="r mono">{l.heuresAstreinte.toFixed(2)} h <span class="muted">· {eur(l.tauxAstreinte)}</span></td>
-              <td class="r mono strong">{eur(l.montant)}</td>
+              <td class="mono" data-label="Matricule">{l.matricule}</td>
+              <td data-label="Agent">{l.username}</td>
+              <td class="muted" data-label="Grade">{l.grade}</td>
+              <td class="r mono" data-label="Garde">{l.heuresGarde.toFixed(2)} h <span class="muted">· {eur(l.tauxHoraire)}</span></td>
+              <td class="r mono" data-label="Astreinte">{l.heuresAstreinte.toFixed(2)} h <span class="muted">· {eur(l.tauxAstreinte)}</span></td>
+              <td class="r mono strong" data-label="Montant">{eur(l.montant)}</td>
             </tr>
           {/each}
         </tbody>

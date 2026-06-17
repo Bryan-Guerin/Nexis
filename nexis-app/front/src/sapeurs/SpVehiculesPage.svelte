@@ -450,23 +450,23 @@
       <tbody>
         {#each vehiculesPage as v (v.id)}
           <tr>
-            <td><strong>{v.libelle}</strong></td>
-            <td class="mono">{v.immatriculation ?? '—'}</td>
-            <td class="muted">{v.type.code}</td>
-            <td>
+            <td data-label="Libellé"><strong>{v.libelle}</strong></td>
+            <td class="mono" data-label="Immat.">{v.immatriculation ?? '—'}</td>
+            <td class="muted" data-label="Type">{v.type.code}</td>
+            <td data-label="Statut (RP)">
               <span class="etat-dot" style="background:{v.statut.couleur}"></span>
               <select value={v.statut.id} onchange={e => changeStatut(v, e.target.value)} class="etat-select" title="Transition avant uniquement">
                 {#each statutOptions(v) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
               </select>
             </td>
-            <td>
+            <td data-label="État">
               <select value={v.etat.id} onchange={e => changeEtat(v, e.target.value)} class="etat-select" title="État maître (système)">
                 {#each etats as e (e.id)}<option value={e.id}>{e.label}</option>{/each}
               </select>
             </td>
-            <td class="muted">{v.centre?.label ?? '—'}</td>
-            <td class="mono">{v.capaciteEau != null ? v.capaciteEau + ' L' : '—'}</td>
-            <td class="notes" title={v.notes ?? ''}>{v.notes ?? '—'}</td>
+            <td class="muted" data-label="Centre">{v.centre?.label ?? '—'}</td>
+            <td class="mono" data-label="Eau">{v.capaciteEau != null ? v.capaciteEau + ' L' : '—'}</td>
+            <td class="notes" data-label="Commentaire" title={v.notes ?? ''}>{v.notes ?? '—'}</td>
             <td class="actions">
               <button class="btn-ghost-sm" onclick={() => openEdit(v)}>Éditer</button>
               <button class="btn-ghost-sm" onclick={() => openVerif(v)}>Vérifier</button>

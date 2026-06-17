@@ -194,10 +194,10 @@
       <tbody>
         {#each membresPage as m (m.id)}
           <tr>
-            <td class="mono">{m.matricule}</td>
-            <td>{m.grade}</td>
-            <td class="muted">{m.username}</td>
-            <td>
+            <td class="mono" data-label="Matricule">{m.matricule}</td>
+            <td data-label="Grade">{m.grade}</td>
+            <td class="muted" data-label="Compte">{m.username}</td>
+            <td data-label="Statut">
               <span class="badge {m.actif ? 'badge-actif' : 'badge-inactif'}">
                 {m.actif ? 'Actif' : 'Inactif'}
               </span>
