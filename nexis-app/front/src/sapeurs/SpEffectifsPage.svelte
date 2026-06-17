@@ -14,7 +14,6 @@
   let grades    = $state([])
   let fonctions = $state([])   // catalogue des fonctions = des qualifications
   let fonctionsOrga = $state([])   // catalogue des fonctions d'organigramme (RH, chef…)
-  let badgesCatalog = $state([])   // catalogue complet des badges (pour afficher les verrouillés)
   let profilRp      = $state(null) // profil RP du membre sélectionné (XP, niveau, badges)
   let users     = $state([])
   let loading   = $state(true)
@@ -211,15 +210,14 @@
   async function loadAll() {
     loading = true
     try {
-      const [mem, g, u, f, fo, bc] = await Promise.all([
+      const [mem, g, u, f, fo] = await Promise.all([
         api.get('/sp/membres/grade'),
         api.get('/sp/grades'),
         api.get('/admin/users').catch(() => []),
         api.get('/sp/fonctions'),
         api.get('/sp/fonctions-orga').catch(() => []),
-        api.get('/sp/badges').catch(() => []),
       ])
-      membres = mem; grades = g; users = u; fonctions = f; fonctionsOrga = fo; badgesCatalog = bc
+      membres = mem; grades = g; users = u; fonctions = f; fonctionsOrga = fo
     } catch { /* toast par api.js */ }
     finally { loading = false }
   }
@@ -637,23 +635,19 @@
                 <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.qualifications}</span><span class="rp-stat-l">qualifications</span></div>
               </div>
 
-              {#if badgesCatalog.length > 0}
-                {@const obtenusMap = new Map((profilRp.badges ?? []).map(b => [b.badgeId, b]))}
+              {#if (profilRp.badges ?? []).length > 0}
                 {@const isMine = selected?.username && selected.username === $currentUser?.username}
                 <div class="rp-badges">
-                  {#each badgesCatalog as b (b.id)}
-                    {@const obt = obtenusMap.get(b.id)}
-                    {@const got = !!obt}
-                    {@const hidden = got && isMine && !obt.decouvert}
-                    <button class="rp-badge" class:obtenu={got} class:masque={hidden}
-                            class:revealed={revealedBadgeIds.has(b.id)}
+                  {#each profilRp.badges as b (b.badgeId)}
+                    {@const hidden = isMine && !b.decouvert}
+                    <button class="rp-badge obtenu" class:masque={hidden}
+                            class:revealed={revealedBadgeIds.has(b.badgeId)}
                             title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description ?? '')}
                             disabled={!hidden}
-                            onclick={() => hidden && decouvrirBadge(b.id)}>
+                            onclick={() => hidden && decouvrirBadge(b.badgeId)}>
                       <span class="rp-badge-ico">{hidden ? '❓' : (b.icone || '🏅')}</span>
                       <span class="rp-badge-label">{hidden ? '????' : b.label}</span>
-                      {#if !got}<span class="rp-badge-lock">🔒</span>{/if}
-                      {#if revealedBadgeIds.has(b.id)}
+                      {#if revealedBadgeIds.has(b.badgeId)}
                         {#each Array(20) as _, i}
                           <span class="confetti" style="--i:{i}; --c:{['#e05c5c','#4caf82','#4f6ef7','#e8a23a','#b450dc'][i % 5]}"></span>
                         {/each}
@@ -661,6 +655,8 @@
                     </button>
                   {/each}
                 </div>
+              {:else}
+                <p class="muted small">Aucun badge obtenu pour le moment.</p>
               {/if}
             </div>
           </div>
@@ -1284,7 +1280,6 @@
   .rp-badge.revealed { animation: reveal .8s ease-out; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
   .rp-badge-ico { font-size: 18px; }
   .rp-badge-label { flex: 1; font-size: 12px; font-weight: 500; }
-  .rp-badge-lock { font-size: 10px; color: var(--color-muted); }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); } }
   @keyframes reveal { 0% { transform: scale(.6) rotate(-15deg); } 60% { transform: scale(1.15) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
   /* Confetti : 20 particules colorées giclant depuis le centre du badge */
