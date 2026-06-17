@@ -78,7 +78,7 @@
   let heavyGroup, heavyIndex = {}, heavyCells = new Map()   // 'file/cx/cy' → couche Leaflet (ou null = en cours)
   const DETAIL_MIN = -2   // zoom à partir duquel les repères ponctuels apparaissent (= bâtiments)
 
-  let el, map, satGroup, vectorGroup, detailGroup, layer, baseGroup, clockTimer, vectorBuilt = false
+  let el, map, satGroup, vectorGroup, detailGroup, layer, interLayer, baseGroup, clockTimer, vectorBuilt = false
   // Vecteur par défaut (mémorisé ensuite via localStorage).
   let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('nexis.mapMode') === 'sat') ? 'sat' : 'vecteur')
   let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
@@ -103,13 +103,15 @@
     satGroup.addTo(map)
     baseGroup = L.layerGroup().addTo(map)   // casernes + hôpitaux (permanents, les 2 modes)
     heavyGroup = L.layerGroup()             // house/tree tuilés (vecteur, à la demande)
-    layer = L.layerGroup().addTo(map)
+    interLayer = L.layerGroup().addTo(map)  // pins d'intervention (ne bougent pas → rendus à part)
+    layer = L.layerGroup().addTo(map)       // engins/transits animés (re-rendus chaque seconde)
     if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
     for (const h of HEAVY_LAYERS)
       fetch(`/map/unreallife/tiles/${h.file}/index.json`).then(r => r.json())
         .then(keys => { heavyIndex[h.file] = new Set(keys); updateHeavy() }).catch(() => {})
     map.on('moveend zoomend', updateHeavy)
     renderBase()
+    renderInterventions()
     render()
     if (mode === 'vecteur') setMode('vecteur')   // applique le choix mémorisé (G)
     clockTimer = setInterval(() => tick++, 1000)
@@ -258,16 +260,26 @@
         vehMarker(grp.ll, icon, t, `🚒 ${t.label ?? ''}`)
       })
     }
+  }
+
+  // Pins d'intervention : ne bougent pas → calque séparé, re-rendu seulement quand
+  // la liste change (pas à chaque tick d'animation, évite le clignotement).
+  function renderInterventions() {
+    if (!map || !interLayer || !window.L) return
+    const L = window.L
+    interLayer.clearLayers()
     for (const i of interventions) {
       const ll = llOf(i.coordonnees); if (!ll) continue
       const html = `<div class="itv-marker"><span class="ic">${iconHtml(i)}</span>${numero(i) ? `<span class="num">${numero(i)}</span>` : ''}</div>`
       const icon = L.divIcon({ className: 'itv-pin', html, iconSize: [34, 38], iconAnchor: [17, 19] })
-      L.marker(ll, { icon }).addTo(layer)
+      L.marker(ll, { icon }).addTo(interLayer)
         .bindPopup(`<b>${i.code ?? ''}</b><br>${(i.motif ?? '').replace(/</g, '&lt;')}`)
     }
   }
-  $effect(() => { interventions; transits; tick; render() })
-  $effect(() => { centres; hopitaux; renderBase() })
+
+  $effect(() => { transits; tick; render() })                 // engins animés (chaque seconde)
+  $effect(() => { interventions; renderInterventions() })     // pins inter (à la demande)
+  $effect(() => { centres; hopitaux; renderBase() })          // repères permanents (rares maj)
 </script>
 
 <div class="mapwrap" style="height:{height}">

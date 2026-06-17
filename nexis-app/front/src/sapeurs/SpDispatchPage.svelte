@@ -75,11 +75,13 @@
 
   onMount(() => {
     load()
-    // Mise à jour live : on recharge sur les événements SP pertinents (throttlé)
+    // Mise à jour live : sur événement, on ne recharge QUE le dynamique (engins, équipages,
+    // interventions). Les repères carte (casernes/hôpitaux) restent figés → pas de
+    // reconstruction des calques de fond, plus de clignotement de toute la carte.
     const off = realtime.on(ev => {
       if (ev.faction === 'SP' && ['AFFECTATION', 'DESAFFECTATION', 'ETAT_VEHICULE'].includes(ev.type)) {
         clearTimeout(reloadTimer)
-        reloadTimer = setTimeout(load, 400)
+        reloadTimer = setTimeout(loadDynamic, 400)
       }
     })
     // Les fins de garde sont temporelles (aucun événement émis) → rafraîchit la liste
@@ -93,22 +95,33 @@
     catch { /* silencieux */ }
   }
 
+  // Chargement complet : statique (casernes/hôpitaux) + dynamique. Une fois au montage.
   async function load() {
     loading = true
     try {
+      const [centresR, hopitauxR] = await Promise.all([
+        api.get('/sp/centres'),
+        api.get('/sp/hopitaux'),
+      ])
+      centres = centresR; hopitaux = hopitauxR
+      await loadDynamic()
+    } catch { /* toast par api.js */ }
+    finally { loading = false }
+  }
+
+  // Données qui changent en temps réel (sans toucher aux repères carte statiques).
+  async function loadDynamic() {
+    try {
       let inters
-      ;[vehicules, membres, enServiceIds, statuts, inters, centres, hopitaux] = await Promise.all([
+      ;[vehicules, membres, enServiceIds, statuts, inters] = await Promise.all([
         api.get('/sp/dispatch'),
         api.get('/sp/membres?actif=true'),
         api.get('/sp/membres/en-service'),
         refStatutsVeh(),   // référentiel en cache
         api.get('/sp/interventions'),
-        api.get('/sp/centres'),
-        api.get('/sp/hopitaux'),
       ])
       interCarte = (inters ?? []).filter(i => i.enCours)
     } catch { /* toast par api.js */ }
-    finally { loading = false }
   }
 
   async function bip(v) {
