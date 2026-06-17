@@ -462,12 +462,18 @@
               {#if !details}
                 <p class="muted small">Chargement…</p>
               {:else}
-                {#if details.inter?.engins?.length}
+                {@const engins = details.inter?.enginsHisto ?? []}
+                {#if engins.length}
                   <div class="vc-section">
-                    <span class="vc-sec-l">🚒 Engins ({details.inter.engins.length})</span>
-                    <div class="vc-engins">
-                      {#each details.inter.engins as e (e.vehiculeId)}
-                        <span class="vc-engin">{e.libelle ?? e.code ?? '—'}</span>
+                    <span class="vc-sec-l">🚒 Engins &amp; équipage ({engins.length})</span>
+                    <div class="vc-histo">
+                      {#each engins as e}
+                        <div class="vc-histo-engin">
+                          <span class="vc-engin">{e.libelle}{#if e.typeCode} · {e.typeCode}{/if}</span>
+                          {#if e.equipage.length}
+                            <span class="vc-crew">{e.equipage.map(m => `${m.grade} ${m.nom}`).join(', ')}</span>
+                          {/if}
+                        </div>
                       {/each}
                     </div>
                   </div>
@@ -483,7 +489,7 @@
                     </ul>
                   </div>
                 {/if}
-                {#if !details.inter?.engins?.length && !details.journal?.length}
+                {#if !engins.length && !details.journal?.length}
                   <p class="muted small">Pas de détails additionnels.</p>
                 {/if}
               {/if}
@@ -608,7 +614,10 @@
   .vc-section { display: flex; flex-direction: column; gap: 6px; }
   .vc-sec-l { font-size: 11px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
   .vc-engins { display: flex; flex-wrap: wrap; gap: 6px; }
-  .vc-engin { font-size: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; padding: 3px 10px; }
+  .vc-engin { font-size: 12px; font-weight: 600; }
+  .vc-histo { display: flex; flex-direction: column; gap: 6px; }
+  .vc-histo-engin { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .vc-crew { font-size: 11px; color: var(--color-muted); }
   .vc-journal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
   .vc-journal li { display: flex; gap: 8px; }
   .vc-h { font-family: monospace; color: var(--color-muted); flex-shrink: 0; min-width: 38px; }

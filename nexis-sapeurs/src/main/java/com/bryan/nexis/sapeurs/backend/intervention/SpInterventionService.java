@@ -8,6 +8,8 @@ import com.bryan.nexis.sapeurs.backend.dto.SpInterventionDto;
 import com.bryan.nexis.sapeurs.backend.vehicule.SpVehiculeAffectationService;
 import com.bryan.nexis.sapeurs.backend.dto.DesaffectationPreviewDto;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
+import com.bryan.nexis.sapeurs.datamodel.SpInterventionEngin;
+import com.bryan.nexis.sapeurs.datamodel.SpInterventionEquipier;
 import com.bryan.nexis.sapeurs.datamodel.SpVehicule;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeStatut;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeTypePoste;
@@ -436,11 +438,15 @@ public class SpInterventionService {
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + id));
         if (inter.getFin() == null) {
             inter.setFin(Instant.now());
-            inter = interventionRepo.update(inter);
+            // Snapshot des engins + équipages AVANT de libérer (les affectations sont encore actives).
+            snapshotEngins(inter);
             events.publishEvent(RealtimeEvent.faction(RealtimeEvent.INTERVENTION_CLOTUREE, "SP",
                     "Intervention clôturée : " + inter.getMotif(),
                     Map.of("interventionId", id.toString()), actor()).withReference(inter.getCode()));
             libererEngins(inter);
+            // Retire la FK véhicule : l'archive vit désormais dans le snapshot historisé.
+            inter.getEngins().clear();
+            inter = interventionRepo.update(inter);
             log.info("Intervention {} clôturée par {}", inter.getCode(), actor());
             // Auto-éval badges : interventions/temps/nature peuvent franchir un seuil.
             // Coût acceptable pour le volume RP ; sinon ciblerait les seuls porteurs.
@@ -448,6 +454,26 @@ public class SpInterventionService {
             catch (RuntimeException e) { log.warn("Éval badges après clôture : {}", e.getMessage()); }
         }
         return SpInterventionDto.from(inter);
+    }
+
+    /** Fige engins (libellé + type) et équipages (matricule, nom, grade, poste) en texte. */
+    private void snapshotEngins(SpIntervention inter) {
+        int ordre = 0;
+        for (var v : inter.getEngins()) {
+            var engin = new SpInterventionEngin(inter, v.getLibelle(),
+                    v.getType() != null ? v.getType().getCode() : null, ordre++);
+            int eo = 0;
+            for (var aff : affectationRepo.findByVehiculeIdAndFinIsNull(v.getId())) {
+                var m = aff.getMembre();
+                String poste = (aff.getPoste() != null && aff.getPoste().getFonction() != null)
+                        ? aff.getPoste().getFonction().getLabel() : null;
+                String nom = (m.getNomComplet() != null && !m.getNomComplet().isBlank())
+                        ? m.getNomComplet() : m.getUser().getUsername();
+                engin.getEquipage().add(new SpInterventionEquipier(
+                        engin, m.getMatricule(), nom, m.getGrade().getLabel(), poste, eo++));
+            }
+            inter.getEnginsHisto().add(engin);
+        }
     }
 
     /**

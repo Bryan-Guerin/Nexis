@@ -2,6 +2,7 @@ package com.bryan.nexis.sapeurs.backend.dto;
 
 import com.bryan.nexis.core.backend.dto.JournalEntryDto;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
+import com.bryan.nexis.sapeurs.datamodel.SpInterventionEngin;
 import io.micronaut.serde.annotation.Serdeable;
 
 import java.time.Instant;
@@ -29,8 +30,23 @@ public record SpInterventionDto(
         String renfortGn,
         String renfortVinci,
         List<SpEnginDto> engins,
+        List<EnginHistoDto> enginsHisto,
         List<JournalEntryDto> dernieresLignes
 ) {
+    /** Engin historisé (texte) + son équipage figé, pour les interventions clôturées. */
+    @Serdeable
+    public record EnginHistoDto(String libelle, String typeCode, List<EquipierDto> equipage) {
+        public static EnginHistoDto from(SpInterventionEngin e) {
+            return new EnginHistoDto(e.getLibelle(), e.getTypeCode(),
+                    e.getEquipage().stream()
+                        .map(eq -> new EquipierDto(eq.getMatricule(), eq.getNom(), eq.getGrade(), eq.getPoste()))
+                        .toList());
+        }
+    }
+
+    @Serdeable
+    public record EquipierDto(String matricule, String nom, String grade, String poste) {}
+
     public static SpInterventionDto from(SpIntervention i) {
         return from(i, List.of());
     }
@@ -56,6 +72,7 @@ public record SpInterventionDto(
                 i.getRenfortGn(),
                 i.getRenfortVinci(),
                 i.getEngins().stream().map(SpEnginDto::from).toList(),
+                i.getEnginsHisto().stream().map(EnginHistoDto::from).toList(),
                 dernieresLignes
         );
     }

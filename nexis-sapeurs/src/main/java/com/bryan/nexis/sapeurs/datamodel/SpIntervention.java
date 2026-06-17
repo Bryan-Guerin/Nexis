@@ -2,7 +2,9 @@ package com.bryan.nexis.sapeurs.datamodel;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -79,6 +81,11 @@ public class SpIntervention {
     )
     private Set<SpVehicule> engins = new HashSet<>();
 
+    /** Snapshot des engins + équipages, figé à la clôture (archive sans FK véhicule). */
+    @OneToMany(mappedBy = "intervention", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("position ASC")
+    private List<SpInterventionEngin> enginsHisto = new ArrayList<>();
+
     protected SpIntervention() {}
 
     public SpIntervention(String motif, String creePar) {
@@ -104,6 +111,7 @@ public class SpIntervention {
     public String getRenfortGn()         { return renfortGn; }
     public String getRenfortVinci()      { return renfortVinci; }
     public Set<SpVehicule> getEngins()   { return engins; }
+    public List<SpInterventionEngin> getEnginsHisto() { return enginsHisto; }
 
     /** Code affiché, dérivé du numéro (ex. INT-0007). */
     public String getCode() { return numero != null ? String.format("INT-%04d", numero) : null; }

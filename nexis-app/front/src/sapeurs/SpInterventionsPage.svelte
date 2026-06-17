@@ -228,7 +228,13 @@
     const i = detailInter
     const esc = s => (s ?? '').toString().replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
     const row = (k, v) => `<tr><th>${k}</th><td>${esc(v) || '—'}</td></tr>`
-    const engins = i.engins.map(e => `${esc(e.libelle)} <span class="muted">(${esc(e.etatLabel)})</span>`).join(' · ') || '—'
+    // En cours : engins live. Clôturée : snapshot historisé avec équipage.
+    const engins = i.enCours
+      ? (i.engins.map(e => `${esc(e.libelle)} <span class="muted">(${esc(e.etatLabel)})</span>`).join(' · ') || '—')
+      : ((i.enginsHisto ?? []).map(e => {
+          const crew = e.equipage.map(m => `${esc(m.grade)} ${esc(m.nom)}${m.poste ? ' (' + esc(m.poste) + ')' : ''}`).join(', ')
+          return `<strong>${esc(e.libelle)}</strong>${e.typeCode ? ' <span class="muted">' + esc(e.typeCode) + '</span>' : ''}${crew ? '<br><span class="muted">' + crew + '</span>' : ''}`
+        }).join('<br>') || '—')
     const mc = detailJournal.map(ev =>
       `<tr><td class="mono">${fmt(ev.creeLe)}</td><td>${esc(ev.message)}</td><td class="muted">${esc(ev.acteurUsername)}</td></tr>`).join('')
     const crisH = cris.map(c =>
@@ -348,19 +354,29 @@
           </div>
 
           <div class="engins">
-            {#each i.engins as e (e.vehiculeId)}
-              <span class="engin" style="border-left:3px solid {e.etatCouleur}">
-                {e.libelle} <span class="chip-code">{e.typeCode}</span>
-                {#if i.enCours && canControl(e)}
-                  <select class="eng-statut-inline" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)} title="Statut de l'engin">
-                    {#each statutOptions(e) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
-                  </select>
-                {:else}
-                  <span class="eng-statut-mini" style="color:{e.etatCouleur}">{e.etatLabel}</span>
-                {/if}
-              </span>
-            {/each}
-            {#if i.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
+            {#if i.enCours}
+              {#each i.engins as e (e.vehiculeId)}
+                <span class="engin" style="border-left:3px solid {e.etatCouleur}">
+                  {e.libelle} <span class="chip-code">{e.typeCode}</span>
+                  {#if canControl(e)}
+                    <select class="eng-statut-inline" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)} title="Statut de l'engin">
+                      {#each statutOptions(e) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+                    </select>
+                  {:else}
+                    <span class="eng-statut-mini" style="color:{e.etatCouleur}">{e.etatLabel}</span>
+                  {/if}
+                </span>
+              {/each}
+              {#if i.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
+            {:else}
+              {#each i.enginsHisto ?? [] as e}
+                <span class="engin" title={e.equipage.map(m => `${m.grade} ${m.nom}`).join(', ')}>
+                  {e.libelle}{#if e.typeCode} <span class="chip-code">{e.typeCode}</span>{/if}
+                  {#if e.equipage.length}<span class="eng-statut-mini">👤 {e.equipage.length}</span>{/if}
+                </span>
+              {/each}
+              {#if (i.enginsHisto ?? []).length === 0}<span class="muted small">Aucun engin</span>{/if}
+            {/if}
           </div>
 
           <div class="i-services">
@@ -502,28 +518,56 @@
         </div>
       </div>
 
-      <!-- Engins + statut (modifiable par l'équipage) -->
+      <!-- Engins : live (modifiable) si en cours ; sinon snapshot historisé + équipage -->
       <div class="mc">
-        <span class="dl">Engins</span>
-        <div class="eng-rows">
-          {#each detailInter.engins as e (e.vehiculeId)}
-            <div class="eng-row">
-              <span class="eng-dot" style="background:{e.etatCouleur}"></span>
-              <span class="eng-name">{e.libelle}</span>
-              {#if detailInter.enCours && canControl(e)}
-                <select class="eng-statut-sel" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)}>
-                  {#each statutOptions(e) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
-                </select>
-              {:else}
-                <span class="eng-statut" style="color:{e.etatCouleur}">{e.etatLabel}</span>
-              {/if}
-              {#if detailInter.enCours && isDispatcher && detailInter.engins.length > 1}
-                <button class="rm-btn" title="Retirer l'engin" onclick={() => retirerEngin(e)}>×</button>
-              {/if}
-            </div>
-          {/each}
-          {#if detailInter.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
-        </div>
+        <span class="dl">Engins{#if !detailInter.enCours} &amp; équipage{/if}</span>
+        {#if detailInter.enCours}
+          <div class="eng-rows">
+            {#each detailInter.engins as e (e.vehiculeId)}
+              <div class="eng-row">
+                <span class="eng-dot" style="background:{e.etatCouleur}"></span>
+                <span class="eng-name">{e.libelle}</span>
+                {#if canControl(e)}
+                  <select class="eng-statut-sel" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)}>
+                    {#each statutOptions(e) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
+                  </select>
+                {:else}
+                  <span class="eng-statut" style="color:{e.etatCouleur}">{e.etatLabel}</span>
+                {/if}
+                {#if isDispatcher && detailInter.engins.length > 1}
+                  <button class="rm-btn" title="Retirer l'engin" onclick={() => retirerEngin(e)}>×</button>
+                {/if}
+              </div>
+            {/each}
+            {#if detailInter.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
+          </div>
+        {:else}
+          <div class="histo-engins">
+            {#each detailInter.enginsHisto ?? [] as e}
+              <div class="histo-engin">
+                <div class="histo-engin-head">
+                  <span class="eng-name">{e.libelle}</span>
+                  {#if e.typeCode}<span class="chip-code">{e.typeCode}</span>{/if}
+                </div>
+                {#if e.equipage.length > 0}
+                  <ul class="histo-crew">
+                    {#each e.equipage as m}
+                      <li>
+                        <span class="hc-grade">{m.grade}</span>
+                        <span class="hc-nom">{m.nom}</span>
+                        {#if m.matricule}<span class="mono">{m.matricule}</span>{/if}
+                        {#if m.poste}<span class="hc-poste">· {m.poste}</span>{/if}
+                      </li>
+                    {/each}
+                  </ul>
+                {:else}
+                  <span class="muted small">Équipage non historisé</span>
+                {/if}
+              </div>
+            {/each}
+            {#if (detailInter.enginsHisto ?? []).length === 0}<span class="muted small">Aucun engin historisé</span>{/if}
+          </div>
+        {/if}
       </div>
 
       <div class="mc">
@@ -636,6 +680,16 @@
   .eng-name { flex: 1; }
   .eng-statut { font-size: 12px; font-weight: 600; }
   .eng-statut-sel { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
+
+  /* Engins historisés (intervention clôturée) + équipage figé */
+  .histo-engins { display: flex; flex-direction: column; gap: 8px; }
+  .histo-engin { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 8px 10px; }
+  .histo-engin-head { display: flex; align-items: center; gap: 8px; }
+  .histo-crew { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .histo-crew li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .hc-grade { font-size: 10px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: .3px; min-width: 80px; }
+  .hc-nom { font-weight: 500; }
+  .hc-poste { color: var(--accent); font-size: 11px; }
 
   .mc-add { display: flex; gap: 8px; }
   .mc-add input { flex: 1; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
