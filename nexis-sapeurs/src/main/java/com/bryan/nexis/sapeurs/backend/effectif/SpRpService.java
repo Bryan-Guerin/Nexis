@@ -42,6 +42,7 @@ public class SpRpService {
     private final SpMembreBadgeRepository         membreBadgeRepo;
     private final SpVehiculeAffectationRepository affRepo;
     private final SpInterventionRepository        interRepo;
+    private final SpInterventionEquipierRepository equipierRepo;
     private final SpPlanningRepository            planningRepo;
     private final ApplicationEventPublisher<RealtimeEvent> events;
 
@@ -50,12 +51,14 @@ public class SpRpService {
                        SpMembreBadgeRepository membreBadgeRepo,
                        SpVehiculeAffectationRepository affRepo,
                        SpInterventionRepository interRepo,
+                       SpInterventionEquipierRepository equipierRepo,
                        SpPlanningRepository planningRepo,
                        ApplicationEventPublisher<RealtimeEvent> events) {
         this.membreRepo      = membreRepo;
         this.badgeRepo       = badgeRepo;
         this.membreBadgeRepo = membreBadgeRepo;
         this.affRepo         = affRepo;
+        this.equipierRepo    = equipierRepo;
         this.interRepo       = interRepo;
         this.planningRepo    = planningRepo;
         this.events          = events;
@@ -182,30 +185,27 @@ public class SpRpService {
     }
 
     /**
-     * Compte les interventions où le membre était affecté à un engin dont le véhicule
-     * faisait partie de l'intervention, avec chevauchement temporel.
-     *
-     * <p>Approche en mémoire (RP server = petit volume) : itère sur les interventions
-     * et vérifie les affectations. Filtre optionnel par nature.</p>
+     * Compte les interventions du membre. Deux sources, car l'engin live est détaché à la
+     * clôture (historisation) :
+     * <ul>
+     *   <li><b>clôturées</b> : depuis le snapshot d'équipage figé (membre_id) ;</li>
+     *   <li><b>ouvertes</b> : depuis les affectations actives sur les engins encore rattachés.</li>
+     * </ul>
+     * Filtre optionnel par nature.
      */
     private int countInterventions(UUID membreId, UUID natureIdFilter) {
-        var affs = affRepo.findByMembreId(membreId);
-        if (affs.isEmpty()) return 0;
-        var vehIds = affs.stream().map(a -> a.getVehicule().getId()).collect(Collectors.toSet());
+        var matched = new HashSet<UUID>(natureIdFilter == null
+                ? equipierRepo.distinctInterventionIds(membreId)
+                : equipierRepo.distinctInterventionIdsByNature(membreId, natureIdFilter));
 
-        var matched = new HashSet<UUID>();
-        for (var inter : interRepo.findAll()) {
-            if (natureIdFilter != null && !inter.getNature().getId().equals(natureIdFilter)) continue;
-            Instant iStart = inter.getDebut();
-            Instant iEnd   = inter.getFin() != null ? inter.getFin() : Instant.now();
-            boolean engineInCommon = inter.getEngins().stream().anyMatch(v -> vehIds.contains(v.getId()));
-            if (!engineInCommon) continue;
-            boolean affOverlap = affs.stream().anyMatch(a ->
-                    inter.getEngins().stream().anyMatch(v -> v.getId().equals(a.getVehicule().getId()))
-                            && a.getDebut().isBefore(iEnd)
-                            && (a.getFin() == null || a.getFin().isAfter(iStart))
-            );
-            if (affOverlap) matched.add(inter.getId());
+        // Interventions ouvertes : engins encore en base, affectation active du membre.
+        var vehIds = affRepo.findByMembreIdAndFinIsNull(membreId).stream()
+                .map(a -> a.getVehicule().getId()).collect(Collectors.toSet());
+        if (!vehIds.isEmpty()) {
+            for (var inter : interRepo.findByFinIsNull()) {
+                if (natureIdFilter != null && !inter.getNature().getId().equals(natureIdFilter)) continue;
+                if (inter.getEngins().stream().anyMatch(v -> vehIds.contains(v.getId()))) matched.add(inter.getId());
+            }
         }
         return matched.size();
     }

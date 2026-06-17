@@ -479,7 +479,7 @@ public class SpInterventionService {
             String nom = (m.getNomComplet() != null && !m.getNomComplet().isBlank())
                     ? m.getNomComplet() : m.getUser().getUsername();
             engin.getEquipage().add(new SpInterventionEquipier(
-                    engin, m.getMatricule(), nom, m.getGrade().getLabel(), poste, eo++));
+                    engin, m.getId(), m.getMatricule(), nom, m.getGrade().getLabel(), poste, eo++));
         }
         inter.getEnginsHisto().add(engin);
     }

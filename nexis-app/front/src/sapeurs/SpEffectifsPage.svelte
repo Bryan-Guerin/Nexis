@@ -660,7 +660,7 @@
         {#if profilRp}
           <div class="detail-section">
             <div class="detail-section-head">
-              <h3>Profil RP</h3>
+              <h3>Parcours</h3>
               {#if isAdmin}
                 <button class="btn-ghost-sm" onclick={evaluerBadges} title="Re-évalue tous les membres">↻ Évaluer badges</button>
               {/if}

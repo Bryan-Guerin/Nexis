@@ -17,6 +17,10 @@ public class SpInterventionEquipier {
     @JoinColumn(name = "engin_id", nullable = false)
     private SpInterventionEngin engin;
 
+    /** Membre figé (UUID simple, sans FK) — pour recompter ses interventions après clôture. */
+    @Column(name = "membre_id")
+    private UUID membreId;
+
     @Column(length = 20)
     private String matricule;
 
@@ -34,9 +38,10 @@ public class SpInterventionEquipier {
 
     protected SpInterventionEquipier() {}
 
-    public SpInterventionEquipier(SpInterventionEngin engin, String matricule, String nom,
+    public SpInterventionEquipier(SpInterventionEngin engin, UUID membreId, String matricule, String nom,
                                   String grade, String poste, int position) {
         this.engin     = engin;
+        this.membreId  = membreId;
         this.matricule = matricule;
         this.nom       = nom;
         this.grade     = grade;
@@ -46,6 +51,7 @@ public class SpInterventionEquipier {
 
     public UUID getId()               { return id; }
     public SpInterventionEngin getEngin() { return engin; }
+    public UUID getMembreId()         { return membreId; }
     public String getMatricule()      { return matricule; }
     public String getNom()            { return nom; }
     public String getGrade()          { return grade; }
