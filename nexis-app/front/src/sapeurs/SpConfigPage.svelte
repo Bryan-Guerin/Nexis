@@ -26,7 +26,6 @@
   let cat     = $derived(CATEGORIES.find(c => c.key === selectedKey))
   let items   = $state([])
   let loading = $state(false)
-  let error   = $state('')
 
   // Formulaire d'ajout (forme dépendante de la catégorie)
   let form      = $state({})
@@ -46,12 +45,12 @@
   async function load() {
     // Les catégories à pane custom (ex. Événements) gèrent leurs propres données.
     if (!cat.list) { items = []; loading = false; return }
-    loading = true; error = ''; resetForm()
+    loading = true; resetForm()
     try {
       items = await api.get(cat.list)
       if (cat.key === 'centres') await loadHopitaux()
     }
-    catch (e) { error = e.message; items = [] }
+    catch { items = [] /* toast par api.js */ }
     finally { loading = false }
   }
 
@@ -88,7 +87,7 @@
       const u = await api.put(`/sp/fonctions/${it.id}/type`, { type })
       items = items.map(x => x.id === u.id ? u : x)
       invalidateRef()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // Icône (emoji) d'une nature (carte).
@@ -96,7 +95,7 @@
     try {
       const u = await api.put(`/sp/natures/${it.id}/icone`, { icone })
       items = items.map(x => x.id === u.id ? u : x)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // Coordonnées jeu d'une caserne (pour la carte).
@@ -104,7 +103,7 @@
     try {
       const u = await api.put(`/sp/centres/${it.id}/coordonnees`, { coordonnees })
       items = items.map(x => x.id === u.id ? u : x)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function removeItem(it) {
@@ -113,7 +112,6 @@
                 : cat.kind === 'statutveh' ? '\nLes véhicules concernés repasseront au statut par défaut.'
                 : cat.key === 'natures' ? '\nElle sera retirée des types de véhicule (les véhicules sont conservés). Refusé si des interventions l’utilisent.' : ''
     if (!await confirm({ title: 'Supprimer', message: `Supprimer « ${itemLabel(it)} » ?${extra}`, danger: true })) return
-    error = ''
     try {
       await api.delete(`${cat.list}/${it.id}`)
       items = items.filter(x => x.id !== it.id)
@@ -138,7 +136,7 @@
     if (dragIndex === null) return
     dragIndex = null
     try { await api.put(cat.order, { ids: items.map(x => x.id) }); invalidateRef() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   function itemLabel(it) {
@@ -148,7 +146,7 @@
   // Désigne un statut véhicule comme "par défaut"
   async function setDefaut(it) {
     try { await api.put(`${cat.list}/${it.id}/defaut`); items = await api.get(cat.list); invalidateRef() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // Bascule la case « clôture auto d'intervention » d'un statut véhicule
@@ -157,7 +155,7 @@
       const updated = await api.put(`${cat.list}/${it.id}/cloture-intervention`)
       items = items.map(x => x.id === updated.id ? updated : x)
       invalidateRef()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // Action carte branchée sur un statut véhicule (transport hôpital, sur place…).
@@ -168,7 +166,7 @@
       const u = await api.put(`/sp/statuts/${it.id}/action-carte`, { action })
       items = items.map(x => x.id === u.id ? u : x)
       invalidateRef()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // ── Hôpitaux (sous-section de l'écran Centres : référentiel + coords carte) ──
@@ -183,7 +181,7 @@
   }
   async function setHopitalCoord(it, coordonnees) {
     try { const u = await api.put(`/sp/hopitaux/${it.id}/coordonnees`, { coordonnees }); hopitaux = hopitaux.map(x => x.id === u.id ? u : x) }
-    catch (err) { error = err.message }
+    catch { /* toast par api.js */ }
   }
   async function removeHopital(it) {
     if (!await confirm({ title: 'Supprimer l\'hôpital', message: `Supprimer l'hôpital « ${it.label} » ?`, danger: true })) return
@@ -213,8 +211,6 @@
         <SpEvenementsAdmin />
       {:else}
       <h3>{cat.label} <span class="hint">— glisser-déposer pour réordonner</span></h3>
-
-      {#if error}<p class="inline-error">{error}</p>{/if}
 
       {#if loading}
         <Skeleton rows={6} />

@@ -14,7 +14,6 @@
   let fonctions = $state([])   // catalogue des fonctions = des qualifications
   let users     = $state([])
   let loading   = $state(true)
-  let error     = $state('')
 
   let isAdmin = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isRh    = $derived($currentUser?.roles?.includes('ROLE_SP_RH') ?? false)
@@ -175,7 +174,7 @@
   onMount(() => { loadAll(); if (canManageNotation) loadRelancesOuvertes() })
 
   async function loadAll() {
-    loading = true; error = ''
+    loading = true
     try {
       const [mem, g, u, f] = await Promise.all([
         api.get('/sp/membres/grade'),
@@ -184,7 +183,7 @@
         api.get('/sp/fonctions'),
       ])
       membres = mem; grades = g; users = u; fonctions = f
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { loading = false }
   }
 
@@ -363,8 +362,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
 
   <!-- ── Split pane ──────────────────────────────────────────────────────── -->

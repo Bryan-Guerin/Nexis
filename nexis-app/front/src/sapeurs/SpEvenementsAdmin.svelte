@@ -5,7 +5,6 @@
 
     // Gestion admin des événements (intégrée à l'écran Configuration).
     let evenements = $state([])
-    let error      = $state('')
     let masquerPasses = $state(true)
 
     let form      = $state({ titre: '', texte: '', date: '' })
@@ -21,9 +20,8 @@
 
     onMount(load)
     async function load() {
-      error = ''
       try { evenements = await api.get('/sp/evenements/tous') }
-      catch (e) { error = e.message; evenements = [] }
+      catch { evenements = [] /* toast par api.js */ }
     }
 
     async function create() {
@@ -44,7 +42,7 @@
     async function remove(ev) {
       if (!await confirm({ title: 'Supprimer l\'événement', message: `Supprimer « ${ev.titre} » ?`, danger: true })) return
       try { await api.delete(`/sp/evenements/${ev.id}`); evenements = evenements.filter(e => e.id !== ev.id) }
-      catch (e) { error = e.message }
+      catch { /* toast par api.js */ }
     }
 
     async function toggle(ev) {
@@ -61,7 +59,6 @@
 </script>
 
 <h3>Événements</h3>
-{#if error}<p class="inline-error">{error}</p>{/if}
 
 <!-- Création -->
 <div class="evt-create">

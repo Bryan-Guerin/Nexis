@@ -14,7 +14,6 @@
   let membres      = $state([])
   let enServiceIds = $state([])
   let loading      = $state(true)
-  let error        = $state('')
   let showCreate   = $state(false)   // création rapide d'intervention
   let interCarte   = $state([])      // interventions en cours (pour la carte)
   let centres      = $state([])      // casernes (repères carte permanents)
@@ -86,7 +85,7 @@
   })
 
   async function load() {
-    loading = true; error = ''
+    loading = true
     try {
       let inters
       ;[vehicules, membres, enServiceIds, statuts, inters, centres, hopitaux] = await Promise.all([
@@ -99,13 +98,13 @@
         api.get('/sp/hopitaux'),
       ])
       interCarte = (inters ?? []).filter(i => i.enCours)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { loading = false }
   }
 
   async function bip(v) {
     try { await api.post(`/sp/vehicules/${v.id}/bip`) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   async function affecterAuto(v) {
@@ -219,7 +218,7 @@
   async function changeStatutVeh(v, statutId) {
     if (!statutId || statutId === v.statut.id) return
     try { await doChangeStatut(v.id, statutId) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // ── Layout split : onglets par type d'intervention + lignes dépliables ──────
@@ -269,8 +268,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <div class="d-body">
       <!-- Carte (grande, à gauche) -->
@@ -356,7 +353,7 @@
     {/if}
     <div class="hopital-list">
       {#each hopitaux as h (h.id)}
-        <button class="btn-secondary" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
+        <button class="btn-ghost" onclick={() => doChangeStatut(hopitalPick.vehId, hopitalPick.statutId, h.id)}>🏥 {h.label}</button>
       {/each}
     </div>
     {#snippet actions()}
@@ -455,7 +452,7 @@
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
   .rm-btn:hover { color: var(--color-danger); }
   .hopital-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
-  .hopital-list .btn-secondary { text-align: left; }
+  .hopital-list .btn-ghost { text-align: left; }
 
   /* ── Layout split (carte + panneau véhicules) ──────────────────────────── */
   .dispatch { display: flex; flex-direction: column; gap: 10px; height: calc(100vh - var(--header-h) - 48px); }

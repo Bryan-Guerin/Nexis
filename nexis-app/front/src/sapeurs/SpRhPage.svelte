@@ -2,6 +2,7 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {confirm} from '../shared/confirm.js'
+    import {toast} from '../shared/toasts.js'
     import {compareBy, nextSort} from '../shared/tableSort.js'
     import SortableTh from '../shared/SortableTh.svelte'
     import Pagination from '../shared/Pagination.svelte'
@@ -9,7 +10,6 @@
 
     let paie    = $state(null)
   let grades  = $state([])
-  let error   = $state('')
   let savingId = $state(null)
   let reglant = $state(false)
 
@@ -26,42 +26,41 @@
     try {
       finance = await api.get('/sp/rh/finance')
       compteForm = { libelle: finance.libelle, soldeInitial: finance.soldeInitial }
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   async function saveCompte() {
     try {
       finance = await api.put('/sp/rh/finance/compte', { libelle: compteForm.libelle, soldeInitial: Number(compteForm.soldeInitial) })
       editCompte = false
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   async function addMouvement() {
-    if (!mvtForm.libelle.trim() || !(Number(mvtForm.montant) > 0)) { error = 'Libellé et montant (> 0) requis'; return }
+    if (!mvtForm.libelle.trim() || !(Number(mvtForm.montant) > 0)) { toast.error('Libellé et montant (> 0) requis'); return }
     try {
       finance = await api.post('/sp/rh/finance/mouvements', {
         type: mvtForm.type, montant: Number(mvtForm.montant), libelle: mvtForm.libelle,
         date: mvtForm.date || null, categorieId: mvtForm.categorieId || null,
       })
       mvtForm = { type: mvtForm.type, montant: '', libelle: '', date: mvtForm.date, categorieId: '' }
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   async function addCategorie() {
     if (!newCat.trim()) return
     try { finance = await api.post('/sp/rh/finance/categories', { libelle: newCat }); newCat = '' }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   async function deleteCategorie(id) {
     if (!await confirm({ title: 'Supprimer la catégorie', message: 'Supprimer cette catégorie ? Les mouvements liés la perdront.', danger: true })) return
     try { finance = await api.delete(`/sp/rh/finance/categories/${id}`) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   async function load(lundi) {
-    error = ''
     try { paie = await api.get('/sp/rh/paie' + (lundi ? `?lundi=${lundi}` : '')) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   async function loadGrades() {
-    try { grades = await api.get('/sp/rh/grades') } catch (e) { error = e.message }
+    try { grades = await api.get('/sp/rh/grades') } catch { /* toast par api.js */ }
   }
 
   function shiftWeek(days) {
@@ -72,20 +71,20 @@
   }
 
   async function saveTaux(g) {
-    savingId = g.id; error = ''
+    savingId = g.id
     try {
       await api.put(`/sp/rh/grades/${g.id}/taux`, { tauxHoraire: Number(g.tauxHoraire), tauxAstreinte: Number(g.tauxAstreinte) })
       await load(paie?.debut)   // recalcule la paie avec le nouveau taux
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { savingId = null }
   }
 
   async function regler() {
     if (!paie || paie.payee) return
-    if (!confirm(`Marquer la paie de la semaine du ${jour(paie.debut)} comme réglée ?\nAction irréversible — chaque membre sera notifié de son versement.`)) return
-    reglant = true; error = ''
+    if (!await confirm({ title: 'Régler la paie', message: `Marquer la paie de la semaine du ${jour(paie.debut)} comme réglée ?\nAction irréversible — chaque membre sera notifié de son versement.`, danger: true })) return
+    reglant = true
     try { paie = await api.post(`/sp/rh/paie/regler?lundi=${paie.debut}`); await loadFinance() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
     finally { reglant = false }
   }
 
@@ -150,7 +149,7 @@
         libelle: `Annulation : ${m.libelle}`, date: new Date().toISOString().slice(0, 10),
         categorieId: m.categorieId || null,
       })
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 </script>
 
@@ -158,8 +157,6 @@
   <div class="page-header">
     <h2>RH / Paie — Sapeurs-Pompiers</h2>
   </div>
-
-  {#if error}<p class="inline-error">{error}</p>{/if}
 
   <!-- Trésorerie (RH / admin uniquement) -->
   <section class="panel">

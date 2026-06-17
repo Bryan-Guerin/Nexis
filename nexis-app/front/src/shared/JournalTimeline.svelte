@@ -14,7 +14,6 @@
 
   let entries = $state([])
   let loading = $state(true)
-  let error   = $state('')
   let reloadTimer = null
 
   // Navigation par jour (byDay) : on ne charge qu'un jour à la fois (pas de SELECT *).
@@ -97,7 +96,7 @@
   })
 
   async function load() {
-    loading = true; error = ''
+    loading = true
     try {
       if (byDay) {
         const { from, to } = dayBounds(currentDay)
@@ -106,7 +105,7 @@
         entries = await api.get(path)
       }
     }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
     finally { loading = false }
   }
 </script>
@@ -119,8 +118,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <!-- Filtres -->
     <input class="j-search" type="search" placeholder="Rechercher (message, auteur)…" bind:value={recherche} />

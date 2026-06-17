@@ -16,7 +16,6 @@
   let vehicules     = $state([])
   let natures       = $state([])
   let loading       = $state(true)
-  let error         = $state('')
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isDispatcher = $derived($currentUser?.roles?.includes('ROLE_SP_DISPATCH') ?? false)
@@ -87,7 +86,7 @@
   }
 
   async function load() {
-    loading = true; error = ''
+    loading = true
     try {
       // Dynamiques (rechargés à chaque fois) + référentiels mis en cache (natures, statuts, me) :
       // sur les rechargements temps réel, ces 3 derniers sont servis sans réseau.
@@ -101,7 +100,7 @@
         refMe().catch(() => null),
       ])
       myMembreId = me?.id ?? null
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { loading = false }
   }
 
@@ -132,13 +131,13 @@
       await api.post(`/sp/interventions/${inter.id}/engins`, { vehiculeIds: renfortSel })
       renfortFor = null; renfortSel = []
       await load()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function cloturer(inter) {
     if (!await confirm({ title: 'Clôturer l\'intervention', message: `Clôturer « ${inter.motif} » ?` })) return
     try { await api.put(`/sp/interventions/${inter.id}/cloture`); toast.success('Intervention clôturée.'); await load() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   async function openDetail(inter) {
@@ -185,13 +184,13 @@
       })
       editing = false
       await refreshDetail()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function retirerEngin(engin) {
     if (!await confirm({ title: 'Retirer l\'engin', message: `Retirer ${engin.libelle} de l'intervention ?`, danger: true })) return
     try { await api.delete(`/sp/interventions/${detailInter.id}/engins/${engin.vehiculeId}`); await refreshDetail() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // ── CRI (compte rendu) ─────────────────────────────────────────────────────
@@ -201,15 +200,15 @@
   }
   async function criSave(cri) {
     try { await api.put(`/sp/cri/${cri.id}`, { contenu: cri.contenu }); await refreshDetail() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   async function criSoumettre(cri) {
     try { await api.put(`/sp/cri/${cri.id}/soumettre`); await refreshDetail() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   async function criValider(cri) {
     try { await api.put(`/sp/cri/${cri.id}/valider`); await refreshDetail() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   const CRI_LABEL = { BROUILLON: 'Brouillon', SOUMIS: 'Soumis', VALIDE: 'Validé' }
 
@@ -221,7 +220,7 @@
       await api.put(`/sp/interventions/${interId}/renfort`,
         cible === 'GN' ? { renfortGn: statut } : { renfortVinci: statut })
       await refreshOrLoad()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // ── Export PDF (impression navigateur) ─────────────────────────────────────
@@ -281,7 +280,7 @@
       </body></html>`
 
     const w = window.open('', '_blank')
-    if (!w) { error = 'Autorisez les pop-ups pour exporter en PDF.'; return }
+    if (!w) { toast.error('Autorisez les pop-ups pour exporter en PDF.'); return }
     w.document.write(html); w.document.close(); w.focus()
     setTimeout(() => w.print(), 300)
   }
@@ -299,13 +298,13 @@
   async function changeEnginStatut(engin, statutId) {
     if (!statutId || statutId === engin.statutId) return
     try { await api.put(`/sp/vehicules/${engin.vehiculeId}/statut?statutId=${statutId}`); await refreshOrLoad() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   async function addNote() {
     if (!noteText.trim()) return
     try { await api.post(`/sp/interventions/${detailInter.id}/journal`, { message: noteText }); noteText = ''; await refreshDetail() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 </script>
 
@@ -319,8 +318,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <div class="filtres">
       <div class="seg">

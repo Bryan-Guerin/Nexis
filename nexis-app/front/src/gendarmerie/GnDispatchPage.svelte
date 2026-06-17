@@ -7,7 +7,6 @@
   let membres      = $state([])
   let enServiceIds = $state([])
   let loading      = $state(true)
-  let error        = $state('')
 
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
@@ -15,14 +14,14 @@
   onMount(load)
 
   async function load() {
-    loading = true; error = ''
+    loading = true
     try {
       ;[vehicules, membres, enServiceIds] = await Promise.all([
         api.get('/gn/dispatch'),
         api.get('/gn/membres?actif=true'),
         api.get('/gn/membres/en-service'),
       ])
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { loading = false }
   }
 </script>
@@ -35,8 +34,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <!-- Personnel actuellement de garde -->
     <div class="garde-panel">

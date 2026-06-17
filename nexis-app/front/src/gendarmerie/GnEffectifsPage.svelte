@@ -7,7 +7,6 @@
   let users     = $state([])
   let grades    = $state([])
   let loading   = $state(true)
-  let error     = $state('')
 
   let showAdd   = $state(false)
   let addForm   = $state({ userId: '', gradeId: '', matricule: '' })
@@ -31,7 +30,7 @@
   onMount(loadAll)
 
   async function loadAll() {
-    loading = true; error = ''
+    loading = true
     try {
       ;[membres, users, grades, statuts] = await Promise.all([
         api.get('/gn/membres'),
@@ -39,9 +38,8 @@
         api.get('/gn/grades'),
         api.get('/gn/planning/statuts'),
       ])
-    } catch (e) {
-      error = e.message
-    } finally {
+    } catch { /* toast par api.js */ }
+    finally {
       loading = false
     }
   }
@@ -156,8 +154,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <table>
       <thead>
@@ -209,7 +205,7 @@
             <tr class="planning-row">
               <td colspan="5">
                 {#if !planningData[m.id]}
-                  <p class="muted small">Chargement...</p>
+                  <Skeleton rows={2} height="22px" />
                 {:else if planningData[m.id].length === 0}
                   <p class="muted small">Aucune plage planning</p>
                 {:else}

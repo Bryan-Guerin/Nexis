@@ -3,11 +3,10 @@
     import {get} from 'svelte/store'
     import {api} from '../shared/api.js'
     import {authToken, currentUser} from '../shared/stores.js'
-    import {pushToast} from '../shared/toasts.js'
+    import {pushToast, toast} from '../shared/toasts.js'
     import {confirm} from '../shared/confirm.js'
 
     let categories = $state([])
-  let error      = $state('')
   let newCat     = $state('')
   let uploads    = $state({})   // categorieId -> { nom, file, busy }
 
@@ -16,22 +15,21 @@
   onMount(load)
 
   async function load() {
-    error = ''
     try { categories = await api.get('/sp/documents') }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   async function createCat(e) {
     e.preventDefault()
     if (!newCat.trim()) return
     try { await api.post('/sp/documents/categories', { nom: newCat.trim() }); newCat = ''; await load() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   async function deleteCat(c) {
     if (!await confirm({ title: 'Supprimer le dossier', message: `Supprimer « ${c.nom} » et tous ses documents ?`, danger: true })) return
     try { await api.delete(`/sp/documents/categories/${c.id}`); await load() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   function up(catId) { return uploads[catId] ?? { nom: '', file: null, busy: false } }
@@ -40,16 +38,15 @@
   function onFile(catId, e) {
     const f = e.target.files?.[0] ?? null
     if (f && f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
-      error = 'Seuls les fichiers PDF sont acceptés.'; e.target.value = ''; return
+      toast.error('Seuls les fichiers PDF sont acceptés.'); e.target.value = ''; return
     }
-    error = ''
     setUp(catId, { file: f })
   }
 
   async function upload(catId) {
     const u = up(catId)
-    if (!u.file) { error = 'Choisissez un fichier PDF.'; return }
-    setUp(catId, { busy: true }); error = ''
+    if (!u.file) { toast.error('Choisissez un fichier PDF.'); return }
+    setUp(catId, { busy: true })
     try {
       const fd = new FormData()
       fd.append('categorieId', catId)
@@ -69,11 +66,10 @@
       pushToast('Document ajouté')
       uploads = { ...uploads, [catId]: { nom: '', file: null, busy: false } }
       await load()
-    } catch (e) { error = e.message; setUp(catId, { busy: false }) }
+    } catch (e) { toast.error(e.message); setUp(catId, { busy: false }) }
   }
 
   async function openDoc(d) {
-    error = ''
     try {
       const res = await fetch(`/api/sp/documents/${d.id}/fichier`, {
         headers: { Authorization: `Bearer ${get(authToken)}` },
@@ -83,13 +79,13 @@
       const url = URL.createObjectURL(blob)
       window.open(url, '_blank')
       setTimeout(() => URL.revokeObjectURL(url), 60000)
-    } catch (e) { error = e.message }
+    } catch (e) { toast.error(e.message) }
   }
 
   async function deleteDoc(catId, d) {
     if (!await confirm({ title: 'Supprimer le document', message: `Supprimer « ${d.nom} » ?`, danger: true })) return
     try { await api.delete(`/sp/documents/${d.id}`); await load() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   function taille(n) {
@@ -104,8 +100,6 @@
   <div class="page-header">
     <h2>Documents — Sapeurs-Pompiers</h2>
   </div>
-
-  {#if error}<p class="inline-error">{error}</p>{/if}
 
   {#if isAdmin}
     <form class="new-cat" onsubmit={createCat}>

@@ -37,7 +37,6 @@
   let membres    = $state([])
   let planning   = $state([])
   let loading    = $state(true)
-  let error      = $state('')
   let currentDay = $state(today())
 
   // Conteneur scrollable du calendrier : on cadre l'affichage sur 18h au 1er rendu
@@ -105,16 +104,14 @@
   }
   let gardeDuree = $state({})   // membreId -> heures choisies (défaut 4)
   async function demarrerGarde(m) {
-    error = ''
     const h = gardeDuree[m.id] ?? 4
     try { await api.post(`${gardeBase}/planning/membres/${m.id}/prendre-garde?heures=${h}`); await load(true); await loadEnService() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   async function terminerGarde(m) {
     if (!await confirm({ title: 'Terminer la garde', message: `Terminer la garde de ${m.nomComplet || m.username} ?` })) return
-    error = ''
     try { await api.put(`${gardeBase}/planning/membres/${m.id}/terminer-garde`); await load(true); await loadEnService() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // ── Édition interactive (drag & drop des créneaux) ──────────────────────────
@@ -176,7 +173,7 @@
           { statutId: d.statutId, debut: minToIso(d.debutMin), fin: minToIso(d.finMin), notes: null })
       }
       await load(true); await loadEnService()
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   function addDragListeners() { window.addEventListener('pointermove', onDragMove); window.addEventListener('pointerup', onDragUp) }
   function removeDragListeners() { window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragUp) }
@@ -194,12 +191,12 @@
   async function changerStatut(statutId) {
     const p = popover; popover = null
     try { await api.put(modifUrl(p.membreId, p.id), { statutId, debut: p.debut, fin: p.fin, notes: null }); await load(true); await loadEnService() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   async function supprimerPlage() {
     const p = popover; popover = null
     try { await api.delete(modifUrl(p.membreId, p.id)); await load(true); await loadEnService() }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
@@ -213,7 +210,6 @@
   // silent = recharge sans démonter le calendrier (préserve la position de scroll après une maj).
   async function load(silent = false) {
     if (!silent) loading = true
-    error = ''
     try {
       ;[membres, planning, statuts] = await Promise.all([
         api.get(`${membresPath}?actif=true`),
@@ -221,7 +217,7 @@
         api.get(`${planningPath}/statuts`),
       ])
       if (canManageGarde) gardeDuree = Object.fromEntries(membres.map(m => [m.id, gardeDuree[m.id] ?? 4]))
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally    { if (!silent) loading = false }
   }
 
@@ -300,10 +296,6 @@
       <button class="btn-ghost" onclick={load}>↺</button>
     </div>
   </div>
-
-  {#if error}
-    <p class="inline-error">{error}</p>
-  {/if}
 
   {#if loading}
     <Skeleton rows={6} />

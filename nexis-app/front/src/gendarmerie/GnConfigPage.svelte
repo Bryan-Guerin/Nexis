@@ -6,7 +6,6 @@
     let grades   = $state([])
   let etats    = $state([])
   let loading  = $state(true)
-  let error    = $state('')
 
   let showGrade   = $state(false)
   let gradeForm   = $state({ code: '', label: '' })
@@ -19,13 +18,13 @@
   onMount(loadAll)
 
   async function loadAll() {
-    loading = true; error = ''
+    loading = true
     try {
       ;[grades, etats] = await Promise.all([
         api.get('/gn/grades'),
         api.get('/gn/vehicules/etats'),
       ])
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { loading = false }
   }
 
@@ -53,8 +52,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <!-- Grades -->
     <div class="section-header">

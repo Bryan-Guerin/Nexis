@@ -8,7 +8,6 @@
     let stats   = $state(null)
   let journal = $state([])
   let statuts = $state([])          // statuts planning (pour la prise de garde rapide)
-  let error   = $state('')
   let reloadTimer = null
 
   let isAdmin = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
@@ -49,7 +48,6 @@
   })
 
   async function load() {
-    error = ''
     try {
       const [s, j, st, sc, fq, ev] = await Promise.all([
         api.get('/sp/dashboard'),
@@ -68,14 +66,14 @@
         alertes: s.alertes ?? [], interventionsEnCours: s.interventionsEnCours ?? [], activite7j: s.activite7j ?? [],
       }
       journal = j ?? []; statuts = st ?? []; monService = sc?.categorie ?? null
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function declarerPresence(evId, present) {
     try {
       await api.put(`/sp/evenements/${evId}/reponse?present=${present}`)
       evenements = await api.get('/sp/evenements').catch(() => evenements)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function addFrequence() {
@@ -158,8 +156,6 @@
     </div>
     <button class="btn-ghost" onclick={load}>Actualiser</button>
   </div>
-
-  {#if error}<p class="inline-error">{error}</p>{/if}
 
   {#if !stats}
     <Skeleton rows={5} />

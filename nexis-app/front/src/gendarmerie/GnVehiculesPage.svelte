@@ -7,7 +7,6 @@
   let vehicules = $state([])
   let etats     = $state([])
   let loading   = $state(true)
-  let error     = $state('')
 
   let showAddVehicule = $state(false)
   let addVeh = $state({ typeId: '', libelle: '', immatriculation: '' })
@@ -20,16 +19,15 @@
   onMount(loadAll)
 
   async function loadAll() {
-    loading = true; error = ''
+    loading = true
     try {
       ;[types, vehicules, etats] = await Promise.all([
         api.get('/gn/vehicules/types'),
         api.get('/gn/vehicules'),
         api.get('/gn/vehicules/etats'),
       ])
-    } catch (e) {
-      error = e.message
-    } finally {
+    } catch { /* toast par api.js */ }
+    finally {
       loading = false
     }
   }
@@ -101,8 +99,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <table>
       <thead>
@@ -139,7 +135,7 @@
 
   <div class="section-header">
     <h3>Types de véhicule</h3>
-    <button class="btn-secondary" onclick={() => { showAddType = !showAddType; addTypeError = '' }}>
+    <button class="btn-ghost" onclick={() => { showAddType = !showAddType; addTypeError = '' }}>
       {showAddType ? 'Annuler' : 'Ajouter un type'}
     </button>
   </div>

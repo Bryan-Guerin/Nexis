@@ -4,11 +4,10 @@
     import Skeleton from '../shared/Skeleton.svelte'
 
     let s = $state(null)
-  let error = $state('')
 
   onMount(async () => {
     try { s = await api.get('/sp/stats/interventions') }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   })
 
   function dureeTexte(min) {
@@ -26,8 +25,6 @@
 
 <div class="page">
   <div class="page-header"><h2>Statistiques — Interventions SP</h2></div>
-
-  {#if error}<p class="inline-error">{error}</p>{/if}
 
   {#if !s}
     <Skeleton rows={5} />

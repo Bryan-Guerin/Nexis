@@ -8,7 +8,6 @@
     let users    = $state([])
   let roles    = $state([])
   let loading  = $state(false)
-  let error    = $state('')
   let creating = $state(false)
 
   // Création d'utilisateur
@@ -37,9 +36,9 @@
   })
 
   async function loadUsers() {
-    loading = true; error = ''
+    loading = true
     try { users = await api.get('/admin/users') }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
     finally { loading = false }
   }
 
@@ -158,9 +157,7 @@
     {/if}
 
     <!-- Utilisateurs -->
-    {#if error}
-      <p class="inline-error">{error}</p>
-    {:else if loading}
+    {#if loading}
       <Skeleton rows={6} />
     {:else}
       <table>

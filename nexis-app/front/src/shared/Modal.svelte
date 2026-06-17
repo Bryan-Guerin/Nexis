@@ -11,7 +11,7 @@
 
   // Modale réutilisable : backdrop, Échap (couche du dessus), focus initial, ✕ systématique.
   // dismissible=false : fermable uniquement par la croix (pas de clic-fond ni Échap)
-  let { title = '', onclose, wide = false, width = null, z = null, dismissible = true, children, actions } = $props()
+  let { title = '', onclose, width = null, z = null, dismissible = true, children, actions } = $props()
 
   const uid = ++uidSeq
   let panel
@@ -29,7 +29,7 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="backdrop" style={z ? `z-index:${z}` : ''} onclick={() => dismissible && onclose?.()}>
-  <div class="modal" class:wide style={width ? `width:${width}` : ''} tabindex="-1"
+  <div class="modal" style={width ? `width:${width}` : ''} tabindex="-1"
        bind:this={panel} onclick={e => e.stopPropagation()} role="dialog" aria-modal="true">
     <button class="modal-x" title="Fermer" aria-label="Fermer" onclick={() => onclose?.()}>✕</button>
     {#if title}<h3>{title}</h3>{/if}
@@ -40,7 +40,6 @@
 
 <style>
   .modal { position: relative; }
-  .modal.wide { width: 560px; max-width: 94vw; }
   .modal-x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--color-muted); font-size: 18px; cursor: pointer; line-height: 1; }
   .modal-x:hover { color: var(--color-danger); }
 </style>

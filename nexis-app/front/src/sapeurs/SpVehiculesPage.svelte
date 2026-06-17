@@ -15,7 +15,6 @@
   let postes     = $state({})   // typeId → postes
   let inventaire = $state({})   // typeId → items d'inventaire
   let loading    = $state(true)
-  let error      = $state('')
 
   // Recherche
   let recherche = $state('')
@@ -59,11 +58,11 @@
         { vehiculeTypeId: tplForm.vehiculeTypeId, quantite: Number(tplForm.quantite) || 1 })
       templateLignes = [...templateLignes, created]
       tplForm = { vehiculeTypeId: '', quantite: 1 }
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   async function deleteTemplate(id) {
     try { await api.delete(`/sp/templates/${id}`); templateLignes = templateLignes.filter(l => l.id !== id) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
   let invForm      = $state({ objetId: '', quantite: 1 })   // ajout d'un item au modèle
 
@@ -81,7 +80,7 @@
   onMount(loadAll)
 
   async function loadAll() {
-    loading = true; error = ''
+    loading = true
     try {
       ;[types, vehicules, fonctions, etats, statuts, centres, objets, natures] = await Promise.all([
         api.get('/sp/vehicules/types'),
@@ -93,7 +92,7 @@
         api.get('/sp/objets-inventaire'),
         api.get('/sp/natures'),
       ])
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
     finally { loading = false }
   }
 
@@ -119,7 +118,7 @@
     try {
       const updated = await api.put(`/sp/vehicules/${v.id}/etat?etatId=${etatId}`)
       vehicules = vehicules.map(x => x.id === v.id ? updated : x)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // Statut RP — transition avant uniquement, le serveur garde la cohérence
@@ -127,7 +126,7 @@
     try {
       const updated = await api.put(`/sp/vehicules/${v.id}/statut?statutId=${statutId}`)
       vehicules = vehicules.map(x => x.id === v.id ? updated : x)
-    } catch (e) { error = e.message; await loadAll() }
+    } catch { await loadAll() /* toast par api.js */ }
   }
   // Options de statut proposées : le statut courant + les suivants (ordre ≥ courant)
   function statutOptions(v) {
@@ -179,14 +178,14 @@
       })
       postes = { ...postes, [typeId]: [...(postes[typeId] ?? []), created] }
       addPosteFor = null; addPoste = { fonctionId: '', nbPlaces: 1, obligatoire: false }
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function toggleObligatoire(typeId, poste) {
     try {
       const updated = await api.put(`/sp/vehicules/postes/${poste.id}/obligatoire`)
       postes = { ...postes, [typeId]: postes[typeId].map(p => p.id === updated.id ? updated : p) }
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   async function deletePoste(typeId, poste) {
     try {
@@ -202,7 +201,7 @@
     try {
       const updated = await api.put(`/sp/vehicules/types/${t.id}/natures`, { natureIds: next })
       types = types.map(x => x.id === updated.id ? updated : x)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // Étoile la nature principale (catégorie de regroupement dispatch).
@@ -211,7 +210,7 @@
     try {
       const updated = await api.put(`/sp/vehicules/types/${t.id}/nature-principale`, { natureId: next })
       types = types.map(x => x.id === updated.id ? updated : x)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // Icône (emoji) du type, repère carte.
@@ -219,7 +218,7 @@
     try {
       const updated = await api.put(`/sp/vehicules/types/${t.id}/icone`, { icone })
       types = types.map(x => x.id === updated.id ? updated : x)
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   async function submitAddType(e) {
@@ -242,7 +241,7 @@
         { objetId: invForm.objetId, quantite: Number(invForm.quantite) || 1, parentId })
       inventaire = { ...inventaire, [typeId]: [...(inventaire[typeId] ?? []), created] }
       invForm = { objetId: '', quantite: 1 }
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
   async function deleteItem(typeId, itemId) {
     try {
@@ -250,7 +249,7 @@
       // Le back supprime aussi le contenu (CASCADE) → on retire l'item ET ses enfants.
       inventaire = { ...inventaire, [typeId]: inventaire[typeId].filter(i => i.id !== itemId && i.parentId !== itemId) }
       if (invParent && invParent.id === itemId) invParent = null
-    } catch (e) { error = e.message }
+    } catch { /* toast par api.js */ }
   }
 
   // ── Réordonnancement des postes (glisser-déposer, persisté à la fin) ──
@@ -272,7 +271,7 @@
     if (posteDrag.typeId !== typeId) { posteDrag = { typeId: null, index: null }; return }
     posteDrag = { typeId: null, index: null }
     try { await api.put(`/sp/vehicules/types/${typeId}/postes/order`, { ids: (postes[typeId] ?? []).map(p => p.id) }) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // ── Réordonnancement du modèle d'inventaire (glisser-déposer, persisté à la fin) ──
@@ -294,7 +293,7 @@
     if (invDrag.typeId !== typeId) { invDrag = { typeId: null, index: null }; return }
     invDrag = { typeId: null, index: null }
     try { await api.put(`/sp/vehicules/types/${typeId}/inventaire/order`, { ids: (inventaire[typeId] ?? []).map(i => i.id) }) }
-    catch (e) { error = e.message }
+    catch { /* toast par api.js */ }
   }
 
   // ── Vérification d'inventaire d'un véhicule ───────────────────────────────────
@@ -413,8 +412,6 @@
 
   {#if loading}
     <Skeleton rows={6} />
-  {:else if error}
-    <p class="inline-error">{error}</p>
   {:else}
     <input class="veh-search" type="search" bind:value={recherche} placeholder="Rechercher (libellé, immat, type, centre)…" />
     <table>
@@ -457,7 +454,7 @@
   <!-- Types : postes + inventaire -->
   <div class="section-header">
     <h3>Types de véhicule</h3>
-    <button class="btn-secondary" onclick={() => { showAddType = !showAddType; addTypeError = '' }}>
+    <button class="btn-ghost" onclick={() => { showAddType = !showAddType; addTypeError = '' }}>
       {showAddType ? 'Annuler' : 'Ajouter un type'}
     </button>
   </div>
