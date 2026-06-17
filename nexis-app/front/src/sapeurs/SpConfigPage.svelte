@@ -6,6 +6,7 @@
     import {invalidateRef} from '../shared/referentials.js'
     import Skeleton from '../shared/Skeleton.svelte'
     import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
+    import SpBadgesAdmin from './SpBadgesAdmin.svelte'
 
     // Catégories de configuration (chacune = une "enum" ordonnée)
   const CATEGORIES = [
@@ -19,6 +20,7 @@
     { key: 'natures',   label: 'Natures intervention', list: '/sp/natures', order: '/sp/natures/order', kind: 'codelabel', deletable: true },
     { key: 'objets',    label: 'Objets inventaire', list: '/sp/objets-inventaire', order: '/sp/objets-inventaire/order', kind: 'codelabel', deletable: true },
     { key: 'evenements', label: 'Événements', kind: 'evenements' },
+    { key: 'badges',     label: 'Badges (succès)', kind: 'badges' },
   ]
 
   const CATEGORIES_SERVICE = ['GARDE', 'ASTREINTE', 'AUTRE']
@@ -222,6 +224,8 @@
     <div class="detail-pane">
       {#if cat.kind === 'evenements'}
         <SpEvenementsAdmin />
+      {:else if cat.kind === 'badges'}
+        <SpBadgesAdmin />
       {:else}
       <h3>{cat.label} <span class="hint">— glisser-déposer pour réordonner</span></h3>
 
