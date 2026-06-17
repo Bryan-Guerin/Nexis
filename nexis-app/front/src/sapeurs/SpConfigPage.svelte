@@ -40,6 +40,15 @@
   // Référentiel des états maîtres (pour lier un statut véhicule à un état)
   let etatsRef = $state([])
 
+  // Attribution des casiers : numéro → libellé du membre qui l'occupe.
+  let casierAttrib = $state({})
+  async function loadCasierAttrib() {
+    const ms = await api.get('/sp/membres/grade').catch(() => [])
+    const map = {}
+    for (const m of ms) if (m.numeroCasier != null) map[m.numeroCasier] = `${m.matricule} · ${m.nomComplet || m.username}`
+    casierAttrib = map
+  }
+
   onMount(async () => {
     etatsRef = await api.get('/sp/etats').catch(() => [])
     load()
@@ -52,6 +61,7 @@
     try {
       items = await api.get(cat.list)
       if (cat.key === 'centres') await loadHopitaux()
+      if (cat.key === 'casiers') await loadCasierAttrib()
     }
     catch { items = [] /* toast par api.js */ }
     finally { loading = false }
@@ -249,6 +259,13 @@
               {/if}
               <span class="it-label">{itemLabel(it)}</span>
               {#if it.code}<span class="chip-code">{it.code}</span>{/if}
+              {#if cat.kind === 'casier'}
+                {#if casierAttrib[it.numero]}
+                  <span class="casier-attrib" title="Attribué à">👤 {casierAttrib[it.numero]}</span>
+                {:else}
+                  <span class="casier-libre">libre</span>
+                {/if}
+              {/if}
               {#if cat.key === 'fonctions'}
                 <select class="type-fonction-sel" value={it.type} title="Catégorie — ordre de l'équipage au dispatch"
                         onchange={e => setFonctionType(it, e.target.value)}>
@@ -450,6 +467,8 @@
   .handle { color: var(--color-muted); cursor: grab; user-select: none; }
   .idx { font-family: monospace; font-size: 11px; color: var(--color-muted); min-width: 18px; text-align: right; }
   .it-label { flex: 1; font-size: 13px; }
+  .casier-attrib { font-size: 11px; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 10px; padding: 2px 8px; white-space: nowrap; }
+  .casier-libre { font-size: 10px; color: var(--color-muted); font-style: italic; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
   .rm-btn:hover { color: var(--color-danger); }
 
