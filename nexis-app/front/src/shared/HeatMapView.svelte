@@ -12,6 +12,10 @@
   const CY = CX
   const Y_OFF = 20
 
+  // Calques de noms (villes / villages / repères marins) — fichiers geojson partagés.
+  const NAME_LAYERS = ['namecity', 'namevillage', 'namemarine']
+  function geoToLatLng(c) { return window.L.latLng(c[1], c[0]) }
+
   function gridToImg(coord) {
     if (!coord || coord.length < 6) return null
     const gx = +coord.slice(0, 3), gy = +coord.slice(3, 6)
@@ -24,6 +28,7 @@
   let el = $state(null)
   let map = null
   let heatLayer = null
+  let namesLayer = null
 
   onMount(() => {
     const L = window.L
@@ -35,9 +40,30 @@
         [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]],
         { pane: 'tilePane' }).addTo(map)
     }
-    heatLayer = L.layerGroup().addTo(map)
+    heatLayer  = L.layerGroup().addTo(map)
+    namesLayer = L.layerGroup().addTo(map)
+    loadNames()
     render()
   })
+
+  async function loadNames() {
+    const L = window.L
+    for (const nf of NAME_LAYERS) {
+      const arr = await fetch(`/map/unreallife/geojson/${nf}.geojson`).then(r => r.json()).catch(() => null)
+      if (!arr) continue
+      for (const f of arr) {
+        const c = f.geometry?.coordinates; if (!c) continue
+        L.marker(geoToLatLng(c), {
+          icon: L.divIcon({
+            className: 'map-label',
+            html: f.properties?.name ?? '',
+            iconSize: [80, 0], iconAnchor: [40, 0],
+          }),
+          interactive: false,
+        }).addTo(namesLayer)
+      }
+    }
+  }
   onDestroy(() => { if (map) { map.remove(); map = null } })
 
   // Re-rend quand `points` change.
@@ -94,4 +120,5 @@
 <style>
   .heatmap { width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius); background: #0a0d14; }
   :global(.leaflet-tooltip) { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); font-size: 12px; }
+  :global(.map-label) { color: #e8eef5; font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; text-align: center; pointer-events: none; }
 </style>
