@@ -34,13 +34,15 @@ public class SpMembreService {
     private final SecurityService          securityService;
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final AccountRevocation        accountRevocation;
+    private final SpRpService              rpService;   // éval badges après ajout de qualif
 
     public SpMembreService(SpMembreRepository membreRepo, RefUserRepository userRepo,
                            SpGradeRepository gradeRepo, SpFonctionRepository fonctionRepo,
                            SpFonctionOrgaRepository fonctionOrgaRepo,
                            SecurityService securityService,
                            ApplicationEventPublisher<RealtimeEvent> events,
-                           AccountRevocation accountRevocation) {
+                           AccountRevocation accountRevocation,
+                           SpRpService rpService) {
         this.membreRepo       = membreRepo;
         this.userRepo         = userRepo;
         this.gradeRepo        = gradeRepo;
@@ -49,6 +51,7 @@ public class SpMembreService {
         this.securityService  = securityService;
         this.events           = events;
         this.accountRevocation = accountRevocation;
+        this.rpService        = rpService;
     }
 
     // ── Lecture ──────────────────────────────────────────────────────────────
@@ -162,7 +165,9 @@ public class SpMembreService {
                 .orElseThrow(() -> new NoSuchElementException("Fonction introuvable : " + fonctionId));
         membre.getQualifications().add(
                 new SpMembreQualification(membre, fonction, securityService.username().orElse(null)));
-        membreRepo.update(membre);
+        var saved = membreRepo.update(membre);
+        // Attribution immédiate des badges de qualification (sans attendre le CRON horaire).
+        rpService.evalForMembre(saved);
     }
 
     @Transactional
