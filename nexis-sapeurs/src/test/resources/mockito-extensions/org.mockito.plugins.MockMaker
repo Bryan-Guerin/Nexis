@@ -1,0 +1,6 @@
+# Mock maker « subclass » (proxy) au lieu de l'inline mock maker par défaut.
+# L'inline maker retransforme la hiérarchie de types (jusqu'à java.lang.Object) via
+# un agent : cette retransformation échoue sous Temurin 26. Le subclass maker génère
+# une sous-classe et n'a pas besoin de retransformer — OK sur JDK 26.
+# Aucune limitation ici : pas de mock de classes/méthodes final ni de mock static.
+mock-maker-subclass

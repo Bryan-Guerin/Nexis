@@ -102,6 +102,21 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
             </plugin>
+            <!--
+              Mockito sur JDK 26 (Temurin 26) : l'inline mock maker par défaut retransforme
+              la hiérarchie de types et échoue. On bascule sur le subclass mock maker
+              (fichier mockito-extensions/org.mockito.plugins.MockMaker dans chaque module
+              de test). net.bytebuddy.experimental=true autorise la génération de bytecode
+              sur ce JDK encore non officiellement supporté par ByteBuddy 1.18.x — sans
+              bumper ByteBuddy (partagé avec Hibernate).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
