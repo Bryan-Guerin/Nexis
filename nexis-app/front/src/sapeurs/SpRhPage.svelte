@@ -2,6 +2,9 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {confirm} from '../shared/confirm.js'
+    import {compareBy, nextSort} from '../shared/tableSort.js'
+    import SortableTh from '../shared/SortableTh.svelte'
+    import Pagination from '../shared/Pagination.svelte'
 
     let paie    = $state(null)
   let grades  = $state([])
@@ -91,8 +94,22 @@
 
   // ── Trésorerie : filtre, totaux par catégorie, export CSV, contre-passation ──
   let mvtFiltre = $state('')   // '' = toutes ; 'SANS' = sans catégorie ; sinon id catégorie
-  let mvtsFiltres = $derived(!finance ? [] : finance.mouvements.filter(m =>
-    mvtFiltre === '' ? true : mvtFiltre === 'SANS' ? !m.categorieId : m.categorieId === mvtFiltre))
+  let mvtSearch = $state('')
+  let mvtSort   = $state({ col: 'date', dir: 'desc' })
+  let mvtPage   = $state(1)
+  let mvtPageSize = $state(25)
+  const MVT_KEYS = {
+    date: m => m.date, libelle: m => m.libelle, categorie: m => m.categorieLibelle,
+    montant: m => (m.type === 'GAIN' ? 1 : -1) * Number(m.montant), par: m => m.creePar,
+  }
+  let mvtsFiltres = $derived(!finance ? [] : finance.mouvements.filter(m => {
+    const okCat = mvtFiltre === '' ? true : mvtFiltre === 'SANS' ? !m.categorieId : m.categorieId === mvtFiltre
+    const q = mvtSearch.trim().toLowerCase()
+    const okQ = !q || `${m.libelle} ${m.categorieLibelle ?? ''} ${m.creePar ?? ''}`.toLowerCase().includes(q)
+    return okCat && okQ
+  }))
+  let mvtsSorted = $derived([...mvtsFiltres].sort(compareBy(MVT_KEYS[mvtSort.col], mvtSort.dir)))
+  let mvtsPage = $derived(mvtsSorted.slice((mvtPage - 1) * mvtPageSize, mvtPage * mvtPageSize))
   let totauxCat = $derived.by(() => {
     if (!finance) return []
     const map = new Map()
@@ -220,6 +237,7 @@
 
       <!-- Historique -->
       <div class="mvt-bar">
+        <input class="mvt-search" type="text" placeholder="Rechercher (libellé, catégorie, auteur)…" bind:value={mvtSearch} />
         <select bind:value={mvtFiltre} class="mvt-filtre">
           <option value="">Toutes catégories</option>
           {#each finance.categories as c (c.id)}<option value={c.id}>{c.libelle}</option>{/each}
@@ -229,10 +247,17 @@
       </div>
       <table class="mvt-table">
         <thead>
-          <tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th class="r">Montant</th><th>Par</th><th></th></tr>
+          <tr>
+            <SortableTh col="date" label="Date" sort={mvtSort} onsort={c => mvtSort = nextSort(mvtSort, c)} />
+            <SortableTh col="libelle" label="Libellé" sort={mvtSort} onsort={c => mvtSort = nextSort(mvtSort, c)} />
+            <SortableTh col="categorie" label="Catégorie" sort={mvtSort} onsort={c => mvtSort = nextSort(mvtSort, c)} />
+            <SortableTh col="montant" label="Montant" sort={mvtSort} onsort={c => mvtSort = nextSort(mvtSort, c)} style="text-align:right" />
+            <SortableTh col="par" label="Par" sort={mvtSort} onsort={c => mvtSort = nextSort(mvtSort, c)} />
+            <th></th>
+          </tr>
         </thead>
         <tbody>
-          {#each mvtsFiltres as m (m.id)}
+          {#each mvtsPage as m (m.id)}
             <tr>
               <td class="mono">{jour(m.date)}</td>
               <td>{m.libelle}</td>
@@ -246,7 +271,8 @@
           {/each}
         </tbody>
       </table>
-      {#if mvtsFiltres.length === 0}<p class="muted small">Aucun mouvement{mvtFiltre ? ' dans cette catégorie' : ' enregistré'}.</p>{/if}
+      {#if mvtsFiltres.length === 0}<p class="muted small">Aucun mouvement{mvtFiltre || mvtSearch ? ' ne correspond' : ' enregistré'}.</p>
+      {:else}<Pagination bind:page={mvtPage} bind:pageSize={mvtPageSize} total={mvtsFiltres.length} />{/if}
     {/if}
   </section>
 
@@ -372,7 +398,9 @@
   .cat-totaux { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .cat-total { font-size: 12px; border: 1px solid var(--color-border); border-radius: 12px; padding: 3px 10px; color: var(--color-success); }
   .cat-total.neg { color: var(--color-danger); }
-  .mvt-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .mvt-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .mvt-search { flex: 1; min-width: 200px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
+  .mvt-search:focus { border-color: var(--accent); }
   .mvt-filtre { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
   .cp-btn { background: none; border: none; color: var(--color-muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
   .cp-btn:hover { color: var(--accent); }

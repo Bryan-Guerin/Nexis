@@ -6,6 +6,7 @@
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
     import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
+    import Pagination from '../shared/Pagination.svelte'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let interventions = $state([])
@@ -45,15 +46,20 @@
 
   // Recherche / archive — par défaut, on n'affiche que les interventions en cours
   let filtreStatut = $state('EN_COURS')   // TOUTES | EN_COURS | CLOTUREES
+  let filtreNature = $state('')
   let recherche    = $state('')
+  let intPage      = $state(1)
+  let intPageSize  = $state(25)
   let affichees = $derived(sorted.filter(i => {
     if (filtreStatut === 'EN_COURS' && !i.enCours) return false
     if (filtreStatut === 'CLOTUREES' && i.enCours) return false
+    if (filtreNature && i.nature?.id !== filtreNature) return false
     const q = recherche.trim().toLowerCase()
     if (!q) return true
     return [i.code, i.motif, i.nature?.code, i.nature?.label, i.commune]
       .filter(Boolean).some(s => s.toLowerCase().includes(q))
   }))
+  let afficheesPage = $derived(affichees.slice((intPage - 1) * intPageSize, intPage * intPageSize))
 
   // Horloge pour le chrono des interventions en cours (rafraîchi chaque minute).
   let now = $state(Date.now())
@@ -319,10 +325,14 @@
         <button class="seg-btn" class:on={filtreStatut === 'EN_COURS'} onclick={() => filtreStatut = 'EN_COURS'}>En cours</button>
         <button class="seg-btn" class:on={filtreStatut === 'CLOTUREES'} onclick={() => filtreStatut = 'CLOTUREES'}>Clôturées</button>
       </div>
+      <select class="search nature-filtre" bind:value={filtreNature} title="Filtrer par nature">
+        <option value="">Toutes natures</option>
+        {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
+      </select>
       <input class="search" type="search" bind:value={recherche} placeholder="Rechercher (code, motif, nature, commune)…" />
     </div>
     <div class="list">
-      {#each affichees as i (i.id)}
+      {#each afficheesPage as i (i.id)}
         <div class="card" class:closed={!i.enCours}>
           <div class="i-head" ondblclick={() => openDetail(i)} role="button" tabindex="0" title="Double-clic pour le détail">
             <div class="i-main">
@@ -411,6 +421,7 @@
         <p class="muted">{interventions.length === 0 ? 'Aucune intervention' : 'Aucun résultat'}</p>
       {/if}
     </div>
+    {#if affichees.length > 0}<Pagination bind:page={intPage} bind:pageSize={intPageSize} total={affichees.length} />{/if}
   {/if}
 </div>
 
@@ -578,6 +589,7 @@
   .seg-btn:last-child { border-right: none; }
   .seg-btn.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
   .search { flex: 1; min-width: 220px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; }
+  .nature-filtre { flex: 0 0 auto; min-width: 160px; }
 
   .list { display: flex; flex-direction: column; gap: 10px; }
   .card.closed { opacity: 0.7; }

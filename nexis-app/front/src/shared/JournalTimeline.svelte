@@ -7,6 +7,7 @@
     import {onMount} from 'svelte'
     import {api} from './api.js'
     import {realtime} from './realtime.js'
+    import Pagination from './Pagination.svelte'
 
     let { path, title, byDay = false } = $props()
 
@@ -33,6 +34,9 @@
   let selectedTypes = $state(new Set())
   let dateFrom = $state('')
   let dateTo   = $state('')
+  let recherche = $state('')
+  let jPage     = $state(1)
+  let jPageSize = $state(50)
 
   const TYPE = {
     AFFECTATION:           { l: 'Affectation',     c: 'var(--color-primary)' },
@@ -72,16 +76,19 @@
       if (lo && j < lo) return false
       if (hi && j > hi) return false
     }
+    const q = recherche.trim().toLowerCase()
+    if (q && !`${e.message ?? ''} ${e.acteurNom ?? ''} ${e.acteurUsername ?? ''}`.toLowerCase().includes(q)) return false
     return true
   }))
+  let filteredPage = $derived(filtered.slice((jPage - 1) * jPageSize, jPage * jPageSize))
 
   function toggleType(t) {
     const s = new Set(selectedTypes)
     if (s.has(t)) s.delete(t); else s.add(t)
     selectedTypes = s
   }
-  function resetFiltres() { selectedTypes = new Set(); dateFrom = ''; dateTo = '' }
-  let filtresActifs = $derived(selectedTypes.size > 0 || !!dateFrom || !!dateTo)
+  function resetFiltres() { selectedTypes = new Set(); dateFrom = ''; dateTo = ''; recherche = '' }
+  let filtresActifs = $derived(selectedTypes.size > 0 || !!dateFrom || !!dateTo || !!recherche)
 
   onMount(() => {
     load()
@@ -115,6 +122,7 @@
     <p class="inline-error">{error}</p>
   {:else}
     <!-- Filtres -->
+    <input class="j-search" type="search" placeholder="Rechercher (message, auteur)…" bind:value={recherche} />
     <div class="filters">
       <div class="tags">
         {#if presentTypes.length <= MAX_INLINE}
@@ -155,7 +163,7 @@
     </div>
 
     <div class="timeline">
-      {#each filtered as e (e.id)}
+      {#each filteredPage as e (e.id)}
         <div class="entry">
           <span class="t">{fmt(e.creeLe)}</span>
           <span class="badge" style="background:color-mix(in srgb, {typeInfo(e.type).c} 15%, transparent); color:{typeInfo(e.type).c}">{typeInfo(e.type).l}</span>
@@ -167,10 +175,13 @@
         <p class="muted" style="padding:12px">{entries.length === 0 ? 'Aucun événement' : 'Aucun événement ne correspond aux filtres'}</p>
       {/if}
     </div>
+    {#if filtered.length > 0}<Pagination bind:page={jPage} bind:pageSize={jPageSize} total={filtered.length} sizes={[50, 100, 200]} />{/if}
   {/if}
 </div>
 
 <style>
+  .j-search { width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 7px 10px; outline: none; margin-bottom: 10px; }
+  .j-search:focus { border-color: var(--accent); }
   .filters { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
   .tags { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
   .tag {
