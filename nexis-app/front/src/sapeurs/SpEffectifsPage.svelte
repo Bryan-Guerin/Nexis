@@ -177,7 +177,8 @@
     const current = (selected.fonctionsOrga ?? []).map(f => f.id)
     const next = current.includes(fonctionId) ? current.filter(x => x !== fonctionId) : [...current, fonctionId]
     try {
-      selected = await api.put(`/sp/membres/${selected.id}/fonctions-orga`, { fonctionOrgaIds: next })
+      const updated = await api.put(`/sp/membres/${selected.id}/fonctions-orga`, { fonctionOrgaIds: next })
+      refreshMembre(updated)   // maj liste (annuaire/organigramme) + détail
     } catch { /* toast par api.js */ }
   }
 
