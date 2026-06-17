@@ -11,6 +11,7 @@
   const CATEGORIES = [
     { key: 'grades',    label: 'Grades',          list: '/sp/grades',    order: '/sp/grades/order',    kind: 'codelabel', deletable: true },
     { key: 'fonctions', label: 'Fonctions',       list: '/sp/fonctions', order: '/sp/fonctions/order', kind: 'codelabel', deletable: true, confirmDelete: true },
+    { key: 'fonctionsorga', label: 'Fonctions organigramme', list: '/sp/fonctions-orga', order: '/sp/fonctions-orga/order', kind: 'fonctionorga', deletable: true },
     { key: 'statutsveh', label: 'Statuts véhicule', list: '/sp/statuts', order: '/sp/statuts/order', kind: 'statutveh', deletable: true },
     { key: 'casiers',   label: 'Casiers',        list: '/sp/casiers',   order: '/sp/casiers/order',   kind: 'casier', deletable: true },
     { key: 'statuts',   label: 'Statuts planning', list: '/sp/planning/statuts', order: '/sp/planning/statuts/order', kind: 'statut' },
@@ -61,10 +62,11 @@
   }
 
   function resetForm() {
-    form = cat.kind === 'etat'      ? { code: '', label: '', couleur: '#4caf82' }
-         : cat.kind === 'statutveh' ? { code: '', label: '', couleur: '#4f6ef7', etatId: etatsRef[0]?.id ?? '', clotureIntervention: false }
-         : cat.kind === 'statut'    ? { code: '', label: '', couleur: '#4f6ef7', categorie: 'GARDE' }
-         : cat.kind === 'casier'    ? { numero: null }
+    form = cat.kind === 'etat'         ? { code: '', label: '', couleur: '#4caf82' }
+         : cat.kind === 'statutveh'    ? { code: '', label: '', couleur: '#4f6ef7', etatId: etatsRef[0]?.id ?? '', clotureIntervention: false }
+         : cat.kind === 'statut'       ? { code: '', label: '', couleur: '#4f6ef7', categorie: 'GARDE' }
+         : cat.kind === 'casier'       ? { numero: null }
+         : cat.kind === 'fonctionorga' ? { code: '', label: '', parentId: '', icone: '' }
          : { code: '', label: '' }
     formError = ''
   }
@@ -72,7 +74,9 @@
   async function submitCreate(e) {
     e.preventDefault(); formError = ''
     try {
-      const payload = cat.kind === 'casier' ? { numero: Number(form.numero) } : { ...form }
+      const payload = cat.kind === 'casier' ? { numero: Number(form.numero) }
+                    : cat.kind === 'fonctionorga' ? { code: form.code, label: form.label, parentId: form.parentId || null, icone: form.icone || null }
+                    : { ...form }
       const created = await api.post(cat.list, payload)
       items = [...items, created]
       invalidateRef()
@@ -94,6 +98,15 @@
   async function setNatureIcone(it, icone) {
     try {
       const u = await api.put(`/sp/natures/${it.id}/icone`, { icone })
+      items = items.map(x => x.id === u.id ? u : x)
+    } catch { /* toast par api.js */ }
+  }
+
+  // Met à jour une fonction d'organigramme (label / parent / icône). Patch fusionné côté front.
+  async function updateFonctionOrga(it, patch) {
+    const next = { label: it.label, parentId: it.parentId ?? null, icone: it.icone ?? null, ...patch }
+    try {
+      const u = await api.put(`/sp/fonctions-orga/${it.id}`, next)
       items = items.map(x => x.id === u.id ? u : x)
     } catch { /* toast par api.js */ }
   }
@@ -249,6 +262,19 @@
                        title="Icône (emoji) repérant l'intervention sur la carte" value={it.icone ?? ''}
                        onchange={e => setNatureIcone(it, e.target.value)} />
               {/if}
+              {#if cat.kind === 'fonctionorga'}
+                <input class="icone-input" type="text" maxlength="4" placeholder="icône"
+                       title="Icône (emoji) du rôle" value={it.icone ?? ''}
+                       onchange={e => updateFonctionOrga(it, { icone: e.target.value || null })} />
+                <select class="type-fonction-sel" title="Fonction parente dans l'arbre"
+                        value={it.parentId ?? ''}
+                        onchange={e => updateFonctionOrga(it, { parentId: e.target.value || null })}>
+                  <option value="">— racine —</option>
+                  {#each items.filter(x => x.id !== it.id) as p (p.id)}
+                    <option value={p.id}>{p.label}</option>
+                  {/each}
+                </select>
+              {/if}
               {#if cat.kind === 'statut'}<span class="cat-badge">{it.categorie}</span>{/if}
               {#if cat.kind === 'statutveh' && it.etat}<span class="cat-badge" title="État appliqué">→ {it.etat.label}</span>{/if}
               {#if cat.key === 'statutsveh'}
@@ -302,6 +328,17 @@
                   <select bind:value={form.categorie}>
                     {#each CATEGORIES_SERVICE as c}<option value={c}>{c}</option>{/each}
                   </select>
+                </label>
+              {/if}
+              {#if cat.kind === 'fonctionorga'}
+                <label>Parent (optionnel)
+                  <select bind:value={form.parentId}>
+                    <option value="">— racine —</option>
+                    {#each items as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
+                  </select>
+                </label>
+                <label>Icône
+                  <input type="text" maxlength="4" bind:value={form.icone} placeholder="emoji (optionnel)" />
                 </label>
               {/if}
             {/if}
