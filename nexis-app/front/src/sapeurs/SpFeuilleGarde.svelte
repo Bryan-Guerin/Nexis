@@ -367,11 +367,6 @@
 
   .veh-centre { font-size: 11px; color: var(--color-muted); }
   .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-  .verif-badge { font-size: 10px; color: var(--color-muted); }
-  .verif-badge.vieux { color: var(--color-danger); font-weight: 600; }
-  .statut-sel { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid; padding: 2px 6px; cursor: pointer; outline: none; max-width: 150px; }
-  .statut-sel option { background: var(--color-surface); color: var(--color-text); font-weight: 500; }
-  .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }
   .arme-badge { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px; background: color-mix(in srgb, var(--color-danger) 16%, transparent); color: var(--color-danger); }
   .arme-badge.ok { background: color-mix(in srgb, var(--color-success) 16%, transparent); color: var(--color-success); }
   .crew-right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }

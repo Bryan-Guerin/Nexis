@@ -434,11 +434,6 @@
   .stat.eng b { color: var(--accent); }
   .stat.na b { color: var(--color-danger); }
 
-  .verif-badge { font-size: 10px; color: var(--color-muted); }
-  .verif-badge.vieux { color: var(--color-danger); font-weight: 600; }
-  .statut-sel { font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid; padding: 2px 6px; cursor: pointer; outline: none; max-width: 150px; }
-  .statut-sel option { background: var(--color-surface); color: var(--color-text); font-weight: 500; }
-  .sys-badge { font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px; }
   .crew-fonction { font-size: 11px; color: var(--accent); font-weight: 500; }
 
   .garde-chip { font-size: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; padding: 3px 10px; display: inline-flex; gap: 6px; align-items: center; }

@@ -283,13 +283,8 @@
   .status.active { color: var(--color-success); }
   .actions { display: flex; gap: 6px; justify-content: flex-end; }
 
-  /* Badges de rôle (compacts, en capitales) */
+  /* Badges rôle : compact + capitales (couleurs dans ui.css) */
   .badge { font-size: 10px; padding: 2px 7px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .badge-system  { background: rgba(180, 80, 220, 0.15); color: #b450dc; }
-  .badge-admin   { background: rgba(224, 92, 92, 0.15);  color: var(--color-danger); }
-  .badge-gn      { background: rgba(79, 110, 247, 0.15); color: var(--color-primary); }
-  .badge-sp      { background: rgba(76, 175, 130, 0.15); color: var(--color-success); }
-  .badge-default { background: var(--color-border);      color: var(--color-muted); }
 
   .pwd-box {
     font-family: monospace; font-size: 18px; letter-spacing: 1px;
