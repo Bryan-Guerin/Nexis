@@ -30,6 +30,11 @@ public class SpInterventionController {
                 .orElseGet(service::listAll);
     }
 
+    @Get("/interventions/{id}")
+    SpInterventionDto get(UUID id) {
+        return service.getById(id);
+    }
+
     @Post("/interventions")
     @Status(HttpStatus.CREATED)
     SpInterventionDto create(@Body CreateSpInterventionRequest req) {

@@ -205,6 +205,14 @@ public class SpInterventionService {
         return projeter(interventionRepo.findAll(BY_DEBUT_DESC));
     }
 
+    /** Détail d'une intervention (avec engins + dernières lignes de main courante). */
+    @Transactional
+    public SpInterventionDto getById(UUID id) {
+        var inter = interventionRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + id));
+        return projeter(List.of(inter)).get(0);
+    }
+
     @Transactional
     public List<SpInterventionDto> listEnCours() {
         return projeter(interventionRepo.findByFinIsNull());
