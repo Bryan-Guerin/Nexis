@@ -8,6 +8,8 @@ import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.NoSuchElementException;
 
@@ -49,6 +51,25 @@ public final class BusinessExceptionHandlers {
         @Override
         public HttpResponse<?> handle(HttpRequest request, NoSuchElementException e) {
             return HttpResponse.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
+        }
+    }
+
+    /**
+     * Filet de sécurité : toute exception non gérée → 500 + log de la stack trace
+     * complète côté serveur (sinon Micronaut peut absorber et ne rien afficher).
+     * Le message technique est renvoyé tel quel au front (utile en dev ; à muter
+     * en "Erreur interne" pour la prod si on veut masquer).
+     */
+    @Produces
+    @Singleton
+    @Requires(classes = {RuntimeException.class, ExceptionHandler.class})
+    public static class Generic implements ExceptionHandler<RuntimeException, HttpResponse<?>> {
+        private static final Logger LOG = LoggerFactory.getLogger(Generic.class);
+        @Override
+        public HttpResponse<?> handle(HttpRequest request, RuntimeException e) {
+            LOG.error("Erreur non gérée sur {} {} : {}", request.getMethod(), request.getPath(), e.getMessage(), e);
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return HttpResponse.serverError(new ApiError(msg));
         }
     }
 }

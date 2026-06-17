@@ -13,6 +13,9 @@ import java.util.UUID;
 @Repository
 public interface SpPlanningRepository extends JpaRepository<SpPlanning, UUID> {
 
+    // JPQL explicite : la requête dérivée échoue parfois selon la version Micronaut Data
+    // (cherche `membreId` au lieu de naviguer `membre.id`) → forçage.
+    @Query("SELECT p FROM SpPlanning p WHERE p.membre.id = :membreId")
     List<SpPlanning> findByMembreId(UUID membreId);
 
     @Query("SELECT p FROM SpPlanning p WHERE p.membre.id = :membreId AND p.debut < :fin AND p.fin > :debut")
