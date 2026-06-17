@@ -90,7 +90,12 @@
 
   function jour(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) }
   function dateHeure(iso) { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
-  function eur(n) { return (n ?? 0).toFixed(2) + ' €' }
+  // Format FR : séparateur de milliers (espace), centimes seulement s'il y en a (1 500 € / 1 234,50 €).
+  function eur(n) {
+    const v = n ?? 0
+    const dec = Number.isInteger(v) ? 0 : 2
+    return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: 2 }).format(v) + ' €'
+  }
 
   // ── Trésorerie : filtre, totaux par catégorie, export CSV, contre-passation ──
   let mvtFiltre = $state('')   // '' = toutes ; 'SANS' = sans catégorie ; sinon id catégorie

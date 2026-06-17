@@ -372,7 +372,8 @@
 
   /* ── Pager (style boîtier type Birdie) ─────────────────────────────────── */
   .pager-overlay {
-    position: fixed; inset: 0; z-index: 400;
+    /* Alerte critique : au-dessus de tout (carte Leaflet ≤1000, modales ≤1500, toasts 2000). */
+    position: fixed; inset: 0; z-index: 3000;
     background: rgba(0, 0, 0, 0.6);
     display: flex; align-items: center; justify-content: center;
   }
