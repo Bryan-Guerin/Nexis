@@ -3,7 +3,9 @@
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
+    import {toast} from '../shared/toasts.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import Modal from '../shared/Modal.svelte'
 
     let stats   = $state(null)
   let journal = $state([])
@@ -21,6 +23,27 @@
   let evenements = $state([])
   function fmtEvt(iso) {
     return new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  }
+
+  // Vote intervention de la semaine
+  let voteEtat = $state(null)        // { semaineDate, candidates[], monVote, gagnant }
+  let voteOpen = $state(false)
+  function fmtSemaine(iso) {
+    if (!iso) return ''
+    const d = new Date(iso + 'T12:00:00')
+    const fin = new Date(d); fin.setDate(fin.getDate() + 6)
+    const opt = { day: '2-digit', month: 'short' }
+    return `${d.toLocaleDateString('fr-FR', opt)} → ${fin.toLocaleDateString('fr-FR', opt)}`
+  }
+  async function voter(interId) {
+    try {
+      voteEtat = await api.post(`/sp/vote/${interId}`)
+      toast.success('Vote enregistré.')
+    } catch { /* toast par api.js */ }
+  }
+  async function retirerVote() {
+    try { voteEtat = await api.delete('/sp/vote'); toast.info('Vote retiré.') }
+    catch { /* toast par api.js */ }
   }
 
   // Logo caserne (paramétrable par instance : fichier déposé dans le volume,
@@ -49,16 +72,18 @@
 
   async function load() {
     try {
-      const [s, j, st, sc, fq, ev] = await Promise.all([
+      const [s, j, st, sc, fq, ev, vt] = await Promise.all([
         api.get('/sp/dashboard'),
         api.get('/sp/journal?limit=8'),
         api.get('/sp/planning/statuts').catch(() => []),
         api.get('/sp/planning/me/service-courant').catch(() => ({ categorie: null })),
         api.get('/sp/frequences').catch(() => []),
         api.get('/sp/evenements').catch(() => []),
+        api.get('/sp/vote/semaine-courante').catch(() => null),
       ])
       frequences = fq ?? []
       evenements = ev ?? []
+      voteEtat   = vt
       // Robustesse : les collections vides peuvent être omises du JSON
       stats = {
         ...s,
@@ -220,6 +245,36 @@
         <a href="#/sp/effectifs" class="quick-link">Effectifs →</a>
       </div>
     </section>
+
+    <!-- Vote intervention de la semaine -->
+    {#if voteEtat}
+      <section class="panel vote-panel">
+        <div class="vote-head">
+          <h3>⭐ Intervention de la semaine</h3>
+          <span class="vote-sem muted small">Semaine du {fmtSemaine(voteEtat.semaineDate)}</span>
+        </div>
+        {#if voteEtat.gagnant}
+          <div class="vote-winner">
+            <span class="vw-code mono">{voteEtat.gagnant.code}</span>
+            <span class="vw-motif">{voteEtat.gagnant.motif}</span>
+            {#if voteEtat.gagnant.natureLabel}<span class="vw-nat">{voteEtat.gagnant.natureLabel}</span>{/if}
+            <span class="vw-votes">🗳️ {voteEtat.gagnant.votes} vote{voteEtat.gagnant.votes > 1 ? 's' : ''}</span>
+          </div>
+        {:else if voteEtat.candidates.length === 0}
+          <p class="muted small">Aucune intervention clôturée la semaine précédente.</p>
+        {:else}
+          <p class="muted small">Aucun vote enregistré pour le moment.</p>
+        {/if}
+        {#if voteEtat.candidates.length > 0}
+          <div class="vote-actions">
+            <button class="btn-ghost-sm" onclick={() => voteOpen = true}>
+              {voteEtat.monVote ? '✓ Modifier mon vote' : '🗳️ Voter'}
+            </button>
+            <span class="muted small">{voteEtat.candidates.length} candidate(s)</span>
+          </div>
+        {/if}
+      </section>
+    {/if}
 
     <div class="cols">
         <!-- Événements à venir / en cours -->
@@ -407,6 +462,37 @@
   {/if}
 </div>
 
+<!-- Modale de vote : liste des candidates avec compteurs + bouton voter -->
+{#if voteOpen && voteEtat}
+  <Modal title="Vote intervention de la semaine" width="520px" onclose={() => voteOpen = false}>
+    <p class="muted small">Semaine du {fmtSemaine(voteEtat.semaineDate)} · 1 vote par personne.</p>
+    <div class="vote-list">
+      {#each voteEtat.candidates as c (c.interventionId)}
+        {@const mine = voteEtat.monVote === c.interventionId}
+        <div class="vote-cand" class:mine>
+          <div class="vc-main">
+            <span class="vc-code mono">{c.code}</span>
+            <span class="vc-motif">{c.motif}</span>
+            {#if c.natureLabel}<span class="vc-nat">{c.natureLabel}</span>{/if}
+          </div>
+          <span class="vc-votes">{c.votes}</span>
+          {#if mine}
+            <span class="vc-mine">Mon vote</span>
+          {:else}
+            <button class="btn-ghost-sm" onclick={() => voter(c.interventionId)}>Voter</button>
+          {/if}
+        </div>
+      {/each}
+    </div>
+    {#snippet actions()}
+      {#if voteEtat.monVote}
+        <button class="btn-ghost-sm" onclick={retirerVote}>Retirer mon vote</button>
+      {/if}
+      <button class="btn-primary" onclick={() => voteOpen = false}>Fermer</button>
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
   .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   .stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
@@ -497,4 +583,24 @@
   .freq-add input:focus { border-color: var(--accent); }
   .freq-row .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
   .freq-row .rm-btn:hover { color: var(--color-danger); }
+
+  /* Vote intervention de la semaine */
+  .vote-panel { display: flex; flex-direction: column; gap: 10px; }
+  .vote-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .vote-head h3 { margin: 0; }
+  .vote-winner { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  .vw-code { font-weight: 700; color: var(--accent); }
+  .vw-motif { font-weight: 600; flex: 1; }
+  .vw-nat { font-size: 11px; padding: 2px 8px; background: var(--color-bg); border-radius: 10px; color: var(--color-muted); }
+  .vw-votes { font-size: 12px; color: var(--accent); font-weight: 600; }
+  .vote-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .vote-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+  .vote-cand { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .vote-cand.mine { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .vc-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .vc-code { font-size: 11px; color: var(--color-muted); }
+  .vc-motif { font-weight: 500; }
+  .vc-nat { font-size: 10px; color: var(--color-muted); }
+  .vc-votes { font-family: monospace; font-size: 13px; font-weight: 700; color: var(--accent); min-width: 24px; text-align: right; }
+  .vc-mine { font-size: 11px; color: var(--accent); font-weight: 600; }
 </style>
