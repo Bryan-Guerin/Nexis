@@ -2,6 +2,8 @@
     import {onMount} from 'svelte'
     import {currentUser} from '../shared/stores.js'
     import {api} from '../shared/api.js'
+    import {confirm} from '../shared/confirm.js'
+    import {toast} from '../shared/toasts.js'
     import Modal from '../shared/Modal.svelte'
     import Skeleton from '../shared/Skeleton.svelte'
 
@@ -106,6 +108,19 @@
     } catch (e) { resetError = e.message }
   }
 
+  async function deleteUser(user) {
+    if (!await confirm({
+      title: 'Supprimer l\'utilisateur',
+      message: `Supprimer définitivement « ${user.username} » ?\nSa fiche d'effectif et tout son historique (paie, affectations, badges…) seront supprimés. Action irréversible.`,
+      danger: true, confirmLabel: 'Supprimer',
+    })) return
+    try {
+      await api.delete(`/admin/users/${user.id}`)
+      users = users.filter(u => u.id !== user.id)
+      toast.success(`Utilisateur « ${user.username} » supprimé.`)
+    } catch { /* toast par api.js */ }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function badgeColor(code) {
     if (code === 'ROLE_SYSTEM')   return 'badge-system'
@@ -180,6 +195,9 @@
               <td class="actions">
                 <button class="btn-ghost-sm" onclick={() => openEditRoles(user)}>Rôles</button>
                 <button class="btn-ghost-sm" onclick={() => resetPassword(user)}>Reset MDP</button>
+                {#if user.username !== $currentUser?.username}
+                  <button class="btn-ghost-sm danger" onclick={() => deleteUser(user)}>Supprimer</button>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -278,7 +296,9 @@
   .steam { color: var(--color-muted); font-size: 12px; }
   .status { font-size: 12px; font-weight: 500; color: var(--color-muted); }
   .status.active { color: var(--color-success); }
-  .actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  .actions .danger { color: var(--color-danger); }
+  .actions .danger:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger); }
 
   /* Badges rôle : compact + capitales (couleurs dans ui.css) */
   .badge { font-size: 10px; padding: 2px 7px; text-transform: uppercase; letter-spacing: 0.4px; }

@@ -72,6 +72,19 @@ public class RefUserService {
         return RefUserDto.from(repo.update(user));
     }
 
+    /**
+     * Supprime définitivement un utilisateur. Les fiches membres (SP/GN) et tout leur
+     * historique disparaissent en cascade (voir V56). Renvoie le username supprimé.
+     */
+    @Transactional
+    public String delete(UUID userId) {
+        RefUser user = repo.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("Utilisateur introuvable : " + userId));
+        String username = user.getUsername();
+        repo.delete(user);
+        return username;
+    }
+
     /** Définit un nouveau hash de mot de passe (déjà hashé par l'appelant). */
     @Transactional
     public void updatePasswordHash(UUID userId, String passwordHash) {

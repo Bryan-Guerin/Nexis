@@ -6,16 +6,21 @@ import com.bryan.nexis.backend.dto.CreateRoleRequest;
 import com.bryan.nexis.backend.dto.CreateUserRequest;
 import com.bryan.nexis.backend.dto.ResetPasswordResponse;
 import com.bryan.nexis.backend.dto.UpdateUserRolesRequest;
+import com.bryan.nexis.core.backend.AccountRevocation;
 import com.bryan.nexis.core.backend.JournalService;
 import com.bryan.nexis.core.backend.RefRoleService;
 import com.bryan.nexis.core.backend.RefUserService;
 import com.bryan.nexis.core.backend.dto.RefRoleDto;
 import com.bryan.nexis.core.backend.dto.RefUserDto;
+import com.bryan.nexis.core.realtime.RealtimeEvent;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.utils.SecurityService;
 import org.mindrot.jbcrypt.BCrypt;
+
+import java.util.Map;
 
 import java.security.SecureRandom;
 import java.util.List;
@@ -36,13 +41,19 @@ public class AdminUserController {
     private final RefRoleService roleService;
     private final JournalService journalService;
     private final SecurityService securityService;
+    private final AccountRevocation accountRevocation;
+    private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public AdminUserController(RefUserService userService, RefRoleService roleService,
-                              JournalService journalService, SecurityService securityService) {
+                              JournalService journalService, SecurityService securityService,
+                              AccountRevocation accountRevocation,
+                              ApplicationEventPublisher<RealtimeEvent> events) {
         this.userService = userService;
         this.roleService = roleService;
         this.journalService = journalService;
         this.securityService = securityService;
+        this.accountRevocation = accountRevocation;
+        this.events = events;
     }
 
     private String actor() { return securityService.username().orElse("?"); }
@@ -69,6 +80,24 @@ public class AdminUserController {
         journalService.record("USER_ROLES", null, actor(),
                 "Rôles modifiés : " + updated.username() + " → " + updated.roles());
         return updated;
+    }
+
+    /** Suppression définitive d'un utilisateur (et de ses fiches membres + historique). */
+    @Delete("/users/{id}")
+    @Status(HttpStatus.NO_CONTENT)
+    void deleteUser(UUID id) {
+        var me = securityService.username().orElse(null);
+        var user = userService.listAll().stream().filter(u -> u.id().equals(id)).findFirst()
+                .orElseThrow(() -> new java.util.NoSuchElementException("Utilisateur introuvable : " + id));
+        if (user.username().equals(me)) {
+            throw new IllegalStateException("Vous ne pouvez pas supprimer votre propre compte.");
+        }
+        // Révoque le jeton + déconnecte une éventuelle session active, puis supprime.
+        accountRevocation.set(user.username(), false);
+        events.publishEvent(RealtimeEvent.users("COMPTE_DESACTIVE", null, Set.of(user.username()),
+                "Votre compte a été supprimé.", Map.of(), me));
+        String username = userService.delete(id);
+        journalService.record("USER_SUPPRIME", null, actor(), "Utilisateur supprimé : " + username);
     }
 
     @Post("/users/{id}/reset-password")

@@ -214,11 +214,17 @@
       const [mem, g, u, f, fo] = await Promise.all([
         api.get('/sp/membres/grade'),
         api.get('/sp/grades'),
-        api.get('/admin/users').catch(() => []),
+        // /admin/users est réservé ROLE_SYSTEM : appel silencieux (pas de toast « accès refusé »).
+        api.get('/admin/users', { silent: true }).catch(() => []),
         api.get('/sp/fonctions'),
         api.get('/sp/fonctions-orga').catch(() => []),
       ])
       membres = mem; grades = g; users = u; fonctions = f; fonctionsOrga = fo
+      // À l'arrivée : ouvre par défaut la fiche de l'utilisateur courant (si présent).
+      if (!selectedId) {
+        const moi = membres.find(m => m.username === $currentUser?.username)
+        if (moi) select(moi)
+      }
     } catch { /* toast par api.js */ }
     finally { loading = false }
   }
@@ -471,7 +477,7 @@
     <table class="annuaire">
       <thead>
         <tr>
-          <th>Matricule</th><th>Grade</th><th>Nom / Login</th><th>Contrat</th><th>Fonctions</th><th></th>
+          <th>Matricule</th><th>Grade</th><th>Nom / Login</th><th>Téléphone</th><th>Contrat</th><th>Fonctions</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -480,6 +486,7 @@
             <td class="mono" data-label="Matricule">{m.matricule}</td>
             <td data-label="Grade">{m.gradeCode}</td>
             <td data-label="Nom">{m.nomComplet || m.username}</td>
+            <td class="mono" data-label="Téléphone">{m.telephone || '—'}</td>
             <td data-label="Contrat">
               <span class="contrat-pill" class:spp={m.contrat === 'SPP'} class:spv={m.contrat === 'SPV'}>{m.contrat}</span>
             </td>
@@ -495,7 +502,7 @@
           </tr>
         {/each}
         {#if membresFiltres.length === 0}
-          <tr><td colspan="6" class="empty">{membres.length === 0 ? 'Aucun membre' : 'Aucun résultat'}</td></tr>
+          <tr><td colspan="7" class="empty">{membres.length === 0 ? 'Aucun membre' : 'Aucun résultat'}</td></tr>
         {/if}
       </tbody>
     </table>

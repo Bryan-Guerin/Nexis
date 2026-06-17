@@ -5,7 +5,8 @@ import {toast} from './toasts.js'
 // Empêche plusieurs redirections concurrentes (ex. Promise.all qui renvoie plusieurs 401)
 let redirectingToLogin = false
 
-async function request(method, path, body) {
+async function request(method, path, body, opts) {
+  const silent = opts?.silent === true   // n'affiche pas de toast d'erreur (ex. appel best-effort)
   const token = get(authToken)
   const res = await fetch(`/api${path}`, {
     method,
@@ -39,7 +40,8 @@ async function request(method, path, body) {
     } catch { /* corps non-JSON : on garde le texte brut */ }
     msg = String(msg).replace(/^Internal Server Error:\s*/i, '')
     const err = new Error(msg || String(res.status))
-    toast.error(err.message)   // feedback d'erreur centralisé (toast partout)
+    err.status = res.status
+    if (!silent) toast.error(err.message)   // feedback d'erreur centralisé (sauf appels silencieux)
     throw err
   }
   // Plus de toast de succès systématique : les succès « lourds » sont signalés
@@ -52,9 +54,9 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  get:    path       => request('GET',    path),
-  post:   (path, b)  => request('POST',   path, b),
-  put:    (path, b)  => request('PUT',    path, b),
-  patch:  (path, b)  => request('PATCH',  path, b),
-  delete: path       => request('DELETE', path),
+  get:    (path, opts) => request('GET',    path, undefined, opts),
+  post:   (path, b)    => request('POST',   path, b),
+  put:    (path, b)    => request('PUT',    path, b),
+  patch:  (path, b)    => request('PATCH',  path, b),
+  delete: path         => request('DELETE', path),
 }
