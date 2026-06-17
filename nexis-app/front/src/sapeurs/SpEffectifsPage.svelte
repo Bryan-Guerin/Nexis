@@ -608,7 +608,64 @@
           <p class="inline-error">{saveError}</p>
         {/if}
 
-        <!-- Informations + Qualifications côte à côte ---------------------- -->
+        <!-- Profil RP en pleine largeur, AU-DESSUS du split informations/qualifs -->
+        {#if profilRp}
+          <div class="detail-section">
+            <div class="detail-section-head">
+              <h3>Profil RP</h3>
+              {#if isAdmin}
+                <button class="btn-ghost-sm" onclick={evaluerBadges} title="Re-évalue tous les membres">↻ Évaluer badges</button>
+              {/if}
+            </div>
+            <div class="rp-body">
+              <div class="rp-xp">
+                <div class="rp-xp-head">
+                  <span class="rp-niveau">Niveau {profilRp.niveau}</span>
+                  <span class="rp-xp-val">{profilRp.xp} XP</span>
+                </div>
+                <div class="rp-bar"><div class="rp-bar-fill" style="width:{profilRp.progressionPct}%"></div></div>
+                <div class="rp-xp-foot muted small">
+                  {profilRp.xp - profilRp.xpNiveauActuel} / {profilRp.xpNiveauSuivant - profilRp.xpNiveauActuel} XP avant niveau {profilRp.niveau + 1}
+                </div>
+              </div>
+
+              <div class="rp-stats">
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.interventions}</span><span class="rp-stat-l">interventions</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.heuresGarde}</span><span class="rp-stat-l">h de garde</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursService}</span><span class="rp-stat-l">jours de service</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursGrade}</span><span class="rp-stat-l">jours dans le grade</span></div>
+              </div>
+
+              {#if badgesCatalog.length > 0}
+                {@const obtenusMap = new Map((profilRp.badges ?? []).map(b => [b.badgeId, b]))}
+                {@const isMine = selected?.username && selected.username === $currentUser?.username}
+                <div class="rp-badges">
+                  {#each badgesCatalog as b (b.id)}
+                    {@const obt = obtenusMap.get(b.id)}
+                    {@const got = !!obt}
+                    {@const hidden = got && isMine && !obt.decouvert}
+                    <button class="rp-badge" class:obtenu={got} class:masque={hidden}
+                            class:revealed={revealedBadgeIds.has(b.id)}
+                            title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description ?? '')}
+                            disabled={!hidden}
+                            onclick={() => hidden && decouvrirBadge(b.id)}>
+                      <span class="rp-badge-ico">{hidden ? '❓' : (b.icone || '🏅')}</span>
+                      <span class="rp-badge-label">{hidden ? '????' : b.label}</span>
+                      {#if !got}<span class="rp-badge-lock">🔒</span>{/if}
+                      {#if revealedBadgeIds.has(b.id)}
+                        {#each Array(20) as _, i}
+                          <span class="confetti" style="--i:{i}; --c:{['#e05c5c','#4caf82','#4f6ef7','#e8a23a','#b450dc'][i % 5]}"></span>
+                        {/each}
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Informations (gauche) + Qualifications/Fonctions orga (droite, accordéon) -->
         <div class="detail-cols">
 
         <div class="col-left">
@@ -771,6 +828,7 @@
         {/if}
         </div><!-- /col-left -->
 
+        <div class="col-right">
         <!-- Section qualifications (collapsible) ----------------------------- -->
         <div class="detail-section">
           <button
@@ -843,65 +901,9 @@
             {/if}
           {/if}
         </div>
+        </div><!-- /col-right -->
 
         </div><!-- /detail-cols -->
-
-        <!-- Section profil RP : XP, niveau, badges -->
-        {#if profilRp}
-          <div class="detail-section">
-            <div class="detail-section-head">
-              <h3>Profil RP</h3>
-              {#if isAdmin}
-                <button class="btn-ghost-sm" onclick={evaluerBadges} title="Re-évalue tous les membres">↻ Évaluer badges</button>
-              {/if}
-            </div>
-            <div class="rp-body">
-              <div class="rp-xp">
-                <div class="rp-xp-head">
-                  <span class="rp-niveau">Niveau {profilRp.niveau}</span>
-                  <span class="rp-xp-val">{profilRp.xp} XP</span>
-                </div>
-                <div class="rp-bar"><div class="rp-bar-fill" style="width:{profilRp.progressionPct}%"></div></div>
-                <div class="rp-xp-foot muted small">
-                  {profilRp.xp - profilRp.xpNiveauActuel} / {profilRp.xpNiveauSuivant - profilRp.xpNiveauActuel} XP avant niveau {profilRp.niveau + 1}
-                </div>
-              </div>
-
-              <div class="rp-stats">
-                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.interventions}</span><span class="rp-stat-l">interventions</span></div>
-                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.heuresGarde}</span><span class="rp-stat-l">h de garde</span></div>
-                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursService}</span><span class="rp-stat-l">jours de service</span></div>
-                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursGrade}</span><span class="rp-stat-l">jours dans le grade</span></div>
-              </div>
-
-              {#if badgesCatalog.length > 0}
-                {@const obtenusMap = new Map((profilRp.badges ?? []).map(b => [b.badgeId, b]))}
-                {@const isMine = selected?.username && selected.username === $currentUser?.username}
-                <div class="rp-badges">
-                  {#each badgesCatalog as b (b.id)}
-                    {@const obt = obtenusMap.get(b.id)}
-                    {@const got = !!obt}
-                    {@const hidden = got && isMine && !obt.decouvert}
-                    <button class="rp-badge" class:obtenu={got} class:masque={hidden}
-                            class:revealed={revealedBadgeIds.has(b.id)}
-                            title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description ?? '')}
-                            disabled={!hidden}
-                            onclick={() => hidden && decouvrirBadge(b.id)}>
-                      <span class="rp-badge-ico">{hidden ? '❓' : (b.icone || '🏅')}</span>
-                      <span class="rp-badge-label">{hidden ? '????' : b.label}</span>
-                      {#if !got}<span class="rp-badge-lock">🔒</span>{/if}
-                      {#if revealedBadgeIds.has(b.id)}
-                        {#each Array(20) as _, i}
-                          <span class="confetti" style="--i:{i}; --c:{['#e05c5c','#4caf82','#4f6ef7','#e8a23a','#b450dc'][i % 5]}"></span>
-                        {/each}
-                      {/if}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          </div>
-        {/if}
 
         <!-- Section notations (RH/admin + l'effectif concerné) --------------- -->
         {#if canSeeNotation(selected)}
@@ -1123,10 +1125,16 @@
   .detail-pane { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
 
   /* Informations + Qualifications côte à côte (notations en pleine largeur dessous) */
-  .detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-  /* Colonne gauche = Informations + Sanctions empilées ; colonne droite = Qualifications */
-  .col-left { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-  @media (max-width: 920px) { .detail-cols { grid-template-columns: 1fr; } }
+  .detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+  /* Colonne gauche = Informations + Sanctions empilées ; colonne droite = Qualifications + Fonctions orga (accordéon, hauteur cappée sur la gauche) */
+  .col-left  { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .col-right { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
+  /* Sections de la colonne droite : prennent l'espace dispo, scroll interne quand le contenu dépasse */
+  .col-right > .detail-section { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .col-right > .detail-section > .hab-list,
+  .col-right > .detail-section > .orga-grid { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+  @media (max-width: 920px) { .detail-cols { grid-template-columns: 1fr; } .col-right { min-height: 0; } .col-right > .detail-section > .hab-list,
+  .col-right > .detail-section > .orga-grid { max-height: 280px; } }
   /* Mobile : split-pane vertical (liste compactée en haut, détail dessous). */
   @media (max-width: 768px) {
     .split { flex-direction: column; min-height: 0; }
