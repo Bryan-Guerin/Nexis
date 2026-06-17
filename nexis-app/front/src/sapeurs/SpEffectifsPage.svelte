@@ -157,9 +157,11 @@
   let qualifsOpen = $state(true)
   let fctsOrgaOpen = $state(true)
 
-  // Mode de visualisation : 'detail' (split sélection+détail) | 'annuaire' (table) | 'organigramme' (arbre)
+  // Mode de visualisation : 'detail' (split sélection+détail) | 'annuaire' (table) | 'organigramme'
   let vueMode = $state('detail')
   function switchVue(mode) { vueMode = mode }
+  // Disposition de l'organigramme : 'pyramide' (défaut) ou 'arbre' (pratique sur mobile).
+  let orgaLayout = $state('pyramide')
 
   // Arbre organigramme : construit depuis fonctionsOrga (racines = sans parent).
   let racinesOrga = $derived(fonctionsOrga.filter(f => !f.parentId))
@@ -450,6 +452,34 @@
   </div>
 {/snippet}
 
+<!-- Organigramme pyramidal (structure <ul>/<li> + connecteurs CSS). Récursif. -->
+{#snippet pyrNode(f)}
+  {@const ms = membresPourFonction(f.id)}
+  {@const kids = enfantsDe(f.id)}
+  <li>
+    <div class="pyr-box">
+      <div class="pyr-box-head">
+        <span class="orga-node-ico">{f.icone || '🔹'}</span>
+        <span class="pyr-box-label">{f.label}</span>
+        <span class="orga-node-count">{ms.length}</span>
+      </div>
+      {#if ms.length > 0}
+        <div class="pyr-crew">
+          {#each ms as m (m.id)}
+            <button class="orga-membre" onclick={() => { switchVue('detail'); select(m) }} title={m.nomComplet || m.username}>
+              <span class="om-grade">{m.gradeCode}</span>
+              <span class="om-name">{m.nomComplet || m.username}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+    {#if kids.length > 0}
+      <ul>{#each kids as c (c.id)}{@render pyrNode(c)}{/each}</ul>
+    {/if}
+  </li>
+{/snippet}
+
 <div class="page">
 
   <!-- ── En-tête ─────────────────────────────────────────────────────────── -->
@@ -507,33 +537,45 @@
       </tbody>
     </table>
 
-  <!-- ═════════ Vue Organigramme (arbre par fonction) ═════════════════════════ -->
+  <!-- ═════════ Vue Organigramme (pyramide par défaut, arbre en alternative) ═══ -->
   {:else if vueMode === 'organigramme'}
     {#if racinesOrga.length === 0}
       <p class="muted">Aucune fonction d'organigramme configurée. Voir Configuration.</p>
     {:else}
-      <div class="orga-tree">
-        {#each racinesOrga as r (r.id)}
-          {@render fonctionNode(r)}
-        {/each}
-        {#if membresSansFonction().length > 0}
-          <div class="orga-node sans-fonction">
-            <div class="orga-node-head">
-              <span class="orga-node-ico">👥</span>
-              <span class="orga-node-label">Sans fonction</span>
-              <span class="orga-node-count">{membresSansFonction().length}</span>
-            </div>
-            <div class="orga-membres">
-              {#each membresSansFonction() as m (m.id)}
-                <button class="orga-membre" onclick={() => { switchVue('detail'); select(m) }} title={m.nomComplet || m.username}>
-                  <span class="om-grade">{m.gradeCode}</span>
-                  <span class="om-name">{m.nomComplet || m.username}</span>
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
+      <div class="orga-layout-switch" role="tablist" aria-label="Disposition de l'organigramme">
+        <button role="tab" aria-selected={orgaLayout === 'pyramide'} class:active={orgaLayout === 'pyramide'} onclick={() => orgaLayout = 'pyramide'}>🔺 Pyramide</button>
+        <button role="tab" aria-selected={orgaLayout === 'arbre'} class:active={orgaLayout === 'arbre'} onclick={() => orgaLayout = 'arbre'}>🌳 Arbre</button>
       </div>
+
+      {#if orgaLayout === 'pyramide'}
+        <div class="orga-pyr-scroll">
+          <div class="orga-pyr">
+            <ul>{#each racinesOrga as r (r.id)}{@render pyrNode(r)}{/each}</ul>
+          </div>
+        </div>
+      {:else}
+        <div class="orga-tree">
+          {#each racinesOrga as r (r.id)}{@render fonctionNode(r)}{/each}
+        </div>
+      {/if}
+
+      {#if membresSansFonction().length > 0}
+        <div class="orga-node sans-fonction">
+          <div class="orga-node-head">
+            <span class="orga-node-ico">👥</span>
+            <span class="orga-node-label">Sans fonction</span>
+            <span class="orga-node-count">{membresSansFonction().length}</span>
+          </div>
+          <div class="orga-membres">
+            {#each membresSansFonction() as m (m.id)}
+              <button class="orga-membre" onclick={() => { switchVue('detail'); select(m) }} title={m.nomComplet || m.username}>
+                <span class="om-grade">{m.gradeCode}</span>
+                <span class="om-name">{m.nomComplet || m.username}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
     {/if}
 
   <!-- ═════════ Vue Détail (split sélection + détail, comportement v1.5) ═══════ -->
@@ -1266,7 +1308,36 @@
   .om-grade { font-family: monospace; font-size: 10px; color: var(--color-muted); }
   .om-name { font-weight: 500; }
   .orga-children { margin-top: 10px; padding-left: 16px; border-left: 2px solid var(--color-border); display: flex; flex-direction: column; gap: 10px; }
-  .orga-node.sans-fonction { border-style: dashed; opacity: .85; }
+  .orga-node.sans-fonction { border-style: dashed; opacity: .85; margin-top: 12px; }
+
+  /* Toggle disposition + organigramme pyramidal (connecteurs CSS, récursif) */
+  .orga-layout-switch { display: flex; gap: 6px; margin-bottom: 12px; }
+  .orga-layout-switch button { background: none; border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 12px; padding: 5px 12px; cursor: pointer; }
+  .orga-layout-switch button.active { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+  .orga-pyr-scroll { overflow-x: auto; padding-bottom: 6px; }
+  .orga-pyr { display: inline-block; min-width: 100%; }
+  .orga-pyr ul { display: flex; justify-content: center; padding-top: 20px; position: relative; list-style: none; margin: 0; }
+  .orga-pyr > ul { padding-top: 0; }
+  .orga-pyr li { display: flex; flex-direction: column; align-items: center; position: relative; padding: 20px 8px 0; }
+  /* Connecteurs : bord supérieur (barre horizontale) gauche/droite de chaque nœud. */
+  .orga-pyr li::before, .orga-pyr li::after { content: ''; position: absolute; top: 0; right: 50%; width: 50%; height: 20px; border-top: 2px solid var(--color-border); }
+  .orga-pyr li::after { right: auto; left: 50%; }
+  .orga-pyr li:only-child::before, .orga-pyr li:only-child::after { display: none; }
+  .orga-pyr li:only-child { padding-top: 0; }
+  .orga-pyr li:first-child::before, .orga-pyr li:last-child::after { border: 0 none; }
+  .orga-pyr li:last-child::before { border-right: 2px solid var(--color-border); }
+  .orga-pyr li:first-child::after { border-left: 2px solid var(--color-border); }
+  /* Tronc vertical du parent vers la barre des enfants. */
+  .orga-pyr ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--color-border); width: 0; height: 20px; }
+  /* Racine(s) : pas de connecteur au-dessus. */
+  .orga-pyr > ul > li::before, .orga-pyr > ul > li::after { display: none; }
+
+  .pyr-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px; width: 150px; }
+  .pyr-box-head { display: flex; align-items: center; gap: 6px; }
+  .pyr-box-label { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pyr-crew { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .pyr-crew .orga-membre { border-radius: var(--radius); padding: 3px 8px; }
 
   /* Profil RP : XP, niveau, badges */
   .rp-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; }
