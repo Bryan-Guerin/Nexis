@@ -49,4 +49,5 @@
   .mon-aff .fct { color: var(--color-muted); }
   .mon-aff .more { font-size: 11px; color: var(--color-muted); background: var(--color-bg); border-radius: 8px; padding: 0 5px; }
   @media (max-width: 768px) { .mon-aff .fct { display: none; } }
+  @media (max-width: 480px) { .mon-aff { display: none; } }   /* libère la barre top mobile */
 </style>

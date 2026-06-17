@@ -175,3 +175,37 @@
 .crew-name { flex: 1; font-weight: 500; }
 .crew-grade { font-size: 11px; color: var(--color-muted); }
 .empty-crew { font-size: 12px; color: var(--color-muted); font-style: italic; }
+
+/* ── Modale : cap mobile (largeur fixe → max-width fluide) ──────────────── */
+.modal { max-width: 94vw; }
+
+/* ── Mobile (≤ 768px) ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page { gap: 14px; }
+  .page-header { flex-wrap: wrap; gap: 10px; }
+  .section-header { flex-wrap: wrap; gap: 8px; }
+  .page h2 { font-size: 18px; }
+
+  /* Tables : défilement horizontal au lieu d'écraser les colonnes. */
+  .page table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  .page th, .page td { padding: 8px 10px; }
+
+  /* Formulaires : 1 colonne. */
+  .form-row { flex-direction: column; gap: 10px; }
+  .form-row label, .create-form > label { min-width: 0; }
+  .form-row.grid2 { grid-template-columns: 1fr; }
+
+  /* Cibles tactiles min 36px. */
+  .btn-primary, .btn-danger { padding: 10px 18px; }
+  .btn-ghost, .btn-ghost-sm { padding: 8px 12px; font-size: 12px; }
+
+  /* Modale : padding réduit. */
+  .modal { padding: 16px; }
+
+  /* Cartes dispatch : une colonne. */
+  .grid { grid-template-columns: 1fr; }
+
+  /* Stat-grid : auto-fit déjà adaptatif (minmax 120-180), OK. */
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+}

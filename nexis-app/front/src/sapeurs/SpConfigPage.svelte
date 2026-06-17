@@ -359,6 +359,12 @@
     display: flex;
     flex-direction: column;
   }
+
+  /* Mobile : split vertical (catégories en haut, détail dessous). */
+  @media (max-width: 768px) {
+    .split { flex-direction: column; height: auto; }
+    .list-pane { width: 100%; max-height: 180px; overflow-y: auto; border-right: none; border-bottom: 1px solid var(--color-border); }
+  }
   .cat-item {
     text-align: left;
     background: none;

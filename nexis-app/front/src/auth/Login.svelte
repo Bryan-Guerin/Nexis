@@ -71,10 +71,12 @@
     border-radius: var(--radius);
     padding: 40px;
     width: 360px;
+    max-width: 94vw;
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
+  @media (max-width: 480px) { .login-card { padding: 24px; } }
 
   h1 {
     font-size: 24px;

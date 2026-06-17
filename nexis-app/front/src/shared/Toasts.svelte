@@ -2,9 +2,9 @@
   import {toasts, dismiss} from './toasts.js'
 </script>
 
-<div class="toasts">
+<div class="toasts" role="status" aria-live="polite" aria-atomic="false">
   {#each $toasts as t (t.id)}
-    <button class="toast {t.kind}" onclick={() => dismiss(t.id)} title="Masquer">{t.message}</button>
+    <button class="toast {t.kind}" onclick={() => dismiss(t.id)} aria-label={`Notification ${t.kind === 'error' ? 'erreur' : t.kind === 'info' ? 'info' : 'succès'} — cliquer pour masquer`}>{t.message}</button>
   {/each}
 </div>
 

@@ -132,12 +132,12 @@
 </script>
 
 {#if pager}
-  <div class="pager-overlay">
+  <div class="pager-overlay" role="alertdialog" aria-modal="true" aria-label="Bip d'alerte">
     <div class="pager">
       <div class="pager-top">
-        <span class="led"></span>
+        <span class="led" aria-hidden="true"></span>
         <span class="pager-brand">NEXIS · BIP</span>
-        <span class="pager-count">{pagerCountdown}s</span>
+        <span class="pager-count" aria-label={`${pagerCountdown} secondes restantes`}>{pagerCountdown}s</span>
       </div>
       <div class="pager-screen">
         {#if pager.payload?.code}
@@ -157,6 +157,8 @@
     </div>
   </div>
 {/if}
+
+<a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
 <div class="layout">
   <header>
@@ -220,7 +222,7 @@
     {#if navOpen}
       <button class="nav-backdrop" aria-label="Fermer le menu" onclick={toggleNav}></button>
     {/if}
-    <main class={theme}>
+    <main id="main-content" class={theme} tabindex="-1">
       {@render children()}
     </main>
   </div>
@@ -471,5 +473,11 @@
     }
 
     main { padding: 16px; }
+
+    /* Compact header sur petit écran */
+    header { padding: 0 12px; }
+    .user-area { gap: 8px; }
+    .username, .caret { display: none; }   /* avatar seul suffit */
   }
+
 </style>

@@ -62,7 +62,7 @@
   }
 </script>
 
-<nav>
+<nav aria-label="Navigation principale">
   {#each standalone as item}
     {#if canSee(item.roles)}
       <a href="#{item.path}" class:active={currentHash === `#${item.path}`}>

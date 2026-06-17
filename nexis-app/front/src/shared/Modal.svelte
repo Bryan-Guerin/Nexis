@@ -14,6 +14,7 @@
   let { title = '', onclose, width = null, z = null, dismissible = true, children, actions } = $props()
 
   const uid = ++uidSeq
+  const titleId = `modal-title-${uid}`
   let panel
   onMount(() => { stack.push(uid); panel?.focus() })
   onDestroy(() => { stack = stack.filter(x => x !== uid) })
@@ -29,10 +30,11 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="backdrop" style={z ? `z-index:${z}` : ''} onclick={() => dismissible && onclose?.()}>
-  <div class="modal" style={width ? `width:${width}` : ''} tabindex="-1"
-       bind:this={panel} onclick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+  <div class="modal" style={width ? `width:${width}; max-width:94vw` : ''} tabindex="-1"
+       bind:this={panel} onclick={e => e.stopPropagation()}
+       role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined}>
     <button class="modal-x" title="Fermer" aria-label="Fermer" onclick={() => onclose?.()}>✕</button>
-    {#if title}<h3>{title}</h3>{/if}
+    {#if title}<h3 id={titleId}>{title}</h3>{/if}
     {@render children?.()}
     {#if actions}<div class="modal-actions">{@render actions()}</div>{/if}
   </div>

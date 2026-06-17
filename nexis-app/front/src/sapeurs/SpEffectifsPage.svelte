@@ -884,6 +884,12 @@
   /* Colonne gauche = Informations + Sanctions empilées ; colonne droite = Qualifications */
   .col-left { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
   @media (max-width: 920px) { .detail-cols { grid-template-columns: 1fr; } }
+  /* Mobile : split-pane vertical (liste compactée en haut, détail dessous). */
+  @media (max-width: 768px) {
+    .split { flex-direction: column; min-height: 0; }
+    .list-pane { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--color-border); }
+    .detail-pane { padding: 16px; }
+  }
   .empty-detail { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-muted); font-size: 13px; }
 
   .detail-header { display: flex; flex-direction: column; gap: 6px; }
