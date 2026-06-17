@@ -643,7 +643,7 @@
                     {@const hidden = isMine && !b.decouvert}
                     <button class="rp-badge obtenu" class:masque={hidden}
                             class:revealed={revealedBadgeIds.has(b.badgeId)}
-                            title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description ?? '')}
+                            title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description || b.condition || '')}
                             disabled={!hidden}
                             onclick={() => hidden && decouvrirBadge(b.badgeId)}>
                       <span class="rp-badge-ico">{hidden ? '❓' : (b.icone || '🏅')}</span>
