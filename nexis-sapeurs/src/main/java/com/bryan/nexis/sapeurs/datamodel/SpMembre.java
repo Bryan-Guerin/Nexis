@@ -66,6 +66,14 @@ public class SpMembre {
     @OneToMany(mappedBy = "membre", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<SpMembreQualification> qualifications = new HashSet<>();
 
+    /** Fonctions d'organigramme cumulées par le membre (Chef de centre, RH, Formateur…). */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "sp_membre_fonction_orga",
+            joinColumns = @JoinColumn(name = "membre_id"),
+            inverseJoinColumns = @JoinColumn(name = "fonction_orga_id"))
+    private Set<SpFonctionOrga> fonctionsOrga = new HashSet<>();
+
     protected SpMembre() {}
 
     public SpMembre(RefUser user, SpGrade grade, String contrat, int numeroCasier, int numeroCompteur) {
@@ -92,6 +100,7 @@ public class SpMembre {
     public Instant getDateIntegration()                 { return dateIntegration; }
     public Instant getDateDernierePromotion()           { return dateDernierePromotion; }
     public Set<SpMembreQualification> getQualifications() { return qualifications; }
+    public Set<SpFonctionOrga> getFonctionsOrga()         { return fonctionsOrga; }
 
     // ── Setters ──────────────────────────────────────────────────────────────
 

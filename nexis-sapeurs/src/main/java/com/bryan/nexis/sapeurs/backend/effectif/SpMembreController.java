@@ -8,6 +8,7 @@ import com.bryan.nexis.core.backend.dto.PlanningDto;
 import com.bryan.nexis.core.backend.dto.PlanningStatutDto;
 import com.bryan.nexis.sapeurs.backend.dto.CreateSpMembreRequest;
 import com.bryan.nexis.sapeurs.backend.dto.CreateSpPlanningRequest;
+import com.bryan.nexis.sapeurs.backend.dto.SetFonctionsOrgaRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreDto;
 import com.bryan.nexis.sapeurs.backend.dto.UpdateSpMembreRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpPaieVersementDto;
@@ -248,5 +249,14 @@ public class SpMembreController {
     @Status(HttpStatus.NO_CONTENT)
     void removeQualification(UUID membreId, UUID fonctionId) {
         membreService.removeQualification(membreId, fonctionId);
+    }
+
+    // ── Fonctions organigramme (cumulables : RH + Chef de garde + Formateur…) ──
+
+    /** Remplace l'ensemble des fonctions d'organigramme du membre. */
+    @Put("/membres/{id}/fonctions-orga")
+    @Secured({"ROLE_SP_RH", "ROLE_ADMIN_SP"})
+    SpMembreDto setFonctionsOrga(UUID id, @Body SetFonctionsOrgaRequest req) {
+        return membreService.setFonctionsOrga(id, req.fonctionOrgaIds() == null ? List.of() : req.fonctionOrgaIds());
     }
 }

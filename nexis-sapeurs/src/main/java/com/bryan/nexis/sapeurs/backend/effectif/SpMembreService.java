@@ -6,6 +6,7 @@ import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreDto;
 import com.bryan.nexis.sapeurs.datamodel.SpMembre;
 import com.bryan.nexis.sapeurs.datamodel.SpMembreQualification;
+import com.bryan.nexis.sapeurs.datarepository.SpFonctionOrgaRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpFonctionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpGradeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreRepository;
@@ -17,6 +18,7 @@ import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -24,25 +26,28 @@ import java.util.UUID;
 @Singleton
 public class SpMembreService {
 
-    private final SpMembreRepository   membreRepo;
-    private final RefUserRepository    userRepo;
-    private final SpGradeRepository    gradeRepo;
-    private final SpFonctionRepository fonctionRepo;
-    private final SecurityService      securityService;
+    private final SpMembreRepository       membreRepo;
+    private final RefUserRepository        userRepo;
+    private final SpGradeRepository        gradeRepo;
+    private final SpFonctionRepository     fonctionRepo;
+    private final SpFonctionOrgaRepository fonctionOrgaRepo;
+    private final SecurityService          securityService;
     private final ApplicationEventPublisher<RealtimeEvent> events;
-    private final AccountRevocation    accountRevocation;
+    private final AccountRevocation        accountRevocation;
 
     public SpMembreService(SpMembreRepository membreRepo, RefUserRepository userRepo,
                            SpGradeRepository gradeRepo, SpFonctionRepository fonctionRepo,
+                           SpFonctionOrgaRepository fonctionOrgaRepo,
                            SecurityService securityService,
                            ApplicationEventPublisher<RealtimeEvent> events,
                            AccountRevocation accountRevocation) {
-        this.membreRepo   = membreRepo;
-        this.userRepo     = userRepo;
-        this.gradeRepo    = gradeRepo;
-        this.fonctionRepo = fonctionRepo;
-        this.securityService = securityService;
-        this.events       = events;
+        this.membreRepo       = membreRepo;
+        this.userRepo         = userRepo;
+        this.gradeRepo        = gradeRepo;
+        this.fonctionRepo     = fonctionRepo;
+        this.fonctionOrgaRepo = fonctionOrgaRepo;
+        this.securityService  = securityService;
+        this.events           = events;
         this.accountRevocation = accountRevocation;
     }
 
@@ -166,5 +171,20 @@ public class SpMembreService {
                 .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + membreId));
         membre.getQualifications().removeIf(q -> q.getFonction().getId().equals(fonctionId));
         membreRepo.update(membre);
+    }
+
+    // ── Fonctions organigramme (cumulables) ───────────────────────────────────
+
+    /** Remplace l'ensemble des fonctions d'organigramme du membre par celles fournies. */
+    @Transactional
+    public SpMembreDto setFonctionsOrga(UUID membreId, List<UUID> fonctionOrgaIds) {
+        var membre = membreRepo.findById(membreId)
+                .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + membreId));
+        var nouvelles = new HashSet<>(fonctionOrgaRepo.findAll().stream()
+                .filter(f -> fonctionOrgaIds.contains(f.getId()))
+                .toList());
+        membre.getFonctionsOrga().clear();
+        membre.getFonctionsOrga().addAll(nouvelles);
+        return SpMembreDto.from(membreRepo.update(membre));
     }
 }

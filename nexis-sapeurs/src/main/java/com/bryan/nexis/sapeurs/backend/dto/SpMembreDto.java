@@ -24,17 +24,26 @@ public record SpMembreDto(
         boolean actif,
         Instant dateIntegration,
         Instant dateDernierePromotion,
-        List<QualificationDto> qualifications
+        List<QualificationDto> qualifications,
+        List<FonctionOrgaRefDto> fonctionsOrga
 ) {
     /** Une habilitation : la fonction + sa date de délivrance et son délivreur. */
     @Serdeable
     public record QualificationDto(UUID fonctionId, String fonctionLabel, Instant dateDelivrance, String delivrePar) {}
+
+    /** Référence légère vers une fonction d'organigramme (porteurs : un membre). */
+    @Serdeable
+    public record FonctionOrgaRefDto(UUID id, String code, String label, String icone) {}
 
     public static SpMembreDto from(SpMembre m) {
         var quals = m.getQualifications().stream()
                 .map(q -> new QualificationDto(q.getFonction().getId(), q.getFonction().getLabel(),
                         q.getDateDelivrance(), q.getDelivrePar()))
                 .sorted(Comparator.comparing(QualificationDto::fonctionLabel))
+                .toList();
+        var fos = m.getFonctionsOrga().stream()
+                .map(f -> new FonctionOrgaRefDto(f.getId(), f.getCode(), f.getLabel(), f.getIcone()))
+                .sorted(Comparator.comparing(FonctionOrgaRefDto::label))
                 .toList();
         return new SpMembreDto(
                 m.getId(),
@@ -51,7 +60,8 @@ public record SpMembreDto(
                 m.isActif(),
                 m.getDateIntegration(),
                 m.getDateDernierePromotion(),
-                quals
+                quals,
+                fos
         );
     }
 }
