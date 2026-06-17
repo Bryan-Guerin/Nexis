@@ -90,7 +90,7 @@
 
   // ── Sanctions (RH/admin) ────────────────────────────────────────────────────
   let sanctions = $state([])
-  let sancForm  = $state({ type: '', motif: '', dateSanction: '' })
+  let sancForm  = $state({ type: '', motif: '' })   // date = aujourd'hui (serveur)
   let sancError = $state('')
   async function loadSanctions(m) {
     sanctions = canManageNotation && m ? await api.get(`/sp/rh/membres/${m.id}/sanctions`).catch(() => []) : []
@@ -98,11 +98,10 @@
   async function createSanction() {
     sancError = ''
     if (!sancForm.motif.trim())   { sancError = 'Motif requis'; return }
-    if (!sancForm.dateSanction)   { sancError = 'Date requise'; return }
     try {
       await api.post(`/sp/rh/membres/${selectedId}/sanctions`,
-        { type: sancForm.type || null, motif: sancForm.motif, dateSanction: sancForm.dateSanction })
-      sancForm = { type: '', motif: '', dateSanction: '' }
+        { type: sancForm.type || null, motif: sancForm.motif })
+      sancForm = { type: '', motif: '' }
       await loadSanctions(selected)
     } catch (e) { sancError = e.message }
   }
@@ -586,7 +585,6 @@
               <div class="rel-add">
                 <input type="text" bind:value={sancForm.type} placeholder="Type (ex: Avertissement)" style="max-width:170px" />
                 <input type="text" bind:value={sancForm.motif} placeholder="Motif" />
-                <input type="date" bind:value={sancForm.dateSanction} title="Date de la sanction" />
                 <button class="btn-ghost-sm" onclick={createSanction}>Ajouter</button>
               </div>
             </div>

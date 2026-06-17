@@ -160,7 +160,7 @@
   }
 
   // Action carte branchée sur un statut véhicule (transport hôpital, sur place…).
-  const ACTIONS_CARTE = [['AUCUNE', '— action carte'], ['SUR_PLACE', 'Sur place'],
+  const ACTIONS_CARTE = [['AUCUNE', '— ne bouge pas'], ['EN_ROUTE', 'En route'], ['SUR_PLACE', 'Sur place'],
     ['TRANSPORT_HOPITAL', 'Transport hôpital'], ['RETOUR_CASERNE', 'Retour caserne'], ['DEPANNEUR', 'Dépanneur']]
   async function setStatutAction(it, action) {
     try {

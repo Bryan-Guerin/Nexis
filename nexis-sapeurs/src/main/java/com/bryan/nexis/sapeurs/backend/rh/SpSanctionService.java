@@ -36,11 +36,11 @@ public class SpSanctionService {
     @Transactional
     public SpSanctionDto create(UUID membreId, String type, String motif, LocalDate dateSanction) {
         if (motif == null || motif.isBlank()) throw new IllegalArgumentException("Le motif de la sanction est requis.");
-        if (dateSanction == null) throw new IllegalArgumentException("La date de la sanction est requise.");
+        var date = dateSanction != null ? dateSanction : LocalDate.now();   // défaut : aujourd'hui
         var membre = membreRepo.findById(membreId)
                 .orElseThrow(() -> new NoSuchElementException("Membre SP introuvable : " + membreId));
         var t = (type == null || type.isBlank()) ? null : type.trim();
-        return SpSanctionDto.from(repo.save(new SpSanction(membre, t, motif.trim(), dateSanction, actor())));
+        return SpSanctionDto.from(repo.save(new SpSanction(membre, t, motif.trim(), date, actor())));
     }
 
     @Transactional

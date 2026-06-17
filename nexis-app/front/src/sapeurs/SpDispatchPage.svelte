@@ -37,11 +37,10 @@
           const from = pos || dest || i.coordonnees   // origine = dernière position (ex. hôpital)
           if (caserne) out.push({ id, from, to: caserne, couleur, label, icone, depart: dep })
           else out.push({ id, at: from, couleur, label, icone })
-        } else if (caserne) {
+        } else if (action === 'EN_ROUTE' && caserne) {
           out.push({ id, from: caserne, to: i.coordonnees, couleur, label, icone, depart: dep || i.debut })   // en route, ETA animée
-        } else {
-          out.push({ id, at: i.coordonnees, couleur, label, icone })
         }
+        // AUCUNE / DEPANNEUR : aucun tracé — l'engin ne bouge pas tant qu'il n'est pas « en route »
       }
     }
     return out
