@@ -3,6 +3,7 @@
     import {api} from '../shared/api.js'
     import {currentUser} from '../shared/stores.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import Modal from '../shared/Modal.svelte'
 
     let types      = $state([])
   let vehicules  = $state([])
@@ -594,9 +595,7 @@
 
 <!-- ── Modale édition véhicule ──────────────────────────────────────────────── -->
 {#if editVeh}
-  <div class="backdrop" onclick={() => editVeh = null}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Éditer — {editVeh.libelle}</h3>
+  <Modal title={`Éditer — ${editVeh.libelle}`} onclose={() => editVeh = null}>
       {#if editError}<p class="inline-error">{editError}</p>{/if}
       <form onsubmit={submitEdit} style="display:flex;flex-direction:column;gap:12px">
         <label class="field-label">Libellé<input type="text" bind:value={editForm.libelle} required /></label>
@@ -614,16 +613,12 @@
           <button type="submit" class="btn-primary">Enregistrer</button>
         </div>
       </form>
-    </div>
-  </div>
+  </Modal>
 {/if}
 
 <!-- ── Modale vérification inventaire (fermable uniquement via la croix) ─────── -->
 {#if verifVeh}
-  <div class="backdrop">
-    <div class="modal wide">
-      <button class="modal-close" title="Fermer" onclick={() => verifVeh = null}>×</button>
-      <h3>Vérifier l'inventaire — {verifVeh.libelle}</h3>
+  <Modal width="600px" dismissible={false} title={`Vérifier l'inventaire — ${verifVeh.libelle}`} onclose={() => verifVeh = null}>
       {#if verifError}<p class="inline-error">{verifError}</p>{/if}
 
       {#if verifLignes.length === 0}
@@ -687,8 +682,7 @@
       <div class="modal-actions">
         {#if verifLignes.length > 0}<button class="btn-primary" onclick={submitVerif}>Valider</button>{/if}
       </div>
-    </div>
-  </div>
+  </Modal>
 {/if}
 
 <style>
@@ -756,10 +750,7 @@
 
   .qty { color: var(--accent); font-weight: 600; font-size: 12px; }
 
-  .modal.wide { width: 600px; position: relative; }
-  .modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--color-muted); font-size: 24px; line-height: 1; cursor: pointer; padding: 0 4px; }
-  .modal-close:hover { color: var(--color-text); }
-  .modal select, .modal input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
+  .check-list input[type="number"] { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
 
   .result { font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--color-success, #4caf82) 16%, transparent); color: var(--color-success, #4caf82); }
   .result.ko { background: color-mix(in srgb, var(--color-danger) 16%, transparent); color: var(--color-danger); }

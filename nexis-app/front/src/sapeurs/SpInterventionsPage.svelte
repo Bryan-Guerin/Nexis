@@ -9,6 +9,7 @@
     import Pagination from '../shared/Pagination.svelte'
     import Skeleton from '../shared/Skeleton.svelte'
     import EmptyState from '../shared/EmptyState.svelte'
+    import Modal from '../shared/Modal.svelte'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let interventions = $state([])
@@ -436,14 +437,10 @@
 
 <!-- ── Détail intervention + main courante ──────────────────────────────────── -->
 {#if detailInter}
-  <div class="backdrop" onclick={() => detailInter = null}>
-    <div class="modal wide" onclick={e => e.stopPropagation()}>
-      <div class="detail-head">
-        <h3>{detailInter.code} — {detailInter.motif}</h3>
-        {#if isDispatcher && detailInter.enCours && !editing}
-          <button class="btn-ghost-sm" onclick={startEdit}>Éditer</button>
-        {/if}
-      </div>
+  <Modal width="600px" title={`${detailInter.code} — ${detailInter.motif}`} onclose={() => detailInter = null}>
+      {#if isDispatcher && detailInter.enCours && !editing}
+        <div class="detail-head"><button class="btn-ghost-sm" onclick={startEdit}>Éditer</button></div>
+      {/if}
 
       {#if editing}
         <div class="edit-form">
@@ -582,8 +579,7 @@
         <button class="btn-ghost-sm" onclick={exportPdf}>⤓ Exporter PDF</button>
         <button class="btn-ghost-sm" onclick={() => detailInter = null}>Fermer</button>
       </div>
-    </div>
-  </div>
+  </Modal>
 {/if}
 
 <style>
@@ -629,7 +625,6 @@
   .renfort-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 
   /* Détail */
-  .modal.wide { width: 600px; }
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 13px; }
   .detail-grid .full { grid-column: 1 / -1; }
   .dl { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--color-muted); }
@@ -648,8 +643,7 @@
   .mc-add { display: flex; gap: 8px; }
   .mc-add input { flex: 1; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
 
-  .detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .detail-head h3 { margin: 0; }
+  .detail-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
   .edit-form { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
   .rm-btn:hover { color: var(--color-danger); }

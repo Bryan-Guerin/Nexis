@@ -6,6 +6,7 @@
     import {confirm} from '../shared/confirm.js'
     import {currentUser} from '../shared/stores.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import Modal from '../shared/Modal.svelte'
 
     // ── Données ──────────────────────────────────────────────────────────────
   let membres   = $state([])
@@ -729,9 +730,7 @@
 
 <!-- ═══════════════════════════════════════════════════════════════ Modal ═ -->
 {#if showCreate}
-  <div class="backdrop" onclick={() => showCreate = false}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Nouveau membre SP</h3>
+  <Modal title="Nouveau membre SP" onclose={() => showCreate = false}>
       {#if createError}<p class="inline-error">{createError}</p>{/if}
 
       <form onsubmit={submitCreate} style="display:flex;flex-direction:column;gap:14px">
@@ -815,8 +814,7 @@
           <button type="submit" class="btn-primary">Créer le membre</button>
         </div>
       </form>
-    </div>
-  </div>
+  </Modal>
 {/if}
 
 <style>

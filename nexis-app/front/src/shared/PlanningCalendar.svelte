@@ -15,6 +15,7 @@
     import {api} from './api.js'
     import {confirm} from './confirm.js'
     import Skeleton from './Skeleton.svelte'
+    import Modal from './Modal.svelte'
 
     let { planningPath, membresPath, selfPath, title, canManageGarde = false, gardeBase = null, mePath = null } = $props()
 
@@ -405,28 +406,25 @@
 
 <!-- ── Popover d'édition d'un créneau (statut / suppression) ───────────────── -->
 {#if popover}
-  <div class="backdrop" onclick={() => popover = null}>
-    <div class="modal pop" onclick={e => e.stopPropagation()}>
-      <h3>Créneau</h3>
+  <Modal title="Créneau" width="320px" onclose={() => popover = null}>
+    <div class="pl-form">
       <label>Statut
         <select value={popover.statutId} onchange={e => changerStatut(e.target.value)}>
           {#each statuts as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
         </select>
       </label>
-      <div class="modal-actions">
-        <button class="btn-ghost" onclick={() => popover = null}>Fermer</button>
-        <button class="btn-primary danger" onclick={supprimerPlage}>Supprimer</button>
-      </div>
     </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost" onclick={() => popover = null}>Fermer</button>
+      <button class="btn-danger" onclick={supprimerPlage}>Supprimer</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ── Modal auto-déclaration ─────────────────────────────────────────────── -->
 {#if showForm}
-  <div class="backdrop" onclick={() => showForm = false}>
-    <div class="modal" onclick={e => e.stopPropagation()}>
-      <h3>Se déclarer</h3>
-
+  <Modal title="Se déclarer" width="360px" onclose={() => showForm = false}>
+    <div class="pl-form">
       <label>Statut
         <select bind:value={fStatutId}>
           {#each statuts as s (s.id)}
@@ -443,17 +441,15 @@
       <label>Notes
         <input type="text" bind:value={fNotes} placeholder="Optionnel" />
       </label>
-
       {#if fError}<p class="inline-error">{fError}</p>{/if}
-
-      <div class="modal-actions">
-        <button class="btn-ghost" onclick={() => showForm = false}>Annuler</button>
-        <button class="btn-primary" onclick={submitForm} disabled={fBusy}>
-          {fBusy ? 'Enregistrement…' : 'Confirmer'}
-        </button>
-      </div>
     </div>
-  </div>
+    {#snippet actions()}
+      <button class="btn-ghost" onclick={() => showForm = false}>Annuler</button>
+      <button class="btn-primary" onclick={submitForm} disabled={fBusy}>
+        {fBusy ? 'Enregistrement…' : 'Confirmer'}
+      </button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>
@@ -564,7 +560,6 @@
   .handle.l { left: 0; }
   .handle.r { right: 0; }
   .block.ghost { background: color-mix(in srgb, var(--accent) 22%, transparent); border: 1px dashed var(--accent); pointer-events: none; }
-  .modal.pop { width: 280px; }
   .block-label {
     font-size: 10px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -572,13 +567,13 @@
 
   /* .empty, .btn-ghost, .btn-primary, .backdrop, .modal-actions proviennent du socle ui.css */
 
-  /* ── Modale (compacte, propre au calendrier) ─────────────────────────────── */
-  .modal { width: 360px; gap: 14px; }
-  .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--color-muted); }
-  .modal select, .modal input[type="datetime-local"], .modal input[type="text"] {
+  /* ── Contenu des modales planning (champs) ───────────────────────────────── */
+  .pl-form { display: flex; flex-direction: column; gap: 14px; }
+  .pl-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--color-muted); }
+  .pl-form select, .pl-form input[type="datetime-local"], .pl-form input[type="text"] {
     background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: var(--radius); color: var(--color-text);
     font-size: 13px; padding: 7px 10px; outline: none;
   }
-  .modal select:focus, .modal input:focus { border-color: var(--accent); }
+  .pl-form select:focus, .pl-form input:focus { border-color: var(--accent); }
 </style>
