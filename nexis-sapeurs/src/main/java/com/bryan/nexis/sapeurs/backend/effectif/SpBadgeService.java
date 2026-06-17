@@ -4,6 +4,7 @@ import com.bryan.nexis.sapeurs.backend.dto.SpBadgeDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreBadgeDto;
 import com.bryan.nexis.sapeurs.datamodel.BadgeCondition;
 import com.bryan.nexis.sapeurs.datamodel.SpBadge;
+import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
 import com.bryan.nexis.sapeurs.datamodel.TypeFonction;
 import com.bryan.nexis.sapeurs.datarepository.SpBadgeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreBadgeRepository;
@@ -25,6 +26,9 @@ import java.util.UUID;
 public class SpBadgeService {
 
     private static final Sort BY_POSITION = Sort.of(Sort.Order.asc("position"));
+
+    /** Paliers générés pour une nature : { seuil, XP }. Cohérent avec le seed V52. */
+    private static final int[][] NATURE_PALIERS = { {1, 25}, {10, 50}, {50, 100}, {100, 200} };
 
     private final SpBadgeRepository              badgeRepo;
     private final SpMembreBadgeRepository        membreBadgeRepo;
@@ -97,6 +101,36 @@ public class SpBadgeService {
         var b = badgeRepo.findById(id).orElseThrow(
                 () -> new NoSuchElementException("Badge introuvable : " + id));
         badgeRepo.delete(b);   // membre_badge cascade
+    }
+
+    // ── Badges « par nature » (générés/supprimés avec la nature) ──────────────
+
+    /**
+     * Crée les badges de paliers (1/10/50/100) pour une nature. Idempotent : un palier
+     * dont le code existe déjà est ignoré. Code = {@code NAT_<code>_<seuil>} (= le seed V52).
+     */
+    @Transactional
+    public void createForNature(SpNatureIntervention nature) {
+        String icone = (nature.getIcone() != null && !nature.getIcone().isBlank()) ? nature.getIcone() : "🔥";
+        for (int[] palier : NATURE_PALIERS) {
+            int seuil = palier[0], xp = palier[1];
+            String code = "NAT_" + nature.getCode() + "_" + seuil;
+            if (badgeRepo.existsByCode(code)) continue;
+            var b = new SpBadge(code, nature.getLabel() + " ×" + seuil, BadgeCondition.INTER_NATURE_COUNT, seuil);
+            b.setIcone(icone);
+            b.setNature(nature);
+            b.setXpReward(xp);
+            b.setPosition((int) badgeRepo.count());
+            badgeRepo.save(b);
+        }
+    }
+
+    /** Supprime tous les badges rattachés à une nature (avant de supprimer la nature). */
+    @Transactional
+    public void deleteForNature(UUID natureId) {
+        for (var b : badgeRepo.findByNatureId(natureId)) {
+            badgeRepo.delete(b);   // membre_badge cascade
+        }
     }
 
     @Transactional

@@ -1,6 +1,7 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpNatureInterventionDto;
+import com.bryan.nexis.sapeurs.backend.effectif.SpBadgeService;
 import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpNatureInterventionRepository;
@@ -21,13 +22,16 @@ public class SpNatureInterventionService {
     private final SpNatureInterventionRepository repo;
     private final SpInterventionRepository       interventionRepo;
     private final SpVehiculeTypeRepository        typeRepo;
+    private final SpBadgeService                  badgeService;
 
     public SpNatureInterventionService(SpNatureInterventionRepository repo,
                                        SpInterventionRepository interventionRepo,
-                                       SpVehiculeTypeRepository typeRepo) {
+                                       SpVehiculeTypeRepository typeRepo,
+                                       SpBadgeService badgeService) {
         this.repo             = repo;
         this.interventionRepo = interventionRepo;
         this.typeRepo         = typeRepo;
+        this.badgeService     = badgeService;
     }
 
     /**
@@ -53,6 +57,7 @@ public class SpNatureInterventionService {
                 typeRepo.update(type);
             }
         }
+        badgeService.deleteForNature(id);   // retire les badges « ×1/×10/×50/×100 » de la nature
         repo.delete(nature);
     }
 
@@ -65,7 +70,9 @@ public class SpNatureInterventionService {
     public SpNatureInterventionDto create(String code, String label) {
         var n = new SpNatureIntervention(code, label);
         n.setPosition((int) repo.count());
-        return SpNatureInterventionDto.from(repo.save(n));
+        var saved = repo.save(n);
+        badgeService.createForNature(saved);   // génère les badges « ×1/×10/×50/×100 »
+        return SpNatureInterventionDto.from(saved);
     }
 
     @Transactional

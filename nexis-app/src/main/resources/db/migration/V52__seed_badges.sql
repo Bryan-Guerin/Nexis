@@ -30,8 +30,9 @@ INSERT INTO sp_badge (id, code, label, icone, type_condition, nature_id, type_fo
   (gen_random_uuid(), 'QUAL_20',    'Maître toutes fonctions','🏵️', 'QUALIF_COUNT', NULL, NULL, 20, 400, 43),
   -- Qualifications — par type de fonction (QUALIF_TYPE_COUNT)
   (gen_random_uuid(), 'QUAL_CA_1',   'Chef d''agrès',         '🎯', 'QUALIF_TYPE_COUNT', NULL, 'CHEF_AGRES', 1, 100, 50),
-  (gen_random_uuid(), 'QUAL_COND_1', 'Conducteur',            '🚐', 'QUALIF_TYPE_COUNT', NULL, 'CONDUCTEUR', 1,  75, 51),
-  (gen_random_uuid(), 'QUAL_COND_3', 'Conducteur confirmé',   '🚒', 'QUALIF_TYPE_COUNT', NULL, 'CONDUCTEUR', 3, 150, 52)
+  (gen_random_uuid(), 'QUAL_CA_3',   'Chef d''agrès confirmé','🎖️', 'QUALIF_TYPE_COUNT', NULL, 'CHEF_AGRES', 3, 200, 51),
+  (gen_random_uuid(), 'QUAL_COND_1', 'Conducteur',            '🚐', 'QUALIF_TYPE_COUNT', NULL, 'CONDUCTEUR', 1,  75, 52),
+  (gen_random_uuid(), 'QUAL_COND_3', 'Conducteur confirmé',   '🚒', 'QUALIF_TYPE_COUNT', NULL, 'CONDUCTEUR', 3, 150, 53)
 ON CONFLICT (code) DO NOTHING;
 
 -- ── « Première fois » par nature d'intervention, avec paliers 1 / 10 / 50 / 100 ──
