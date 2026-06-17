@@ -2,12 +2,57 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import HeatMapView from '../shared/HeatMapView.svelte'
 
     let s = $state(null)
+  let natures = $state([])
+
+  // Heatmap : période + filtre nature
+  const PERIODES = [
+    ['7j',   '7 jours'],
+    ['mois', '30 jours'],
+    ['3m',   '3 mois'],
+    ['6m',   '6 mois'],
+    ['all',  'Depuis le début'],
+  ]
+  let periode = $state('mois')
+  let natureFilter = $state('')
+  let heatPoints = $state([])
+  let heatLoading = $state(false)
+
+  function bornes(p) {
+    const now = new Date()
+    if (p === 'all') return { from: null, to: null }
+    const from = new Date(now)
+    if (p === '7j')   from.setDate(now.getDate() - 7)
+    else if (p === 'mois') from.setDate(now.getDate() - 30)
+    else if (p === '3m')   from.setMonth(now.getMonth() - 3)
+    else if (p === '6m')   from.setMonth(now.getMonth() - 6)
+    return { from: from.toISOString(), to: now.toISOString() }
+  }
+
+  async function loadHeat() {
+    heatLoading = true
+    const { from, to } = bornes(periode)
+    const qs = new URLSearchParams()
+    if (from) qs.set('from', from)
+    if (to)   qs.set('to', to)
+    if (natureFilter) qs.set('natureId', natureFilter)
+    try { heatPoints = await api.get(`/sp/stats/heatmap?${qs}`) }
+    catch { heatPoints = [] /* toast par api.js */ }
+    finally { heatLoading = false }
+  }
+
+  $effect(() => { void periode; void natureFilter; loadHeat() })
 
   onMount(async () => {
-    try { s = await api.get('/sp/stats/interventions') }
-    catch { /* toast par api.js */ }
+    try {
+      const [stats, nats] = await Promise.all([
+        api.get('/sp/stats/interventions'),
+        api.get('/sp/natures').catch(() => []),
+      ])
+      s = stats; natures = nats
+    } catch { /* toast par api.js */ }
   })
 
   function dureeTexte(min) {
@@ -21,6 +66,7 @@
   }
   let maxNature = $derived(s ? Math.max(1, ...s.parNature.map(n => n.count)) : 1)
   let maxMois   = $derived(s ? Math.max(1, ...s.parMois.map(n => n.count)) : 1)
+  let totalHeat = $derived(heatPoints.reduce((a, p) => a + p.count, 0))
 </script>
 
 <div class="page">
@@ -70,6 +116,39 @@
         </div>
       </section>
     </div>
+
+    <!-- Heatmap géographique -->
+    <section class="panel">
+      <div class="heat-head">
+        <h3>🌡️ Carte des interventions</h3>
+        <div class="heat-filters">
+          <label class="field-label">Période
+            <select bind:value={periode}>
+              {#each PERIODES as [v, l]}<option value={v}>{l}</option>{/each}
+            </select>
+          </label>
+          <label class="field-label">Nature
+            <select bind:value={natureFilter}>
+              <option value="">Toutes</option>
+              {#each natures as n (n.id)}<option value={n.id}>{n.label}</option>{/each}
+            </select>
+          </label>
+          <span class="heat-total muted small">{totalHeat} intervention{totalHeat > 1 ? 's' : ''} sur {heatPoints.length} zone{heatPoints.length > 1 ? 's' : ''}</span>
+        </div>
+      </div>
+      {#if heatLoading}
+        <Skeleton rows={6} height="60px" />
+      {:else if heatPoints.length === 0}
+        <p class="muted small">Aucune intervention géolocalisée sur la période.</p>
+      {:else}
+        <HeatMapView points={heatPoints} />
+        <div class="heat-legend">
+          <span class="muted small">Concentration :</span>
+          <span class="heat-grad"></span>
+          <span class="muted small">faible → forte</span>
+        </div>
+      {/if}
+    </section>
   {/if}
 </div>
 
@@ -97,4 +176,11 @@
   .trend-n { font-size: 11px; color: var(--color-muted); }
   .trend-bar { width: 70%; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; }
   .trend-day { font-size: 10px; color: var(--color-muted); }
+
+  .heat-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  .heat-head h3 { margin: 0; }
+  .heat-filters { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+  .heat-total { margin-bottom: 6px; }
+  .heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .heat-grad { display: inline-block; width: 140px; height: 10px; border-radius: 5px; background: linear-gradient(to right, rgb(76,175,130), rgb(232,218,80), rgb(232,162,58), rgb(224,92,92)); }
 </style>

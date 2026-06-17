@@ -1,5 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.pilotage;
 
+import com.bryan.nexis.sapeurs.backend.dto.HeatmapPointDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpInterventionStatsDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpInterventionStatsDto.MoisCount;
 import com.bryan.nexis.sapeurs.backend.dto.SpInterventionStatsDto.NatureCount;
@@ -9,13 +10,17 @@ import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Singleton
 public class SpStatsService {
@@ -69,5 +74,27 @@ public class SpStatsService {
 
         return new SpInterventionStatsDto(total, enCours, cloturees, dureeMoyenne, totalVictimes,
                 nbIncendies, nbAvecVehicule, parNature, parMois);
+    }
+
+    /**
+     * Heatmap : interventions agrégées par coordonnées. {@code from}/{@code to} bornent
+     * la fenêtre temporelle (sur la date de début), {@code natureId} filtre une nature.
+     * Toutes les bornes sont optionnelles (null = tout).
+     */
+    @Transactional
+    public List<HeatmapPointDto> heatmap(Instant from, Instant to, UUID natureId) {
+        Map<String, Integer> agg = new HashMap<>();
+        for (var i : interventionRepo.findAll()) {
+            String c = i.getCoordonnees();
+            if (c == null || c.length() < 6) continue;
+            if (from != null && i.getDebut().isBefore(from)) continue;
+            if (to   != null && i.getDebut().isAfter(to))    continue;
+            if (natureId != null && (i.getNature() == null || !i.getNature().getId().equals(natureId))) continue;
+            agg.merge(c, 1, Integer::sum);
+        }
+        return agg.entrySet().stream()
+                .map(e -> new HeatmapPointDto(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparingInt(HeatmapPointDto::count).reversed())
+                .toList();
     }
 }
