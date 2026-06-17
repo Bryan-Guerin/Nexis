@@ -26,6 +26,10 @@ public class SpMembreBadge {
     @Column(name = "obtenu_le", nullable = false)
     private Instant obtenuLe = Instant.now();
 
+    /** Faux tant que le porteur n'a pas cliqué pour découvrir le badge sur sa fiche. */
+    @Column(nullable = false)
+    private boolean decouvert = false;
+
     protected SpMembreBadge() {}
 
     public SpMembreBadge(SpMembre membre, SpBadge badge) {
@@ -37,4 +41,7 @@ public class SpMembreBadge {
     public SpMembre getMembre() { return membre; }
     public SpBadge getBadge()   { return badge; }
     public Instant getObtenuLe(){ return obtenuLe; }
+    public boolean isDecouvert(){ return decouvert; }
+
+    public void setDecouvert(boolean decouvert) { this.decouvert = decouvert; }
 }

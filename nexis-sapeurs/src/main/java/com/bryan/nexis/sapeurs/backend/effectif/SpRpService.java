@@ -1,10 +1,12 @@
 package com.bryan.nexis.sapeurs.backend.effectif;
 
 import com.bryan.nexis.core.datamodel.TypeService;
+import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreBadgeDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpProfilRpDto;
 import com.bryan.nexis.sapeurs.datamodel.*;
 import com.bryan.nexis.sapeurs.datarepository.*;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -41,19 +43,22 @@ public class SpRpService {
     private final SpVehiculeAffectationRepository affRepo;
     private final SpInterventionRepository        interRepo;
     private final SpPlanningRepository            planningRepo;
+    private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpRpService(SpMembreRepository membreRepo,
                        SpBadgeRepository badgeRepo,
                        SpMembreBadgeRepository membreBadgeRepo,
                        SpVehiculeAffectationRepository affRepo,
                        SpInterventionRepository interRepo,
-                       SpPlanningRepository planningRepo) {
+                       SpPlanningRepository planningRepo,
+                       ApplicationEventPublisher<RealtimeEvent> events) {
         this.membreRepo      = membreRepo;
         this.badgeRepo       = badgeRepo;
         this.membreBadgeRepo = membreBadgeRepo;
         this.affRepo         = affRepo;
         this.interRepo       = interRepo;
         this.planningRepo    = planningRepo;
+        this.events          = events;
     }
 
     // ── Profil ───────────────────────────────────────────────────────────────
@@ -105,7 +110,33 @@ public class SpRpService {
                 LOG.info("Badge attribué : {} → {}", b.getCode(), membre.getMatricule());
             }
         }
+        // Notif nominale au porteur (sans dévoiler quel badge — il découvre sur sa fiche).
+        if (nouveaux > 0) {
+            String message = nouveaux == 1
+                    ? "🎁 Vous avez débloqué un nouveau badge ! Découvrez-le sur votre fiche."
+                    : "🎁 Vous avez débloqué " + nouveaux + " nouveaux badges ! Découvrez-les sur votre fiche.";
+            events.publishEvent(RealtimeEvent.users(
+                    "BADGE_OBTENU", "SP",
+                    java.util.Set.of(membre.getUser().getUsername()),
+                    message,
+                    java.util.Map.of("count", String.valueOf(nouveaux)),
+                    null).ephemere());   // non journalisé, juste push
+        }
         return nouveaux;
+    }
+
+    /** Marque un badge comme découvert par son porteur. */
+    @Transactional
+    public SpMembreBadgeDto markDecouvert(UUID membreId, UUID badgeId) {
+        var mb = membreBadgeRepo.findByMembreId(membreId).stream()
+                .filter(x -> x.getBadge().getId().equals(badgeId))
+                .findFirst().orElseThrow(
+                        () -> new NoSuchElementException("Badge non obtenu par ce membre"));
+        if (!mb.isDecouvert()) {
+            mb.setDecouvert(true);
+            membreBadgeRepo.update(mb);
+        }
+        return SpMembreBadgeDto.from(mb);
     }
 
     private boolean atteint(SpBadge b, SpProfilRpDto.Compteurs c, SpMembre membre) {

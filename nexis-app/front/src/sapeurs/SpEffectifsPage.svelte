@@ -260,6 +260,24 @@
     profilRp = await api.get(`/sp/membres/${membreId}/profil-rp`).catch(() => null)
   }
 
+  // Suivi des badges dévoilés en live (pour déclencher l'animation confetti une fois).
+  let revealedBadgeIds = $state(new Set())
+
+  async function decouvrirBadge(badgeId) {
+    try {
+      await api.put(`/sp/membres/me/badges/${badgeId}/decouvrir`)
+      revealedBadgeIds = new Set([...revealedBadgeIds, badgeId])
+      // Met à jour le profil pour que decouvert=true dans le store
+      const b = (profilRp?.badges ?? []).find(x => x.badgeId === badgeId)
+      if (b) profilRp.badges = profilRp.badges.map(x => x.badgeId === badgeId ? { ...x, decouvert: true } : x)
+      // Animation : retrait du flag après ~2 s
+      setTimeout(() => {
+        const s = new Set(revealedBadgeIds); s.delete(badgeId)
+        revealedBadgeIds = s
+      }, 2200)
+    } catch { /* toast par api.js */ }
+  }
+
   async function evaluerBadges() {
     try {
       const res = await api.post('/sp/badges/eval')
@@ -857,15 +875,27 @@
               </div>
 
               {#if badgesCatalog.length > 0}
-                {@const obtenus = new Set((profilRp.badges ?? []).map(b => b.badgeId))}
+                {@const obtenusMap = new Map((profilRp.badges ?? []).map(b => [b.badgeId, b]))}
+                {@const isMine = selected?.username && selected.username === $currentUser?.username}
                 <div class="rp-badges">
                   {#each badgesCatalog as b (b.id)}
-                    {@const got = obtenus.has(b.id)}
-                    <div class="rp-badge" class:obtenu={got} title={b.description ?? ''}>
-                      <span class="rp-badge-ico">{b.icone || '🏅'}</span>
-                      <span class="rp-badge-label">{b.label}</span>
+                    {@const obt = obtenusMap.get(b.id)}
+                    {@const got = !!obt}
+                    {@const hidden = got && isMine && !obt.decouvert}
+                    <button class="rp-badge" class:obtenu={got} class:masque={hidden}
+                            class:revealed={revealedBadgeIds.has(b.id)}
+                            title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description ?? '')}
+                            disabled={!hidden}
+                            onclick={() => hidden && decouvrirBadge(b.id)}>
+                      <span class="rp-badge-ico">{hidden ? '❓' : (b.icone || '🏅')}</span>
+                      <span class="rp-badge-label">{hidden ? '????' : b.label}</span>
                       {#if !got}<span class="rp-badge-lock">🔒</span>{/if}
-                    </div>
+                      {#if revealedBadgeIds.has(b.id)}
+                        {#each Array(20) as _, i}
+                          <span class="confetti" style="--i:{i}; --c:{['#e05c5c','#4caf82','#4f6ef7','#e8a23a','#b450dc'][i % 5]}"></span>
+                        {/each}
+                      {/if}
+                    </button>
                   {/each}
                 </div>
               {/if}
@@ -1238,11 +1268,31 @@
   .rp-stat-v { font-size: 18px; font-weight: 700; color: var(--accent); }
   .rp-stat-l { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
   .rp-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
-  .rp-badge { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: .55; transition: opacity .15s; }
+  .rp-badge { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: .55; transition: opacity .15s, transform .15s, background .15s; cursor: default; font: inherit; color: inherit; text-align: left; overflow: visible; }
   .rp-badge.obtenu { opacity: 1; border-color: color-mix(in srgb, var(--accent) 55%, var(--color-border)); }
+  .rp-badge.masque { cursor: pointer; opacity: 1; border-color: color-mix(in srgb, var(--accent) 65%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--color-bg)); animation: pulse 1.5s ease-in-out infinite; }
+  .rp-badge.masque:hover { transform: scale(1.04); background: color-mix(in srgb, var(--accent) 15%, var(--color-bg)); }
+  .rp-badge.revealed { animation: reveal .8s ease-out; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
   .rp-badge-ico { font-size: 18px; }
   .rp-badge-label { flex: 1; font-size: 12px; font-weight: 500; }
   .rp-badge-lock { font-size: 10px; color: var(--color-muted); }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); } }
+  @keyframes reveal { 0% { transform: scale(.6) rotate(-15deg); } 60% { transform: scale(1.15) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
+  /* Confetti : 20 particules colorées giclant depuis le centre du badge */
+  .confetti { position: absolute; left: 50%; top: 50%; width: 6px; height: 8px; background: var(--c); border-radius: 1px; pointer-events: none;
+              transform: translate(-50%, -50%); animation: confetti-fly 1.2s ease-out forwards;
+              animation-delay: calc(var(--i) * 12ms); opacity: 0; }
+  @keyframes confetti-fly {
+    0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0); }
+    100% { opacity: 0;
+           transform: translate(calc(-50% + (sin(var(--i)) * 80px)), calc(-50% + (cos(var(--i)) * 80px) - 30px))
+                      rotate(720deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rp-badge.masque { animation: none; }
+    .rp-badge.revealed { animation: none; }
+    .confetti { display: none; }
+  }
 
   /* Fonctions orga (RH/Chef/Formateur…) — case à cocher en grille compacte */
   .orga-grid { padding: 12px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }

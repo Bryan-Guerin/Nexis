@@ -37,6 +37,7 @@ const RULES = [
   { type: 'INTERVENTION_OUVERTE', icon: '🚨', audience: isDispatch, test: () => true },     // alerte ouverture (dispatch/admin)
   { type: 'PAIE',           icon: '💶', audience: isRhOrAdmin, test: () => true },          // règlement global (RH/admin)
   { type: 'PAIE_VERSEE',    icon: '💶', audience: () => true,  test: () => true },          // personnel (USERS scope → destinataire seul)
+  { type: 'BADGE_OBTENU',   icon: '🎁', audience: () => true,  test: () => true },          // personnel (USERS scope) — pas le nom du badge
 ]
 
 // Bref bip d'alerte (sans fichier audio). Silencieux si l'audio n'est pas autorisé.

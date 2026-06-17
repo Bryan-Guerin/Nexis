@@ -10,12 +10,12 @@ import java.util.UUID;
 @Serdeable
 public record SpMembreBadgeDto(
         UUID badgeId, String code, String label, String icone, String description,
-        int xpReward, Instant obtenuLe) {
+        int xpReward, Instant obtenuLe, boolean decouvert) {
 
     public static SpMembreBadgeDto from(SpMembreBadge mb) {
         var b = mb.getBadge();
         return new SpMembreBadgeDto(
                 b.getId(), b.getCode(), b.getLabel(), b.getIcone(), b.getDescription(),
-                b.getXpReward(), mb.getObtenuLe());
+                b.getXpReward(), mb.getObtenuLe(), mb.isDecouvert());
     }
 }
