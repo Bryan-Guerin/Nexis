@@ -3,6 +3,7 @@
     import {currentUser} from '../shared/stores.js'
     import {api} from '../shared/api.js'
     import Modal from '../shared/Modal.svelte'
+    import Skeleton from '../shared/Skeleton.svelte'
 
     let users    = $state([])
   let roles    = $state([])
@@ -160,7 +161,7 @@
     {#if error}
       <p class="inline-error">{error}</p>
     {:else if loading}
-      <p class="muted">Chargement...</p>
+      <Skeleton rows={6} />
     {:else}
       <table>
         <thead>

@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import Skeleton from '../shared/Skeleton.svelte'
 
     let vehicules    = $state([])
   let membres      = $state([])
@@ -33,7 +34,7 @@
   </div>
 
   {#if loading}
-    <p class="muted">Chargement...</p>
+    <Skeleton rows={6} />
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
