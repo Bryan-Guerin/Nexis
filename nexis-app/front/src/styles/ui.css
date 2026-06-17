@@ -36,10 +36,25 @@
   font-size: 12px; padding: 6px 12px; cursor: pointer;
   transition: border-color .15s, color .15s; white-space: nowrap;
 }
-.btn-secondary:hover, .btn-ghost:hover, .btn-ghost-sm:hover {
+.btn-secondary:hover:not(:disabled), .btn-ghost:hover:not(:disabled), .btn-ghost-sm:hover:not(:disabled) {
   border-color: var(--accent); color: var(--accent);
 }
 .btn-ghost.small, .btn-ghost-sm { font-size: 11px; padding: 5px 11px; }
+.btn-secondary:disabled, .btn-ghost:disabled, .btn-ghost-sm:disabled { opacity: .5; cursor: default; }
+
+/* Bouton danger (suppressions, confirmations destructives) — centralisé. */
+.btn-danger {
+  background: var(--color-danger); color: #fff; border: none;
+  border-radius: var(--radius); font-size: 13px; font-weight: 600;
+  padding: 8px 16px; cursor: pointer; transition: filter .15s, opacity .2s;
+}
+.btn-danger:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-danger:disabled { opacity: .6; cursor: default; }
+
+/* Retour tactile homogène sur tous les boutons. */
+.btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled),
+.btn-ghost:active:not(:disabled), .btn-ghost-sm:active:not(:disabled),
+.btn-danger:active:not(:disabled) { transform: scale(.98); }
 
 /* ── Feedback ───────────────────────────────────────────────────────── */
 .inline-error {

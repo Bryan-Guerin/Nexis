@@ -4,6 +4,7 @@
     import {toast} from '../shared/toasts.js'
     import {confirm} from '../shared/confirm.js'
     import {invalidateRef} from '../shared/referentials.js'
+    import Skeleton from '../shared/Skeleton.svelte'
     import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
 
     // Catégories de configuration (chacune = une "enum" ordonnée)
@@ -216,7 +217,7 @@
       {#if error}<p class="inline-error">{error}</p>{/if}
 
       {#if loading}
-        <p class="muted">Chargement…</p>
+        <Skeleton rows={6} />
       {:else}
         <ul class="order-list">
           {#each items as it, i (it.id)}

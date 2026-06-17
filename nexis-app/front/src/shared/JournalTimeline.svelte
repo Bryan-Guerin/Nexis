@@ -8,6 +8,7 @@
     import {api} from './api.js'
     import {realtime} from './realtime.js'
     import Pagination from './Pagination.svelte'
+    import Skeleton from './Skeleton.svelte'
 
     let { path, title, byDay = false } = $props()
 
@@ -117,7 +118,7 @@
   </div>
 
   {#if loading}
-    <p class="muted">Chargement…</p>
+    <Skeleton rows={6} />
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}

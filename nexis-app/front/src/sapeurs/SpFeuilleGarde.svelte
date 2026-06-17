@@ -6,6 +6,8 @@
   import {realtime} from '../shared/realtime.js'
   import {refStatutsVeh} from '../shared/referentials.js'
   import Modal from '../shared/Modal.svelte'
+  import Skeleton from '../shared/Skeleton.svelte'
+  import EmptyState from '../shared/EmptyState.svelte'
 
   // Feuille de garde : flotte groupée par type principal (comme l'ancien dispatch),
   // triée armé → statut, pour armer/affecter facilement. Pas de carte (→ Dispatch).
@@ -176,7 +178,7 @@
   </div>
 
   {#if loading}
-    <p class="muted">Chargement...</p>
+    <Skeleton rows={6} />
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
@@ -267,7 +269,7 @@
     </section>
     {/each}
     {#if vehicules.length === 0}
-      <p class="muted">Aucun véhicule enregistré</p>
+      <EmptyState icon="🚒" title="Aucun véhicule" message="Aucun engin n'est enregistré dans la flotte." />
     {/if}
   {/if}
 </div>

@@ -14,6 +14,7 @@
     import {onMount} from 'svelte'
     import {api} from './api.js'
     import {confirm} from './confirm.js'
+    import Skeleton from './Skeleton.svelte'
 
     let { planningPath, membresPath, selfPath, title, canManageGarde = false, gardeBase = null, mePath = null } = $props()
 
@@ -304,7 +305,7 @@
   {/if}
 
   {#if loading}
-    <p class="muted">Chargement…</p>
+    <Skeleton rows={6} />
   {:else}
 
     <!-- ── Calendrier ─────────────────────────────────────────────────────── -->

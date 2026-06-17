@@ -5,6 +5,7 @@
     import {compareBy, nextSort} from '../shared/tableSort.js'
     import SortableTh from '../shared/SortableTh.svelte'
     import Pagination from '../shared/Pagination.svelte'
+    import Skeleton from '../shared/Skeleton.svelte'
 
     let paie    = $state(null)
   let grades  = $state([])
@@ -170,7 +171,7 @@
     </div>
 
     {#if !finance}
-      <p class="muted">Chargement…</p>
+      <Skeleton rows={5} />
     {:else}
       {#if editCompte}
         <div class="compte-edit">

@@ -22,6 +22,4 @@
 <style>
   .confirm-modal { width: 400px; max-width: 92vw; }
   .confirm-msg { font-size: 13px; color: var(--color-text); white-space: pre-line; margin: 4px 0 0; }
-  .btn-danger { background: var(--color-danger); color: #fff; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
-  .btn-danger:hover { filter: brightness(1.08); }
 </style>

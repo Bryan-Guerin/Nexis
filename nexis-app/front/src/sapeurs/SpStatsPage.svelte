@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import Skeleton from '../shared/Skeleton.svelte'
 
     let s = $state(null)
   let error = $state('')
@@ -29,7 +30,7 @@
   {#if error}<p class="inline-error">{error}</p>{/if}
 
   {#if !s}
-    <p class="muted">Chargement…</p>
+    <Skeleton rows={5} />
   {:else}
     <div class="stat-grid">
       <div class="stat-card"><span class="stat-label">Total</span><span class="stat-value">{s.total}</span></div>

@@ -7,6 +7,8 @@
     import {currentUser} from '../shared/stores.js'
     import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
     import Pagination from '../shared/Pagination.svelte'
+    import Skeleton from '../shared/Skeleton.svelte'
+    import EmptyState from '../shared/EmptyState.svelte'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
 
     let interventions = $state([])
@@ -315,7 +317,7 @@
   </div>
 
   {#if loading}
-    <p class="muted">Chargement…</p>
+    <Skeleton rows={6} />
   {:else if error}
     <p class="inline-error">{error}</p>
   {:else}
@@ -418,7 +420,9 @@
         </div>
       {/each}
       {#if affichees.length === 0}
-        <p class="muted">{interventions.length === 0 ? 'Aucune intervention' : 'Aucun résultat'}</p>
+        <EmptyState icon="🔥"
+          title={interventions.length === 0 ? 'Aucune intervention' : 'Aucun résultat'}
+          message={interventions.length === 0 ? 'Aucune intervention enregistrée.' : 'Aucune intervention ne correspond aux filtres.'} />
       {/if}
     </div>
     {#if affichees.length > 0}<Pagination bind:page={intPage} bind:pageSize={intPageSize} total={affichees.length} />{/if}

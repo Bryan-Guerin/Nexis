@@ -3,6 +3,7 @@
     import {api} from '../shared/api.js'
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
+    import Skeleton from '../shared/Skeleton.svelte'
 
     let stats   = $state(null)
   let journal = $state([])
@@ -161,7 +162,7 @@
   {#if error}<p class="inline-error">{error}</p>{/if}
 
   {#if !stats}
-    <p class="muted">Chargement…</p>
+    <Skeleton rows={5} />
   {:else}
     <!-- KPIs -->
     <div class="stat-grid">
