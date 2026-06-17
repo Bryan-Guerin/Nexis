@@ -173,16 +173,6 @@
     const h = Math.floor(min / 60)
     return `il y a ${h} h ${String(min % 60).padStart(2, '0')}`
   }
-  function dureeTexte(min) {
-    if (!min) return '—'
-    const h = Math.floor(min / 60), m = min % 60
-    return h > 0 ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`
-  }
-  function jourCourt(iso) {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit' })
-  }
-  function pct(n) { return stats && stats.vehiculesTotal > 0 ? (n / stats.vehiculesTotal) * 100 : 0 }
-  let maxJour = $derived(stats ? Math.max(1, ...stats.activite7j.map(j => j.count)) : 1)
 </script>
 
 <div class="page">
@@ -201,17 +191,12 @@
   {#if !stats}
     <Skeleton rows={5} />
   {:else}
-    <!-- KPIs -->
+    <!-- KPIs essentiels (De garde · Interventions en cours) -->
     <div class="stat-grid">
       <div class="stat-card">
         <span class="stat-label">De garde</span>
         <span class="stat-value live">{stats.deGarde}</span>
         <span class="stat-sub">/ {stats.effectifsActifs} effectifs actifs</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Véhicules disponibles</span>
-        <span class="stat-value">{stats.vehiculesDisponibles}<span class="frac">/ {stats.vehiculesTotal}</span></span>
-        <span class="stat-sub">{Math.round(pct(stats.vehiculesDisponibles))}% de la flotte</span>
       </div>
       <div class="stat-card">
         <span class="stat-label">Interventions en cours</span>
@@ -339,80 +324,7 @@
         {/if}
     </div>
 
-    <div class="cols">
-      <!-- Flotte par état -->
-      <section class="panel">
-        <h3>Disponibilité de la flotte</h3>
-        {#if stats.vehiculesTotal === 0}
-          <p class="muted small">Aucun véhicule enregistré.</p>
-        {:else}
-          <div class="fleet">
-            {#each stats.flotte as e (e.code)}
-              <div class="fleet-row">
-                <span class="fleet-dot" style="background:{e.couleur}"></span>
-                <span class="fleet-label">{e.label}</span>
-                <div class="fleet-bar"><div class="fleet-fill" style="width:{pct(e.count)}%; background:{e.couleur}"></div></div>
-                <span class="fleet-count">{e.count}</span>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
-
-      <!-- Personnel de garde -->
-      <section class="panel">
-        <h3>De garde <span class="muted small">— {stats.garde.length}</span></h3>
-        {#if stats.garde.length === 0}
-          <p class="muted small">Personne de garde actuellement.</p>
-        {:else}
-          <div class="chips">
-            {#each stats.garde as m (m.matricule)}
-              <span class="chip"><span class="garde-dot"></span><span class="chip-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
-            {/each}
-          </div>
-        {/if}
-      </section>
-    </div>
-
-    <div class="cols">
-      <!-- Engins engagés -->
-      <section class="panel">
-        <h3>Engins engagés</h3>
-        {#if stats.enginsEngages.length === 0}
-          <p class="muted small">Aucun engin engagé.</p>
-        {:else}
-          <ul class="eng-list">
-            {#each stats.enginsEngages as e}
-              <li class="eng">
-                <span class="eng-dot" style="background:{e.couleur}"></span>
-                <span class="eng-lib">{e.libelle}</span>
-                <span class="chip-code">{e.typeCode}</span>
-                <span class="eng-statut" style="color:{e.couleur}">{e.statut}</span>
-                <span class="eng-code">{e.interventionCode}</span>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-
-      <!-- Alertes flotte -->
-      <section class="panel">
-        <h3>Alertes flotte</h3>
-        {#if stats.alertes.length === 0}
-          <p class="muted small">Aucun véhicule indisponible (hors intervention).</p>
-        {:else}
-          <ul class="alert-list">
-            {#each stats.alertes as a}
-              <li class="alert-row">
-                <span class="eng-lib">{a.libelle}</span>
-                <span class="badge" style="background:{a.couleur}22; color:{a.couleur}">{a.etat}</span>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-    </div>
-
+    <!-- ── OPÉRATIONNEL ────────────────────────────────────────────────── -->
     <div class="cols">
       <!-- Interventions en cours -->
       <section class="panel">
@@ -433,18 +345,57 @@
         {/if}
       </section>
 
-      <!-- Tendance 7 jours -->
+      <!-- Engins engagés -->
       <section class="panel">
-        <h3>Interventions — 7 derniers jours</h3>
-        <div class="trend">
-          {#each stats.activite7j as j (j.jour)}
-            <div class="trend-col">
-              <span class="trend-n">{j.count}</span>
-              <div class="trend-bar" style="height:{Math.round((j.count / maxJour) * 60)}px"></div>
-              <span class="trend-day">{jourCourt(j.jour)}</span>
-            </div>
-          {/each}
-        </div>
+        <h3>Engins engagés</h3>
+        {#if stats.enginsEngages.length === 0}
+          <p class="muted small">Aucun engin engagé.</p>
+        {:else}
+          <ul class="eng-list">
+            {#each stats.enginsEngages as e}
+              <li class="eng">
+                <span class="eng-dot" style="background:{e.couleur}"></span>
+                <span class="eng-lib">{e.libelle}</span>
+                <span class="chip-code">{e.typeCode}</span>
+                <span class="eng-statut" style="color:{e.couleur}">{e.statut}</span>
+                <span class="eng-code">{e.interventionCode}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+    </div>
+
+    <div class="cols">
+      <!-- Personnel de garde -->
+      <section class="panel">
+        <h3>De garde <span class="muted small">— {stats.garde.length}</span></h3>
+        {#if stats.garde.length === 0}
+          <p class="muted small">Personne de garde actuellement.</p>
+        {:else}
+          <div class="chips">
+            {#each stats.garde as m (m.matricule)}
+              <span class="chip"><span class="garde-dot"></span><span class="chip-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
+            {/each}
+          </div>
+        {/if}
+      </section>
+
+      <!-- Alertes flotte (véhicules indisponibles hors intervention) -->
+      <section class="panel">
+        <h3>Alertes flotte</h3>
+        {#if stats.alertes.length === 0}
+          <p class="muted small">Aucun véhicule indisponible (hors intervention).</p>
+        {:else}
+          <ul class="alert-list">
+            {#each stats.alertes as a}
+              <li class="alert-row">
+                <span class="eng-lib">{a.libelle}</span>
+                <span class="badge" style="background:{a.couleur}22; color:{a.couleur}">{a.etat}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </section>
     </div>
 
@@ -545,7 +496,7 @@
 {/if}
 
 <style>
-  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   .stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
   .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--color-muted); }
   .stat-value { font-size: 30px; font-weight: 700; line-height: 1; }
@@ -568,14 +519,6 @@
   .panel-head h3 { margin-bottom: 12px; }
   .link { font-size: 12px; color: var(--accent); text-decoration: none; }
 
-  .fleet { display: flex; flex-direction: column; gap: 8px; }
-  .fleet-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-  .fleet-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .fleet-label { width: 110px; flex-shrink: 0; }
-  .fleet-bar { flex: 1; height: 8px; background: var(--color-bg); border-radius: 4px; overflow: hidden; }
-  .fleet-fill { height: 100%; border-radius: 4px; transition: width .3s; }
-  .fleet-count { width: 24px; text-align: right; font-family: monospace; color: var(--color-muted); }
-
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { font-size: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; padding: 3px 10px; display: inline-flex; gap: 6px; align-items: center; }
   .chip-grade { color: var(--color-muted); font-size: 10px; }
@@ -594,12 +537,6 @@
   .inter-code { font-family: monospace; font-weight: 600; color: var(--accent); }
   .inter-motif { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .inter-meta { font-size: 11px; color: var(--color-muted); white-space: nowrap; }
-
-  .trend { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; height: 100px; }
-  .trend-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; justify-content: flex-end; }
-  .trend-n { font-size: 11px; color: var(--color-muted); }
-  .trend-bar { width: 70%; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; }
-  .trend-day { font-size: 10px; color: var(--color-muted); }
 
   .act { display: flex; align-items: center; gap: 10px; font-size: 12px; }
   .act-time { font-family: monospace; color: var(--color-muted); white-space: nowrap; }
