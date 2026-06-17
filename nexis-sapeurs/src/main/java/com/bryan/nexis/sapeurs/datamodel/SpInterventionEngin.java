@@ -44,9 +44,10 @@ public class SpInterventionEngin {
         this.position     = position;
     }
 
-    public UUID getId()           { return id; }
-    public String getLibelle()    { return libelle; }
-    public String getTypeCode()   { return typeCode; }
-    public int getPosition()      { return position; }
+    public UUID getId()                  { return id; }
+    public SpIntervention getIntervention() { return intervention; }
+    public String getLibelle()           { return libelle; }
+    public String getTypeCode()          { return typeCode; }
+    public int getPosition()             { return position; }
     public List<SpInterventionEquipier> getEquipage() { return equipage; }
 }

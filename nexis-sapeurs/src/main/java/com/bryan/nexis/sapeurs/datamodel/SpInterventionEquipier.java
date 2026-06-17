@@ -44,10 +44,11 @@ public class SpInterventionEquipier {
         this.position  = position;
     }
 
-    public UUID getId()        { return id; }
-    public String getMatricule() { return matricule; }
-    public String getNom()     { return nom; }
-    public String getGrade()   { return grade; }
-    public String getPoste()   { return poste; }
-    public int getPosition()   { return position; }
+    public UUID getId()               { return id; }
+    public SpInterventionEngin getEngin() { return engin; }
+    public String getMatricule()      { return matricule; }
+    public String getNom()            { return nom; }
+    public String getGrade()          { return grade; }
+    public String getPoste()          { return poste; }
+    public int getPosition()          { return position; }
 }
