@@ -48,11 +48,16 @@
   let reloadTimer = null
   onMount(() => {
     load()
-    return realtime.on(ev => {
+    const off = realtime.on(ev => {
       if (ev.faction === 'SP' && ['AFFECTATION', 'DESAFFECTATION', 'ETAT_VEHICULE'].includes(ev.type)) {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 400)
       }
     })
+    // Fins de garde temporelles (sans événement) → rafraîchit « de garde » périodiquement.
+    const tick = setInterval(async () => {
+      try { enServiceIds = await api.get('/sp/membres/en-service') } catch { /* silencieux */ }
+    }, 60000)
+    return () => { off(); clearInterval(tick) }
   })
 
   async function load() {

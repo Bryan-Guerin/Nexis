@@ -11,7 +11,7 @@
      *
      * La couleur d'accent provient du thème de faction (--accent), posé par Layout.
      */
-    import {onMount} from 'svelte'
+    import {onMount, onDestroy} from 'svelte'
     import {api} from './api.js'
     import {confirm} from './confirm.js'
     import Skeleton from './Skeleton.svelte'
@@ -216,7 +216,14 @@
   }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
-  onMount(() => { load(); loadEnService(); loadMe() })
+  // Les gardes se terminent à une heure donnée (sans événement temps réel) : on rafraîchit
+  // l'état « en service » périodiquement pour retirer les boutons ⏹ des services expirés.
+  let enServiceTimer = null
+  onMount(() => {
+    load(); loadEnService(); loadMe()
+    if (canManageGarde) enServiceTimer = setInterval(loadEnService, 60000)
+  })
+  onDestroy(() => clearInterval(enServiceTimer))
 
   async function loadMe() {
     if (!mePath) return

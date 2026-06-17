@@ -23,6 +23,7 @@ public record SpProfilRpDto(
             int interventions,
             int heuresGarde,
             int joursService,
-            int joursGrade
+            int joursGrade,
+            int qualifications
     ) {}
 }

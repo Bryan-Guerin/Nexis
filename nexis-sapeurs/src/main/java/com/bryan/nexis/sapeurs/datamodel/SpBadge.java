@@ -41,6 +41,11 @@ public class SpBadge {
     @JoinColumn(name = "nature_id")
     private SpNatureIntervention nature;
 
+    /** Type de fonction ciblé si {@link BadgeCondition#QUALIF_TYPE_COUNT}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_fonction", length = 20)
+    private TypeFonction typeFonction;
+
     @Column(nullable = false)
     private int seuil;
 
@@ -68,6 +73,7 @@ public class SpBadge {
     public String getDescription()            { return description; }
     public BadgeCondition getTypeCondition()  { return typeCondition; }
     public SpNatureIntervention getNature()   { return nature; }
+    public TypeFonction getTypeFonction()     { return typeFonction; }
     public int getSeuil()                     { return seuil; }
     public int getXpReward()                  { return xpReward; }
     public int getPosition()                  { return position; }
@@ -77,6 +83,7 @@ public class SpBadge {
     public void setDescription(String description)   { this.description = description; }
     public void setTypeCondition(BadgeCondition t)   { this.typeCondition = t; }
     public void setNature(SpNatureIntervention n)    { this.nature = n; }
+    public void setTypeFonction(TypeFonction t)      { this.typeFonction = t; }
     public void setSeuil(int seuil)                  { this.seuil = seuil; }
     public void setXpReward(int xpReward)            { this.xpReward = xpReward; }
     public void setPosition(int position)            { this.position = position; }

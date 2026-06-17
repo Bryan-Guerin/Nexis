@@ -4,6 +4,7 @@ import com.bryan.nexis.sapeurs.backend.dto.SpBadgeDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpMembreBadgeDto;
 import com.bryan.nexis.sapeurs.datamodel.BadgeCondition;
 import com.bryan.nexis.sapeurs.datamodel.SpBadge;
+import com.bryan.nexis.sapeurs.datamodel.TypeFonction;
 import com.bryan.nexis.sapeurs.datarepository.SpBadgeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreBadgeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpNatureInterventionRepository;
@@ -46,7 +47,7 @@ public class SpBadgeService {
 
     @Transactional
     public SpBadgeDto create(String code, String label, String icone, String description,
-                             String typeCondition, UUID natureId, int seuil, int xpReward) {
+                             String typeCondition, UUID natureId, String typeFonction, int seuil, int xpReward) {
         var type = BadgeCondition.valueOf(typeCondition);
         var b = new SpBadge(code, label, type, seuil);
         b.setIcone(icone);
@@ -58,12 +59,16 @@ public class SpBadgeService {
             b.setNature(natureRepo.findById(natureId).orElseThrow(
                     () -> new NoSuchElementException("Nature introuvable : " + natureId)));
         }
+        if (type == BadgeCondition.QUALIF_TYPE_COUNT) {
+            if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour QUALIF_TYPE_COUNT");
+            b.setTypeFonction(TypeFonction.valueOf(typeFonction));
+        }
         return SpBadgeDto.from(badgeRepo.save(b));
     }
 
     @Transactional
     public SpBadgeDto update(UUID id, String label, String icone, String description,
-                             String typeCondition, UUID natureId, Integer seuil, Integer xpReward) {
+                             String typeCondition, UUID natureId, String typeFonction, Integer seuil, Integer xpReward) {
         var b = badgeRepo.findById(id).orElseThrow(
                 () -> new NoSuchElementException("Badge introuvable : " + id));
         if (label != null)         b.setLabel(label);
@@ -77,6 +82,12 @@ public class SpBadgeService {
                     () -> new NoSuchElementException("Nature introuvable : " + natureId)));
         } else if (b.getTypeCondition() != BadgeCondition.INTER_NATURE_COUNT) {
             b.setNature(null);
+        }
+        if (b.getTypeCondition() == BadgeCondition.QUALIF_TYPE_COUNT) {
+            if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour QUALIF_TYPE_COUNT");
+            b.setTypeFonction(TypeFonction.valueOf(typeFonction));
+        } else {
+            b.setTypeFonction(null);
         }
         return SpBadgeDto.from(badgeRepo.update(b));
     }

@@ -8,7 +8,7 @@ import java.util.UUID;
 @Serdeable
 public record SpBadgeDto(
         UUID id, String code, String label, String icone, String description,
-        String typeCondition, UUID natureId, String natureLabel,
+        String typeCondition, UUID natureId, String natureLabel, String typeFonction,
         int seuil, int xpReward, int position) {
 
     public static SpBadgeDto from(SpBadge b) {
@@ -17,6 +17,7 @@ public record SpBadgeDto(
                 b.getTypeCondition().name(),
                 b.getNature() != null ? b.getNature().getId()    : null,
                 b.getNature() != null ? b.getNature().getLabel() : null,
+                b.getTypeFonction() != null ? b.getTypeFonction().name() : null,
                 b.getSeuil(), b.getXpReward(), b.getPosition());
     }
 }

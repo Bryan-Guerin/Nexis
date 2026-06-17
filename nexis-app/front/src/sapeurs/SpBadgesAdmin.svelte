@@ -13,8 +13,25 @@
         ['GARDE_HEURES',        'Heures de garde cumulées'],
         ['SERVICE_JOURS',       'Jours d\'ancienneté'],
         ['GRADE_JOURS',         'Jours dans le grade'],
+        ['QUALIF_COUNT',        'Nombre de qualifications'],
+        ['QUALIF_TYPE_COUNT',   'Qualifications d\'un type'],
     ]
     function condLabel(c) { return CONDITIONS.find(x => x[0] === c)?.[1] ?? c }
+
+    // Types de fonction (pour QUALIF_TYPE_COUNT)
+    const TYPES_FONCTION = [
+        ['CHEF_AGRES',  'Chef d\'agrès'],
+        ['CONDUCTEUR',  'Conducteur'],
+        ['CHEF_EQUIPE', 'Chef d\'équipe'],
+        ['EQUIPIER',    'Équipier'],
+    ]
+    function typeFonctionLabel(t) { return TYPES_FONCTION.find(x => x[0] === t)?.[1] ?? t }
+    function seuilUnite(c) {
+        if (c === 'GARDE_HEURES') return 'heures'
+        if (c === 'SERVICE_JOURS' || c === 'GRADE_JOURS') return 'jours'
+        if (c === 'QUALIF_COUNT' || c === 'QUALIF_TYPE_COUNT') return 'qualifications'
+        return 'interventions'
+    }
 
     let badges  = $state([])
     let natures = $state([])
@@ -26,7 +43,7 @@
 
     function emptyForm() {
         return { code: '', label: '', icone: '🏅', description: '',
-                 typeCondition: 'INTER_COUNT', natureId: '', seuil: 1, xpReward: 50 }
+                 typeCondition: 'INTER_COUNT', natureId: '', typeFonction: 'CONDUCTEUR', seuil: 1, xpReward: 50 }
     }
 
     onMount(async () => {
@@ -44,6 +61,7 @@
             description: b.description ?? '',
             typeCondition: b.typeCondition,
             natureId: b.natureId ?? '',
+            typeFonction: b.typeFonction ?? 'CONDUCTEUR',
             seuil: b.seuil, xpReward: b.xpReward,
         }
         showForm = true
@@ -60,6 +78,7 @@
             description: form.description || null,
             typeCondition: form.typeCondition,
             natureId: form.typeCondition === 'INTER_NATURE_COUNT' ? form.natureId : null,
+            typeFonction: form.typeCondition === 'QUALIF_TYPE_COUNT' ? form.typeFonction : null,
             seuil: Number(form.seuil) || 1,
             xpReward: Number(form.xpReward) || 0,
         }
@@ -135,6 +154,7 @@
                     <div class="b-cond muted small">
                         {condLabel(b.typeCondition)}
                         {#if b.natureLabel} · {b.natureLabel}{/if}
+                        {#if b.typeFonction} · {typeFonctionLabel(b.typeFonction)}{/if}
                         · seuil {b.seuil}
                         · +{b.xpReward} XP
                     </div>
@@ -180,8 +200,15 @@
                     </select>
                 </label>
             {/if}
+            {#if form.typeCondition === 'QUALIF_TYPE_COUNT'}
+                <label class="field-label">Type de fonction ciblé
+                    <select bind:value={form.typeFonction}>
+                        {#each TYPES_FONCTION as [v, l]}<option value={v}>{l}</option>{/each}
+                    </select>
+                </label>
+            {/if}
             <div class="row">
-                <label class="field-label">Seuil ({form.typeCondition === 'GARDE_HEURES' ? 'heures' : 'unités'})
+                <label class="field-label">Seuil ({seuilUnite(form.typeCondition)})
                     <input type="number" min="1" bind:value={form.seuil} />
                 </label>
                 <label class="field-label">Prime XP au déblocage

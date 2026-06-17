@@ -634,6 +634,7 @@
                 <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.heuresGarde}</span><span class="rp-stat-l">h de garde</span></div>
                 <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursService}</span><span class="rp-stat-l">jours de service</span></div>
                 <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursGrade}</span><span class="rp-stat-l">jours dans le grade</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.qualifications}</span><span class="rp-stat-l">qualifications</span></div>
               </div>
 
               {#if badgesCatalog.length > 0}

@@ -79,11 +79,17 @@
 
   onMount(() => {
     load()
-    return realtime.on(ev => {
+    const off = realtime.on(ev => {
       if (ev.faction === 'SP' && LIVE.includes(ev.type)) {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 500)
       }
     })
+    // Mon service (garde/astreinte) se termine à une heure donnée sans événement →
+    // rafraîchit l'état pour masquer « Terminer ma garde » une fois le créneau écoulé.
+    const tick = setInterval(async () => {
+      monService = (await api.get('/sp/planning/me/service-courant').catch(() => ({ categorie: null })))?.categorie ?? null
+    }, 60000)
+    return () => { off(); clearInterval(tick) }
   })
 
   async function load() {

@@ -76,13 +76,22 @@
   onMount(() => {
     load()
     // Mise à jour live : on recharge sur les événements SP pertinents (throttlé)
-    return realtime.on(ev => {
+    const off = realtime.on(ev => {
       if (ev.faction === 'SP' && ['AFFECTATION', 'DESAFFECTATION', 'ETAT_VEHICULE'].includes(ev.type)) {
         clearTimeout(reloadTimer)
         reloadTimer = setTimeout(load, 400)
       }
     })
+    // Les fins de garde sont temporelles (aucun événement émis) → rafraîchit la liste
+    // « de garde » périodiquement pour retirer les effectifs dont le service a expiré.
+    const tick = setInterval(refreshEnService, 60000)
+    return () => { off(); clearInterval(tick) }
   })
+
+  async function refreshEnService() {
+    try { enServiceIds = await api.get('/sp/membres/en-service') }
+    catch { /* silencieux */ }
+  }
 
   async function load() {
     loading = true

@@ -41,14 +41,14 @@ public class SpBadgeController {
     @Status(HttpStatus.CREATED)
     SpBadgeDto create(@Body CreateSpBadgeRequest req) {
         return service.create(req.code(), req.label(), req.icone(), req.description(),
-                req.typeCondition(), req.natureId(), req.seuil(), req.xpReward());
+                req.typeCondition(), req.natureId(), req.typeFonction(), req.seuil(), req.xpReward());
     }
 
     @Put("/badges/{id}")
     @Secured("ROLE_ADMIN_SP")
     SpBadgeDto update(UUID id, @Body UpdateSpBadgeRequest req) {
         return service.update(id, req.label(), req.icone(), req.description(),
-                req.typeCondition(), req.natureId(), req.seuil(), req.xpReward());
+                req.typeCondition(), req.natureId(), req.typeFonction(), req.seuil(), req.xpReward());
     }
 
     @Put("/badges/order")

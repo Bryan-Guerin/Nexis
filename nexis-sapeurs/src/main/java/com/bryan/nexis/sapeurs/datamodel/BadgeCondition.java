@@ -14,5 +14,9 @@ public enum BadgeCondition {
     /** Jours d'ancienneté depuis l'intégration. */
     SERVICE_JOURS,
     /** Jours dans le grade courant. */
-    GRADE_JOURS
+    GRADE_JOURS,
+    /** Nombre total de qualifications détenues. */
+    QUALIF_COUNT,
+    /** Nombre de qualifications d'un type de fonction donné (typeFonction requis : CA/COND/CE/EQUIPIER). */
+    QUALIF_TYPE_COUNT
 }

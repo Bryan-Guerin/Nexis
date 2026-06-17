@@ -149,6 +149,15 @@ public class SpRpService {
             case GARDE_HEURES        -> c.heuresGarde() >= b.getSeuil();
             case SERVICE_JOURS       -> c.joursService() >= b.getSeuil();
             case GRADE_JOURS         -> c.joursGrade()   >= b.getSeuil();
+            case QUALIF_COUNT        -> membre.getQualifications().size() >= b.getSeuil();
+            case QUALIF_TYPE_COUNT   -> {
+                if (b.getTypeFonction() == null) yield false;
+                long n = membre.getQualifications().stream()
+                        .filter(q -> q.getFonction() != null
+                                && q.getFonction().getTypeFonction() == b.getTypeFonction())
+                        .count();
+                yield n >= b.getSeuil();
+            }
         };
     }
 
@@ -161,7 +170,8 @@ public class SpRpService {
         int joursGrade   = (int) ChronoUnit.DAYS.between(
                 m.getDateDernierePromotion() != null ? m.getDateDernierePromotion() : m.getDateIntegration(),
                 Instant.now());
-        return new SpProfilRpDto.Compteurs(inter, heuresGarde, joursService, joursGrade);
+        int qualifs = m.getQualifications().size();
+        return new SpProfilRpDto.Compteurs(inter, heuresGarde, joursService, joursGrade, qualifs);
     }
 
     private int countInterventionsByNature(UUID membreId, UUID natureId) {
