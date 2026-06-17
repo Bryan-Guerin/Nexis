@@ -12,6 +12,7 @@ public interface SpVehiculeAffectationRepository extends JpaRepository<SpVehicul
     List<SpVehiculeAffectation> findByFinIsNull();
     List<SpVehiculeAffectation> findByVehiculeIdAndFinIsNull(UUID vehiculeId);
     List<SpVehiculeAffectation> findByMembreIdAndFinIsNull(UUID membreId);
+    List<SpVehiculeAffectation> findByMembreId(UUID membreId);
     long countByVehiculeIdAndPosteIdAndFinIsNull(UUID vehiculeId, UUID posteId);
     long countByPosteIdAndFinIsNull(UUID posteId);
     List<SpVehiculeAffectation> findByPosteIdAndFinIsNull(UUID posteId);

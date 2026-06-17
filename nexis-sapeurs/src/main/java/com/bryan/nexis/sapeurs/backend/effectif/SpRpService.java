@@ -1,0 +1,192 @@
+package com.bryan.nexis.sapeurs.backend.effectif;
+
+import com.bryan.nexis.core.datamodel.TypeService;
+import com.bryan.nexis.sapeurs.backend.dto.SpMembreBadgeDto;
+import com.bryan.nexis.sapeurs.backend.dto.SpProfilRpDto;
+import com.bryan.nexis.sapeurs.datamodel.*;
+import com.bryan.nexis.sapeurs.datarepository.*;
+import jakarta.inject.Singleton;
+import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Profil RP : XP, niveau et badges des membres.
+ *
+ * <p>XP = (interventions × 10) + heures_garde + somme des XP des badges obtenus.</p>
+ * <p>Niveaux à paliers (cumulatifs) — au-delà du dernier palier, on continue par incréments
+ * fixes (+2500 par niveau).</p>
+ *
+ * <p>L'évaluation des badges est manuelle (endpoint admin) ou déclenchée par la clôture
+ * d'une intervention (à brancher dans SpInterventionService).</p>
+ */
+@Singleton
+public class SpRpService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SpRpService.class);
+
+    /** Seuils XP cumulatifs. L'index = niveau − 1 (niveau 1 = 0 XP). */
+    private static final int[] PALIERS = { 0, 100, 250, 500, 1000, 1750, 2750, 4000, 5500, 7500 };
+    private static final int INCREMENT_AU_DELA = 2500;
+
+    private final SpMembreRepository              membreRepo;
+    private final SpBadgeRepository               badgeRepo;
+    private final SpMembreBadgeRepository         membreBadgeRepo;
+    private final SpVehiculeAffectationRepository affRepo;
+    private final SpInterventionRepository        interRepo;
+    private final SpPlanningRepository            planningRepo;
+
+    public SpRpService(SpMembreRepository membreRepo,
+                       SpBadgeRepository badgeRepo,
+                       SpMembreBadgeRepository membreBadgeRepo,
+                       SpVehiculeAffectationRepository affRepo,
+                       SpInterventionRepository interRepo,
+                       SpPlanningRepository planningRepo) {
+        this.membreRepo      = membreRepo;
+        this.badgeRepo       = badgeRepo;
+        this.membreBadgeRepo = membreBadgeRepo;
+        this.affRepo         = affRepo;
+        this.interRepo       = interRepo;
+        this.planningRepo    = planningRepo;
+    }
+
+    // ── Profil ───────────────────────────────────────────────────────────────
+
+    @Transactional
+    public SpProfilRpDto getProfil(UUID membreId) {
+        var membre = membreRepo.findById(membreId).orElseThrow(
+                () -> new NoSuchElementException("Membre SP introuvable : " + membreId));
+
+        var compteurs = computeCompteurs(membre);
+        var badges    = membreBadgeRepo.findByMembreId(membreId).stream()
+                .map(SpMembreBadgeDto::from)
+                .toList();
+        int xpBadges = badges.stream().mapToInt(SpMembreBadgeDto::xpReward).sum();
+        int xp = compteurs.interventions() * 10 + compteurs.heuresGarde() + xpBadges;
+
+        int niveau         = niveauFor(xp);
+        int xpNiveauActuel = seuilFor(niveau);
+        int xpSuivant      = seuilFor(niveau + 1);
+        int delta          = xpSuivant - xpNiveauActuel;
+        int dansNiveau     = xp - xpNiveauActuel;
+        int progression    = delta > 0 ? Math.min(100, dansNiveau * 100 / delta) : 100;
+
+        return new SpProfilRpDto(xp, niveau, xpNiveauActuel, xpSuivant, progression, compteurs, badges);
+    }
+
+    // ── Évaluation badges ─────────────────────────────────────────────────────
+
+    /** Attribue les badges éligibles à tous les membres actifs. Idempotent. */
+    @Transactional
+    public int evalAll() {
+        int attribues = 0;
+        for (var m : membreRepo.findByActif(true)) {
+            attribues += evalForMembre(m);
+        }
+        return attribues;
+    }
+
+    /** Attribue les badges éligibles au membre. Renvoie le nombre de nouveaux badges. */
+    @Transactional
+    public int evalForMembre(SpMembre membre) {
+        var compteurs = computeCompteurs(membre);
+        int nouveaux = 0;
+        for (var b : badgeRepo.findAll()) {
+            if (membreBadgeRepo.existsByMembreIdAndBadgeId(membre.getId(), b.getId())) continue;
+            if (atteint(b, compteurs, membre)) {
+                membreBadgeRepo.save(new SpMembreBadge(membre, b));
+                nouveaux++;
+                LOG.info("Badge attribué : {} → {}", b.getCode(), membre.getMatricule());
+            }
+        }
+        return nouveaux;
+    }
+
+    private boolean atteint(SpBadge b, SpProfilRpDto.Compteurs c, SpMembre membre) {
+        return switch (b.getTypeCondition()) {
+            case INTER_COUNT         -> c.interventions() >= b.getSeuil();
+            case INTER_NATURE_COUNT  -> {
+                if (b.getNature() == null) yield false;
+                yield countInterventionsByNature(membre.getId(), b.getNature().getId()) >= b.getSeuil();
+            }
+            case GARDE_HEURES        -> c.heuresGarde() >= b.getSeuil();
+            case SERVICE_JOURS       -> c.joursService() >= b.getSeuil();
+            case GRADE_JOURS         -> c.joursGrade()   >= b.getSeuil();
+        };
+    }
+
+    // ── Calcul des compteurs ─────────────────────────────────────────────────
+
+    private SpProfilRpDto.Compteurs computeCompteurs(SpMembre m) {
+        int inter = countInterventions(m.getId(), null);
+        int heuresGarde = sumHeuresParCategorie(m.getId(), TypeService.GARDE);
+        int joursService = (int) ChronoUnit.DAYS.between(m.getDateIntegration(), Instant.now());
+        int joursGrade   = (int) ChronoUnit.DAYS.between(
+                m.getDateDernierePromotion() != null ? m.getDateDernierePromotion() : m.getDateIntegration(),
+                Instant.now());
+        return new SpProfilRpDto.Compteurs(inter, heuresGarde, joursService, joursGrade);
+    }
+
+    private int countInterventionsByNature(UUID membreId, UUID natureId) {
+        return countInterventions(membreId, natureId);
+    }
+
+    /**
+     * Compte les interventions où le membre était affecté à un engin dont le véhicule
+     * faisait partie de l'intervention, avec chevauchement temporel.
+     *
+     * <p>Approche en mémoire (RP server = petit volume) : itère sur les interventions
+     * et vérifie les affectations. Filtre optionnel par nature.</p>
+     */
+    private int countInterventions(UUID membreId, UUID natureIdFilter) {
+        var affs = affRepo.findByMembreId(membreId);
+        if (affs.isEmpty()) return 0;
+        var vehIds = affs.stream().map(a -> a.getVehicule().getId()).collect(Collectors.toSet());
+
+        var matched = new HashSet<UUID>();
+        for (var inter : interRepo.findAll()) {
+            if (natureIdFilter != null && !inter.getNature().getId().equals(natureIdFilter)) continue;
+            Instant iStart = inter.getDebut();
+            Instant iEnd   = inter.getFin() != null ? inter.getFin() : Instant.now();
+            boolean engineInCommon = inter.getEngins().stream().anyMatch(v -> vehIds.contains(v.getId()));
+            if (!engineInCommon) continue;
+            boolean affOverlap = affs.stream().anyMatch(a ->
+                    inter.getEngins().stream().anyMatch(v -> v.getId().equals(a.getVehicule().getId()))
+                            && a.getDebut().isBefore(iEnd)
+                            && (a.getFin() == null || a.getFin().isAfter(iStart))
+            );
+            if (affOverlap) matched.add(inter.getId());
+        }
+        return matched.size();
+    }
+
+    private int sumHeuresParCategorie(UUID membreId, TypeService cat) {
+        long minutes = planningRepo.findByMembreId(membreId).stream()
+                .filter(p -> p.getStatut() != null && p.getStatut().getCategorie() == cat)
+                .filter(p -> p.getFin() != null && p.getDebut() != null)
+                .mapToLong(p -> Duration.between(p.getDebut(), p.getFin()).toMinutes())
+                .sum();
+        return (int) (minutes / 60);
+    }
+
+    // ── Niveaux ──────────────────────────────────────────────────────────────
+
+    private int niveauFor(int xp) {
+        for (int i = PALIERS.length - 1; i >= 0; i--) {
+            if (xp >= PALIERS[i]) return i + 1;
+        }
+        return 1;
+    }
+
+    private int seuilFor(int niveau) {
+        if (niveau <= 0) return 0;
+        if (niveau <= PALIERS.length) return PALIERS[niveau - 1];
+        return PALIERS[PALIERS.length - 1] + (niveau - PALIERS.length) * INCREMENT_AU_DELA;
+    }
+}
