@@ -228,13 +228,17 @@
     const i = detailInter
     const esc = s => (s ?? '').toString().replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
     const row = (k, v) => `<tr><th>${k}</th><td>${esc(v) || '—'}</td></tr>`
-    // En cours : engins live. Clôturée : snapshot historisé avec équipage.
+    // En cours : engins live. Clôturée : snapshot historisé, équipage en colonne (liste).
     const engins = i.enCours
       ? (i.engins.map(e => `${esc(e.libelle)} <span class="muted">(${esc(e.etatLabel)})</span>`).join(' · ') || '—')
       : ((i.enginsHisto ?? []).map(e => {
-          const crew = e.equipage.map(m => `${esc(m.grade)} ${esc(m.nom)}${m.poste ? ' (' + esc(m.poste) + ')' : ''}`).join(', ')
-          return `<strong>${esc(e.libelle)}</strong>${e.typeCode ? ' <span class="muted">' + esc(e.typeCode) + '</span>' : ''}${crew ? '<br><span class="muted">' + crew + '</span>' : ''}`
-        }).join('<br>') || '—')
+          const crew = e.equipage.length
+            ? '<ul class="crew">' + e.equipage.map(m =>
+                `<li>${esc(m.grade)} ${esc(m.nom)}${m.matricule ? ' <span class="muted">' + esc(m.matricule) + '</span>' : ''}${m.poste ? ' — ' + esc(m.poste) : ''}</li>`
+              ).join('') + '</ul>'
+            : '<p class="muted">Équipage non historisé</p>'
+          return `<div class="engin-h"><div class="engin-t"><strong>${esc(e.libelle)}</strong>${e.typeCode ? ' <span class="muted">' + esc(e.typeCode) + '</span>' : ''}</div>${crew}</div>`
+        }).join('') || '—')
     const mc = detailJournal.map(ev =>
       `<tr><td class="mono">${fmt(ev.creeLe)}</td><td>${esc(ev.message)}</td><td class="muted">${esc(ev.acteurUsername)}</td></tr>`).join('')
     const crisH = cris.map(c =>
@@ -258,6 +262,10 @@
         .cri { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
         .cri h4 { margin: 0 0 4px; font-size: 12px; }
         .cri p { margin: 0; white-space: pre-wrap; }
+        .engin-h { margin: 0 0 10px; }
+        .engin-t { font-size: 12px; }
+        ul.crew { margin: 3px 0 0; padding-left: 18px; }
+        ul.crew li { font-size: 11px; color: #444; padding: 1px 0; }
         footer { margin-top: 24px; color: #999; font-size: 10px; }
         @media print { body { margin: 12mm; } }
       </style></head><body>
@@ -278,7 +286,8 @@
         ${row('Observation', i.observation)}
         ${row('Créée par', i.creePar)}
       </table>
-      <h3>Engins</h3><p>${engins}</p>
+      <h3>Engins${i.enCours ? '' : ' &amp; équipage'}</h3>
+      ${i.enCours ? `<p>${engins}</p>` : `<div class="engins-pdf">${engins}</div>`}
       <h3>Main courante</h3>
       <table class="mc"><tbody>${mc || '<tr><td class="muted">Aucun événement</td></tr>'}</tbody></table>
       <h3>Comptes rendus (CRI)</h3>${crisH}
