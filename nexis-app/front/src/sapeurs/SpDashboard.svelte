@@ -514,7 +514,6 @@
   .stat-value { font-size: 30px; font-weight: 700; line-height: 1; }
   .stat-value.live { color: var(--color-success); }
   .stat-value.alert { color: var(--color-danger); }
-  .stat-value .frac { font-size: 15px; font-weight: 500; color: var(--color-muted); margin-left: 4px; }
   .stat-sub { font-size: 11px; color: var(--color-muted); }
 
   .garde-quick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
@@ -613,7 +612,6 @@
   .vc-detail { padding: 0 14px 12px; border-top: 1px dashed var(--color-border); display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
   .vc-section { display: flex; flex-direction: column; gap: 6px; }
   .vc-sec-l { font-size: 11px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
-  .vc-engins { display: flex; flex-wrap: wrap; gap: 6px; }
   .vc-engin { font-size: 12px; font-weight: 600; }
   .vc-histo { display: flex; flex-direction: column; gap: 6px; }
   .vc-histo-engin { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; }
