@@ -456,7 +456,7 @@
       position: fixed;
       top: var(--header-h); left: 0; bottom: 0;
       width: min(82vw, 300px);
-      z-index: 200;
+      z-index: 1100;   /* au-dessus des panes/contrôles Leaflet (jusqu'à 1000) */
       transform: translateX(-100%);
       transition: transform 0.2s ease;
       box-shadow: 0 0 28px rgba(0, 0, 0, 0.45);
@@ -469,7 +469,7 @@
       position: fixed;
       top: var(--header-h); left: 0; right: 0; bottom: 0;
       background: rgba(0, 0, 0, 0.5);
-      border: none; z-index: 199;
+      border: none; z-index: 1099;
     }
 
     main { padding: 16px; }

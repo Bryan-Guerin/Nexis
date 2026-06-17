@@ -27,13 +27,17 @@
 }
 
 /* Thème clair (basculé via une classe sur <html>) — surcharge la palette de base.
-   L'accent (faction) et les couleurs sémantiques restent inchangés. */
+   Couleurs sémantiques assombries pour passer WCAG AA sur fond clair. */
 html.light {
   --color-bg:      #f3f4f8;
   --color-surface: #ffffff;
   --color-border:  #dde1ec;
   --color-text:    #1b1f2e;
-  --color-muted:   #6a7290;
+  --color-muted:   #545b75;          /* (de #6a7290) → 5.4:1 sur #f3f4f8 */
+  --color-primary: #3a58e8;          /* (de #4f6ef7) → 5.0:1 */
+  --color-primary-h: #2d49c8;
+  --color-danger:  #c14747;          /* (de #e05c5c) → 4.8:1 */
+  --color-success: #2e8a5e;          /* (de #4caf82) → 4.8:1 */
   --hover:         rgba(0, 0, 0, 0.05);
   color-scheme: light;
 }

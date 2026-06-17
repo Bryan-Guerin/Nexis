@@ -31,7 +31,7 @@
   }
 </script>
 
-<div class="login-wrapper">
+<main class="login-wrapper" aria-label="Connexion">
   <form class="login-card" onsubmit={handleSubmit}>
     <h1>NEXIS</h1>
     <p class="subtitle">Plateforme de gestion opérationnelle</p>
@@ -54,7 +54,7 @@
       {loading ? 'Connexion...' : 'Se connecter'}
     </button>
   </form>
-</div>
+</main>
 
 <style>
   .login-wrapper {
@@ -128,16 +128,16 @@
   }
 
   button {
-    background: var(--color-primary);
+    background: var(--color-primary-h);   /* nuance plus foncée → contraste AA sur fond blanc */
     border: none;
     border-radius: var(--radius);
     color: #fff;
-    font-weight: 600;
+    font-weight: 700;
     padding: 11px;
     margin-top: 8px;
     transition: background 0.2s;
   }
 
-  button:hover:not(:disabled) { background: var(--color-primary-h); }
+  button:hover:not(:disabled) { background: #2d49c8; }
   button:disabled { opacity: 0.6; cursor: default; }
 </style>
