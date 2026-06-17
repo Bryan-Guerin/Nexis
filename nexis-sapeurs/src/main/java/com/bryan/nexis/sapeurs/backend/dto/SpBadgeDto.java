@@ -9,6 +9,7 @@ import java.util.UUID;
 public record SpBadgeDto(
         UUID id, String code, String label, String icone, String description,
         String typeCondition, UUID natureId, String natureLabel, String typeFonction,
+        UUID fonctionOrgaId, String fonctionOrgaLabel,
         int seuil, int xpReward, int position) {
 
     public static SpBadgeDto from(SpBadge b) {
@@ -18,6 +19,8 @@ public record SpBadgeDto(
                 b.getNature() != null ? b.getNature().getId()    : null,
                 b.getNature() != null ? b.getNature().getLabel() : null,
                 b.getTypeFonction() != null ? b.getTypeFonction().name() : null,
+                b.getFonctionOrga() != null ? b.getFonctionOrga().getId()    : null,
+                b.getFonctionOrga() != null ? b.getFonctionOrga().getLabel() : null,
                 b.getSeuil(), b.getXpReward(), b.getPosition());
     }
 }

@@ -46,6 +46,11 @@ public class SpBadge {
     @Column(name = "type_fonction", length = 20)
     private TypeFonction typeFonction;
 
+    /** Fonction d'organigramme ciblée si {@link BadgeCondition#FONCTION_ORGA}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fonction_orga_id")
+    private SpFonctionOrga fonctionOrga;
+
     @Column(nullable = false)
     private int seuil;
 
@@ -74,6 +79,7 @@ public class SpBadge {
     public BadgeCondition getTypeCondition()  { return typeCondition; }
     public SpNatureIntervention getNature()   { return nature; }
     public TypeFonction getTypeFonction()     { return typeFonction; }
+    public SpFonctionOrga getFonctionOrga()   { return fonctionOrga; }
     public int getSeuil()                     { return seuil; }
     public int getXpReward()                  { return xpReward; }
     public int getPosition()                  { return position; }
@@ -84,6 +90,7 @@ public class SpBadge {
     public void setTypeCondition(BadgeCondition t)   { this.typeCondition = t; }
     public void setNature(SpNatureIntervention n)    { this.nature = n; }
     public void setTypeFonction(TypeFonction t)      { this.typeFonction = t; }
+    public void setFonctionOrga(SpFonctionOrga f)    { this.fonctionOrga = f; }
     public void setSeuil(int seuil)                  { this.seuil = seuil; }
     public void setXpReward(int xpReward)            { this.xpReward = xpReward; }
     public void setPosition(int position)            { this.position = position; }

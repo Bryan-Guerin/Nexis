@@ -7,4 +7,5 @@ import java.util.UUID;
 @Serdeable
 public record CreateSpBadgeRequest(
         String code, String label, String icone, String description,
-        String typeCondition, UUID natureId, String typeFonction, int seuil, int xpReward) {}
+        String typeCondition, UUID natureId, String typeFonction, UUID fonctionOrgaId,
+        int seuil, int xpReward) {}

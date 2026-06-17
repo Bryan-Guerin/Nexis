@@ -7,6 +7,7 @@ import com.bryan.nexis.sapeurs.datamodel.SpBadge;
 import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
 import com.bryan.nexis.sapeurs.datamodel.TypeFonction;
 import com.bryan.nexis.sapeurs.datarepository.SpBadgeRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpFonctionOrgaRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreBadgeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpNatureInterventionRepository;
 import io.micronaut.data.model.Sort;
@@ -33,13 +34,16 @@ public class SpBadgeService {
     private final SpBadgeRepository              badgeRepo;
     private final SpMembreBadgeRepository        membreBadgeRepo;
     private final SpNatureInterventionRepository natureRepo;
+    private final SpFonctionOrgaRepository       fonctionOrgaRepo;
 
     public SpBadgeService(SpBadgeRepository badgeRepo,
                           SpMembreBadgeRepository membreBadgeRepo,
-                          SpNatureInterventionRepository natureRepo) {
-        this.badgeRepo       = badgeRepo;
-        this.membreBadgeRepo = membreBadgeRepo;
-        this.natureRepo      = natureRepo;
+                          SpNatureInterventionRepository natureRepo,
+                          SpFonctionOrgaRepository fonctionOrgaRepo) {
+        this.badgeRepo        = badgeRepo;
+        this.membreBadgeRepo  = membreBadgeRepo;
+        this.natureRepo       = natureRepo;
+        this.fonctionOrgaRepo = fonctionOrgaRepo;
     }
 
     // ── Catalogue ────────────────────────────────────────────────────────────
@@ -51,7 +55,8 @@ public class SpBadgeService {
 
     @Transactional
     public SpBadgeDto create(String code, String label, String icone, String description,
-                             String typeCondition, UUID natureId, String typeFonction, int seuil, int xpReward) {
+                             String typeCondition, UUID natureId, String typeFonction, UUID fonctionOrgaId,
+                             int seuil, int xpReward) {
         var type = BadgeCondition.valueOf(typeCondition);
         var b = new SpBadge(code, label, type, seuil);
         b.setIcone(icone);
@@ -67,12 +72,18 @@ public class SpBadgeService {
             if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour QUALIF_TYPE_COUNT");
             b.setTypeFonction(TypeFonction.valueOf(typeFonction));
         }
+        if (type == BadgeCondition.FONCTION_ORGA) {
+            if (fonctionOrgaId == null) throw new IllegalArgumentException("fonctionOrgaId requis pour FONCTION_ORGA");
+            b.setFonctionOrga(fonctionOrgaRepo.findById(fonctionOrgaId).orElseThrow(
+                    () -> new NoSuchElementException("Fonction d'organigramme introuvable : " + fonctionOrgaId)));
+        }
         return SpBadgeDto.from(badgeRepo.save(b));
     }
 
     @Transactional
     public SpBadgeDto update(UUID id, String label, String icone, String description,
-                             String typeCondition, UUID natureId, String typeFonction, Integer seuil, Integer xpReward) {
+                             String typeCondition, UUID natureId, String typeFonction, UUID fonctionOrgaId,
+                             Integer seuil, Integer xpReward) {
         var b = badgeRepo.findById(id).orElseThrow(
                 () -> new NoSuchElementException("Badge introuvable : " + id));
         if (label != null)         b.setLabel(label);
@@ -92,6 +103,13 @@ public class SpBadgeService {
             b.setTypeFonction(TypeFonction.valueOf(typeFonction));
         } else {
             b.setTypeFonction(null);
+        }
+        if (b.getTypeCondition() == BadgeCondition.FONCTION_ORGA) {
+            if (fonctionOrgaId == null) throw new IllegalArgumentException("fonctionOrgaId requis pour FONCTION_ORGA");
+            b.setFonctionOrga(fonctionOrgaRepo.findById(fonctionOrgaId).orElseThrow(
+                    () -> new NoSuchElementException("Fonction d'organigramme introuvable : " + fonctionOrgaId)));
+        } else {
+            b.setFonctionOrga(null);
         }
         return SpBadgeDto.from(badgeRepo.update(b));
     }

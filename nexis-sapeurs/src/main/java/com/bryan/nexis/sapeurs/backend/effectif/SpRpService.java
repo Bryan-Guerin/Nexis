@@ -158,6 +158,9 @@ public class SpRpService {
                         .count();
                 yield n >= b.getSeuil();
             }
+            case FONCTION_ORGA       -> b.getFonctionOrga() != null
+                    && membre.getFonctionsOrga().stream()
+                            .anyMatch(f -> f.getId().equals(b.getFonctionOrga().getId()));
         };
     }
 

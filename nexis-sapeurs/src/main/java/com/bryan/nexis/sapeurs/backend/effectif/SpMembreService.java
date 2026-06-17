@@ -190,6 +190,9 @@ public class SpMembreService {
                 .toList());
         membre.getFonctionsOrga().clear();
         membre.getFonctionsOrga().addAll(nouvelles);
-        return SpMembreDto.from(membreRepo.update(membre));
+        var saved = membreRepo.update(membre);
+        // Attribution immédiate des badges d'appartenance (FONCTION_ORGA), sans attendre le CRON.
+        rpService.evalForMembre(saved);
+        return SpMembreDto.from(saved);
     }
 }

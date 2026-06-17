@@ -15,7 +15,10 @@
         ['GRADE_JOURS',         'Jours dans le grade'],
         ['QUALIF_COUNT',        'Nombre de qualifications'],
         ['QUALIF_TYPE_COUNT',   'Qualifications d\'un type'],
+        ['FONCTION_ORGA',       'Appartenance à une fonction (service)'],
     ]
+    // Conditions sans seuil (booléennes : présence)
+    const SANS_SEUIL = new Set(['FONCTION_ORGA'])
     function condLabel(c) { return CONDITIONS.find(x => x[0] === c)?.[1] ?? c }
 
     // Types de fonction (pour QUALIF_TYPE_COUNT)
@@ -35,6 +38,7 @@
 
     let badges  = $state([])
     let natures = $state([])
+    let fonctionsOrga = $state([])
 
     let showForm = $state(false)
     let editing  = $state(null)   // badge en cours d'édition ; null = création
@@ -43,13 +47,14 @@
 
     function emptyForm() {
         return { code: '', label: '', icone: '🏅', description: '',
-                 typeCondition: 'INTER_COUNT', natureId: '', typeFonction: 'CONDUCTEUR', seuil: 1, xpReward: 50 }
+                 typeCondition: 'INTER_COUNT', natureId: '', typeFonction: 'CONDUCTEUR', fonctionOrgaId: '', seuil: 1, xpReward: 50 }
     }
 
     onMount(async () => {
-        ;[badges, natures] = await Promise.all([
+        ;[badges, natures, fonctionsOrga] = await Promise.all([
             api.get('/sp/badges').catch(() => []),
             api.get('/sp/natures').catch(() => []),
+            api.get('/sp/fonctions-orga').catch(() => []),
         ])
     })
 
@@ -62,6 +67,7 @@
             typeCondition: b.typeCondition,
             natureId: b.natureId ?? '',
             typeFonction: b.typeFonction ?? 'CONDUCTEUR',
+            fonctionOrgaId: b.fonctionOrgaId ?? '',
             seuil: b.seuil, xpReward: b.xpReward,
         }
         showForm = true
@@ -72,6 +78,9 @@
         if (form.typeCondition === 'INTER_NATURE_COUNT' && !form.natureId) {
             toast.error('Nature requise pour ce type de condition'); return
         }
+        if (form.typeCondition === 'FONCTION_ORGA' && !form.fonctionOrgaId) {
+            toast.error('Fonction d\'organigramme requise pour ce type de condition'); return
+        }
         const payload = {
             label: form.label.trim(),
             icone: form.icone || null,
@@ -79,7 +88,8 @@
             typeCondition: form.typeCondition,
             natureId: form.typeCondition === 'INTER_NATURE_COUNT' ? form.natureId : null,
             typeFonction: form.typeCondition === 'QUALIF_TYPE_COUNT' ? form.typeFonction : null,
-            seuil: Number(form.seuil) || 1,
+            fonctionOrgaId: form.typeCondition === 'FONCTION_ORGA' ? form.fonctionOrgaId : null,
+            seuil: SANS_SEUIL.has(form.typeCondition) ? 1 : (Number(form.seuil) || 1),
             xpReward: Number(form.xpReward) || 0,
         }
         try {
@@ -155,7 +165,8 @@
                         {condLabel(b.typeCondition)}
                         {#if b.natureLabel} · {b.natureLabel}{/if}
                         {#if b.typeFonction} · {typeFonctionLabel(b.typeFonction)}{/if}
-                        · seuil {b.seuil}
+                        {#if b.fonctionOrgaLabel} · {b.fonctionOrgaLabel}{/if}
+                        {#if !SANS_SEUIL.has(b.typeCondition)} · seuil {b.seuil}{/if}
                         · +{b.xpReward} XP
                     </div>
                     {#if b.description}<div class="b-desc muted small">{b.description}</div>{/if}
@@ -207,10 +218,20 @@
                     </select>
                 </label>
             {/if}
-            <div class="row">
-                <label class="field-label">Seuil ({seuilUnite(form.typeCondition)})
-                    <input type="number" min="1" bind:value={form.seuil} />
+            {#if form.typeCondition === 'FONCTION_ORGA'}
+                <label class="field-label">Fonction d'organigramme (service)
+                    <select bind:value={form.fonctionOrgaId}>
+                        <option value="">— choisir —</option>
+                        {#each fonctionsOrga as f (f.id)}<option value={f.id}>{f.label}</option>{/each}
+                    </select>
                 </label>
+            {/if}
+            <div class="row">
+                {#if !SANS_SEUIL.has(form.typeCondition)}
+                    <label class="field-label">Seuil ({seuilUnite(form.typeCondition)})
+                        <input type="number" min="1" bind:value={form.seuil} />
+                    </label>
+                {/if}
                 <label class="field-label">Prime XP au déblocage
                     <input type="number" min="0" bind:value={form.xpReward} />
                 </label>

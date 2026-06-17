@@ -18,5 +18,7 @@ public enum BadgeCondition {
     /** Nombre total de qualifications détenues. */
     QUALIF_COUNT,
     /** Nombre de qualifications d'un type de fonction donné (typeFonction requis : CA/COND/CE/EQUIPIER). */
-    QUALIF_TYPE_COUNT
+    QUALIF_TYPE_COUNT,
+    /** Appartenance à une fonction d'organigramme (service) donnée (fonctionOrga requis). */
+    FONCTION_ORGA
 }
