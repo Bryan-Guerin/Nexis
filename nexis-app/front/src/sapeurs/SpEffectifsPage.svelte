@@ -4,6 +4,7 @@
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
     import {confirm} from '../shared/confirm.js'
+    import {toast} from '../shared/toasts.js'
     import {currentUser} from '../shared/stores.js'
     import Skeleton from '../shared/Skeleton.svelte'
     import Modal from '../shared/Modal.svelte'
@@ -13,6 +14,8 @@
   let grades    = $state([])
   let fonctions = $state([])   // catalogue des fonctions = des qualifications
   let fonctionsOrga = $state([])   // catalogue des fonctions d'organigramme (RH, chef…)
+  let badgesCatalog = $state([])   // catalogue complet des badges (pour afficher les verrouillés)
+  let profilRp      = $state(null) // profil RP du membre sélectionné (XP, niveau, badges)
   let users     = $state([])
   let loading   = $state(true)
 
@@ -194,14 +197,15 @@
   async function loadAll() {
     loading = true
     try {
-      const [mem, g, u, f, fo] = await Promise.all([
+      const [mem, g, u, f, fo, bc] = await Promise.all([
         api.get('/sp/membres/grade'),
         api.get('/sp/grades'),
         api.get('/admin/users').catch(() => []),
         api.get('/sp/fonctions'),
         api.get('/sp/fonctions-orga').catch(() => []),
+        api.get('/sp/badges').catch(() => []),
       ])
-      membres = mem; grades = g; users = u; fonctions = f; fonctionsOrga = fo
+      membres = mem; grades = g; users = u; fonctions = f; fonctionsOrga = fo; badgesCatalog = bc
     } catch { /* toast par api.js */ }
     finally { loading = false }
   }
@@ -234,6 +238,21 @@
     loadNotations(selected)
     loadRelancesMembre(selected)
     loadSanctions(selected)
+    loadProfilRp(selected?.id)
+  }
+
+  async function loadProfilRp(membreId) {
+    if (!membreId) { profilRp = null; return }
+    profilRp = await api.get(`/sp/membres/${membreId}/profil-rp`).catch(() => null)
+  }
+
+  async function evaluerBadges() {
+    try {
+      const res = await api.post('/sp/badges/eval')
+      if (res?.attribues > 0) toast.success(`${res.attribues} nouveau(x) badge(s) attribué(s).`)
+      else toast.info('Aucun nouveau badge à attribuer.')
+      await loadProfilRp(selectedId)
+    } catch { /* toast par api.js */ }
   }
 
   /** Recharge le détail du membre sélectionné depuis le back + met la liste à jour. */
@@ -698,6 +717,51 @@
 
         </div><!-- /detail-cols -->
 
+        <!-- Section profil RP : XP, niveau, badges -->
+        {#if profilRp}
+          <div class="detail-section">
+            <div class="detail-section-head">
+              <h3>Profil RP</h3>
+              {#if isAdmin}
+                <button class="btn-ghost-sm" onclick={evaluerBadges} title="Re-évalue tous les membres">↻ Évaluer badges</button>
+              {/if}
+            </div>
+            <div class="rp-body">
+              <div class="rp-xp">
+                <div class="rp-xp-head">
+                  <span class="rp-niveau">Niveau {profilRp.niveau}</span>
+                  <span class="rp-xp-val">{profilRp.xp} XP</span>
+                </div>
+                <div class="rp-bar"><div class="rp-bar-fill" style="width:{profilRp.progressionPct}%"></div></div>
+                <div class="rp-xp-foot muted small">
+                  {profilRp.xp - profilRp.xpNiveauActuel} / {profilRp.xpNiveauSuivant - profilRp.xpNiveauActuel} XP avant niveau {profilRp.niveau + 1}
+                </div>
+              </div>
+
+              <div class="rp-stats">
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.interventions}</span><span class="rp-stat-l">interventions</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.heuresGarde}</span><span class="rp-stat-l">h de garde</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursService}</span><span class="rp-stat-l">jours de service</span></div>
+                <div class="rp-stat"><span class="rp-stat-v">{profilRp.compteurs.joursGrade}</span><span class="rp-stat-l">jours dans le grade</span></div>
+              </div>
+
+              {#if badgesCatalog.length > 0}
+                {@const obtenus = new Set((profilRp.badges ?? []).map(b => b.badgeId))}
+                <div class="rp-badges">
+                  {#each badgesCatalog as b (b.id)}
+                    {@const got = obtenus.has(b.id)}
+                    <div class="rp-badge" class:obtenu={got} title={b.description ?? ''}>
+                      <span class="rp-badge-ico">{b.icone || '🏅'}</span>
+                      <span class="rp-badge-label">{b.label}</span>
+                      {#if !got}<span class="rp-badge-lock">🔒</span>{/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
         <!-- Section notations (RH/admin + l'effectif concerné) --------------- -->
         {#if canSeeNotation(selected)}
           <div class="detail-section">
@@ -1023,6 +1087,25 @@
   .rel-add input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; padding: 0 4px; cursor: pointer; line-height: 1; }
   .rm-btn:hover { color: var(--color-danger); }
+  /* Profil RP : XP, niveau, badges */
+  .rp-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .rp-xp-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .rp-niveau { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .rp-xp-val { font-family: monospace; font-size: 13px; color: var(--color-muted); }
+  .rp-bar { height: 8px; background: var(--color-bg); border-radius: 4px; overflow: hidden; margin: 6px 0 4px; }
+  .rp-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s; }
+  .rp-xp-foot { text-align: right; }
+  .rp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .rp-stat { display: flex; flex-direction: column; align-items: center; padding: 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .rp-stat-v { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .rp-stat-l { font-size: 10px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
+  .rp-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+  .rp-badge { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); opacity: .55; transition: opacity .15s; }
+  .rp-badge.obtenu { opacity: 1; border-color: color-mix(in srgb, var(--accent) 55%, var(--color-border)); }
+  .rp-badge-ico { font-size: 18px; }
+  .rp-badge-label { flex: 1; font-size: 12px; font-weight: 500; }
+  .rp-badge-lock { font-size: 10px; color: var(--color-muted); }
+
   /* Fonctions orga (RH/Chef/Formateur…) — case à cocher en grille compacte */
   .orga-grid { padding: 12px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
   .orga-check { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); cursor: pointer; transition: border-color .12s, background .12s; }
