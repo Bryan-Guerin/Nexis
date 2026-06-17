@@ -7,9 +7,10 @@
     <meta name="description" content="Nexis — plateforme de gestion opérationnelle (Sapeurs-Pompiers, Gendarmerie)." />
     <meta name="theme-color" content="#0f1117" />
     <title>Nexis</title>
-    <!-- Leaflet (carte), self-hosté (offline). Chargé en global `L` avant le module applicatif. -->
+    <!-- Leaflet (carte), self-hosté (offline). `defer` : ne bloque pas le rendu initial ;
+         exécuté avant le module applicatif (defer respecte l'ordre de déclaration). -->
     <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
-    <script src="/vendor/leaflet/leaflet.js"></script>
+    <script src="/vendor/leaflet/leaflet.js" defer></script>
   </head>
   <body>
     <div id="app"></div>

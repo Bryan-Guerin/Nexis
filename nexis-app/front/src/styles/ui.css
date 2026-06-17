@@ -227,9 +227,14 @@
   .form-row label, .create-form > label { min-width: 0; }
   .form-row.grid2 { grid-template-columns: 1fr; }
 
-  /* Cibles tactiles min 36px. */
-  .btn-primary, .btn-danger { padding: 10px 18px; }
-  .btn-ghost, .btn-ghost-sm { padding: 8px 12px; font-size: 12px; }
+  /* Cibles tactiles ≥ 44px (Apple HIG / WCAG 2.5.5). */
+  .btn-primary, .btn-danger, .btn-ghost, .btn-ghost-sm { min-height: 44px; }
+  .btn-primary, .btn-danger { padding: 10px 18px; font-size: 14px; }
+  .btn-ghost, .btn-ghost-sm { padding: 10px 14px; font-size: 13px; }
+  /* Inputs / selects : même règle pour cohérence + facilité de saisie. */
+  .page input, .page select { min-height: 44px; font-size: 14px; }
+  /* Icônes seules (×, ✕, ↺, ‹, ›) : carrés 44×44. */
+  .modal-x, .rm-btn { min-width: 44px; min-height: 44px; }
 
   /* Modale : padding réduit. */
   .modal { padding: 16px; }

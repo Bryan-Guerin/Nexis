@@ -143,6 +143,22 @@
     moved = false
     addDragListeners()
   }
+
+  // Alternative clavier au drag & drop : Enter/Espace sur un bloc ouvre le popover
+  // (changement de statut + suppression). La création passe par le bouton "Se déclarer".
+  function blockKeydown(e, m, ev) {
+    if (!editable(m)) return
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    ouvrirPopover({
+      membreId: m.id, id: ev.id, statutId: ev.statut.id,
+      dStart: isoToMin(ev.debut), fStart: isoToMin(ev.fin),
+    })
+  }
+  function blockLabel(ev) {
+    const fmt = iso => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    return `${ev.statut.label} de ${fmt(ev.debut)} à ${fmt(ev.fin)}${ev.notes ? ' — ' + ev.notes : ''}`
+  }
   function onDragMove(e) {
     if (!drag) return
     if (Math.abs(e.clientX - drag.x0) > 3) moved = true
@@ -364,12 +380,16 @@
                     background:{ev.statut.couleur}26;
                     border-top:3px solid {ev.statut.couleur};
                   "
-                  title="{ev.statut.label}{ev.notes ? ' — ' + ev.notes : ''}"
+                  title={blockLabel(ev)}
+                  role={editable(m) ? 'button' : null}
+                  tabindex={editable(m) ? 0 : null}
+                  aria-label={editable(m) ? `Modifier : ${blockLabel(ev)}` : blockLabel(ev)}
                   onpointerdown={(e) => blockPointerDown(e, m, ev, 'move')}
+                  onkeydown={(e) => blockKeydown(e, m, ev)}
                 >
                   {#if editable(m)}
-                    <span class="handle l" onpointerdown={(e) => blockPointerDown(e, m, ev, 'resize-l')}></span>
-                    <span class="handle r" onpointerdown={(e) => blockPointerDown(e, m, ev, 'resize-r')}></span>
+                    <span class="handle l" aria-hidden="true" onpointerdown={(e) => blockPointerDown(e, m, ev, 'resize-l')}></span>
+                    <span class="handle r" aria-hidden="true" onpointerdown={(e) => blockPointerDown(e, m, ev, 'resize-r')}></span>
                   {/if}
                   {#if ev.widthPx >= 44}
                     <span class="block-label" style="color:{ev.statut.couleur}">{ev.statut.label}</span>
