@@ -12,6 +12,7 @@
   let membres   = $state([])
   let grades    = $state([])
   let fonctions = $state([])   // catalogue des fonctions = des qualifications
+  let fonctionsOrga = $state([])   // catalogue des fonctions d'organigramme (RH, chef…)
   let users     = $state([])
   let loading   = $state(true)
 
@@ -152,6 +153,17 @@
 
   // Sections collapsibles dans le détail
   let qualifsOpen = $state(true)
+  let fctsOrgaOpen = $state(true)
+
+  // Toggle d'une fonction d'organigramme sur le membre sélectionné (cumul possible).
+  async function toggleFonctionOrga(fonctionId) {
+    if (!selected) return
+    const current = (selected.fonctionsOrga ?? []).map(f => f.id)
+    const next = current.includes(fonctionId) ? current.filter(x => x !== fonctionId) : [...current, fonctionId]
+    try {
+      selected = await api.put(`/sp/membres/${selected.id}/fonctions-orga`, { fonctionOrgaIds: next })
+    } catch { /* toast par api.js */ }
+  }
 
   // ── État inline d'édition (admin) ────────────────────────────────────────
   let editName        = $state(false)
@@ -182,13 +194,14 @@
   async function loadAll() {
     loading = true
     try {
-      const [mem, g, u, f] = await Promise.all([
+      const [mem, g, u, f, fo] = await Promise.all([
         api.get('/sp/membres/grade'),
         api.get('/sp/grades'),
         api.get('/admin/users').catch(() => []),
         api.get('/sp/fonctions'),
+        api.get('/sp/fonctions-orga').catch(() => []),
       ])
-      membres = mem; grades = g; users = u; fonctions = f
+      membres = mem; grades = g; users = u; fonctions = f; fonctionsOrga = fo
     } catch { /* toast par api.js */ }
     finally { loading = false }
   }
@@ -658,6 +671,31 @@
           {/if}
         </div>
 
+        <!-- Section fonctions d'organigramme (rôles caserne — cumul possible) -->
+        <div class="detail-section">
+          <button class="section-toggle" onclick={() => fctsOrgaOpen = !fctsOrgaOpen}>
+            <h3>Fonctions orga <span class="hab-count">({(selected.fonctionsOrga ?? []).length})</span></h3>
+            <span class="chevron" class:open={fctsOrgaOpen}>▾</span>
+          </button>
+          {#if fctsOrgaOpen}
+            {#if fonctionsOrga.length === 0}
+              <p class="muted small">Aucune fonction d'organigramme configurée. Voir Configuration.</p>
+            {:else}
+              <div class="orga-grid">
+                {#each fonctionsOrga as f (f.id)}
+                  {@const checked = (selected.fonctionsOrga ?? []).some(x => x.id === f.id)}
+                  <label class="orga-check" class:on={checked} class:locked={!canEditInfos}>
+                    <input type="checkbox" {checked} disabled={!canEditInfos}
+                           onchange={() => toggleFonctionOrga(f.id)} />
+                    {#if f.icone}<span class="orga-ico">{f.icone}</span>{/if}
+                    <span>{f.label}</span>
+                  </label>
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
+
         </div><!-- /detail-cols -->
 
         <!-- Section notations (RH/admin + l'effectif concerné) --------------- -->
@@ -985,6 +1023,15 @@
   .rel-add input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; padding: 0 4px; cursor: pointer; line-height: 1; }
   .rm-btn:hover { color: var(--color-danger); }
+  /* Fonctions orga (RH/Chef/Formateur…) — case à cocher en grille compacte */
+  .orga-grid { padding: 12px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+  .orga-check { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); cursor: pointer; transition: border-color .12s, background .12s; }
+  .orga-check:hover:not(.locked) { border-color: var(--accent); }
+  .orga-check.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .orga-check.locked { cursor: default; opacity: .8; }
+  .orga-check input { margin: 0; flex-shrink: 0; }
+  .orga-ico { font-size: 14px; }
+
   .add-hab-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
   .add-hab-form select { flex: 1; min-width: 200px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
   .add-hab-form select:focus { border-color: var(--accent); }
