@@ -4,6 +4,7 @@ import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.core.backend.dto.PlanningStatutDto;
 import com.bryan.nexis.sapeurs.backend.dto.*;
+import com.bryan.nexis.sapeurs.backend.effectif.SpFonctionOrgaService;
 import com.bryan.nexis.sapeurs.backend.effectif.SpFonctionService;
 import com.bryan.nexis.sapeurs.backend.effectif.SpGradeService;
 import com.bryan.nexis.sapeurs.backend.intervention.SpNatureInterventionService;
@@ -28,6 +29,7 @@ public class SpConfigController {
 
     private final SpGradeService             gradeService;
     private final SpFonctionService          fonctionService;
+    private final SpFonctionOrgaService      fonctionOrgaService;
     private final SpVehiculeEtatService      etatService;
     private final SpCasierService            casierService;
     private final SpPlanningStatutService    planningStatutService;
@@ -38,6 +40,7 @@ public class SpConfigController {
     private final SpObjetInventaireService   objetInventaireService;
 
     public SpConfigController(SpGradeService gradeService, SpFonctionService fonctionService,
+                              SpFonctionOrgaService fonctionOrgaService,
                               SpVehiculeEtatService etatService, SpCasierService casierService,
                               SpPlanningStatutService planningStatutService,
                               SpVehiculeStatutService statutService, SpCentreService centreService,
@@ -46,6 +49,7 @@ public class SpConfigController {
                               SpObjetInventaireService objetInventaireService) {
         this.gradeService          = gradeService;
         this.fonctionService       = fonctionService;
+        this.fonctionOrgaService   = fonctionOrgaService;
         this.etatService           = etatService;
         this.casierService         = casierService;
         this.planningStatutService = planningStatutService;
@@ -120,6 +124,37 @@ public class SpConfigController {
         } catch (IllegalStateException e) {
             return io.micronaut.http.HttpResponse.badRequest(e.getMessage());
         }
+    }
+
+    // ── Fonctions organigramme (rôles caserne, arborescents) ──────────────────────
+
+    @Get("/fonctions-orga")
+    @Secured("ROLE_SP")
+    List<SpFonctionOrgaDto> listFonctionsOrga() {
+        return fonctionOrgaService.listAll();
+    }
+
+    @Post("/fonctions-orga")
+    @Status(HttpStatus.CREATED)
+    SpFonctionOrgaDto createFonctionOrga(@Body CreateSpFonctionOrgaRequest req) {
+        return fonctionOrgaService.create(req.code(), req.label(), req.parentId(), req.icone());
+    }
+
+    @Put("/fonctions-orga/{id}")
+    SpFonctionOrgaDto updateFonctionOrga(UUID id, @Body UpdateSpFonctionOrgaRequest req) {
+        return fonctionOrgaService.update(id, req.label(), req.parentId(), req.icone());
+    }
+
+    @Put("/fonctions-orga/order")
+    @Status(HttpStatus.NO_CONTENT)
+    void reorderFonctionsOrga(@Body ReorderRequest req) {
+        fonctionOrgaService.reorder(req.ids());
+    }
+
+    @Delete("/fonctions-orga/{id}")
+    @Status(HttpStatus.NO_CONTENT)
+    void deleteFonctionOrga(UUID id) {
+        fonctionOrgaService.delete(id);
     }
 
     // ── États véhicule (maître, système — lecture seule, non modifiables) ─────────
