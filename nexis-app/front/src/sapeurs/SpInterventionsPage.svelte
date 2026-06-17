@@ -198,12 +198,19 @@
     return cri.statut !== 'VALIDE'
         && (isAdmin || affectations.some(a => a.vehiculeId === cri.vehiculeId && a.membreId === myMembreId))
   }
-  async function criSave(cri) {
-    try { await api.put(`/sp/cri/${cri.id}`, { contenu: cri.contenu }); await refreshDetail() }
-    catch { /* toast par api.js */ }
+  // Enregistrement automatique au focus perdu (clic ailleurs / fermeture) : évite
+  // de perdre un CR saisi sans avoir cliqué « Enregistrer ». Silencieux, sans refresh.
+  let criSaved = $state({})   // criId -> true brièvement (retour visuel « ✓ Enregistré »)
+  async function criAutoSave(cri) {
+    try {
+      await api.put(`/sp/cri/${cri.id}`, { contenu: cri.contenu })
+      criSaved = { ...criSaved, [cri.id]: true }
+      setTimeout(() => { criSaved = { ...criSaved, [cri.id]: false } }, 1800)
+    } catch { /* silencieux : la saisie reste à l'écran */ }
   }
   async function criSoumettre(cri) {
-    try { await api.put(`/sp/cri/${cri.id}/soumettre`); await refreshDetail() }
+    // Persiste le contenu courant avant de soumettre (évite la course avec l'autosave au blur).
+    try { await api.put(`/sp/cri/${cri.id}`, { contenu: cri.contenu }); await api.put(`/sp/cri/${cri.id}/soumettre`); await refreshDetail() }
     catch { /* toast par api.js */ }
   }
   async function criValider(cri) {
@@ -611,9 +618,10 @@
                 {#if cri.validePar}<span class="muted small">par {cri.validePar}</span>{/if}
               </div>
               {#if canEditCri(cri)}
-                <textarea rows="2" bind:value={cri.contenu} placeholder="Compte rendu du véhicule…"></textarea>
+                <textarea rows="2" bind:value={cri.contenu} placeholder="Compte rendu du véhicule… (enregistré automatiquement)"
+                          onblur={() => criAutoSave(cri)}></textarea>
                 <div class="cri-actions">
-                  <button class="btn-ghost-sm" onclick={() => criSave(cri)}>Enregistrer</button>
+                  {#if criSaved[cri.id]}<span class="cri-saved">✓ Enregistré</span>{/if}
                   {#if cri.statut === 'BROUILLON'}<button class="btn-ghost-sm" onclick={() => criSoumettre(cri)}>Soumettre</button>{/if}
                 </div>
               {:else}
@@ -717,7 +725,8 @@
   .cri-badge.valide { background: color-mix(in srgb, var(--color-success) 22%, transparent); color: var(--color-success); }
   .cri-validate { margin-left: auto; padding: 2px 10px; font-size: 12px; }
   .cri-item textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; }
-  .cri-actions { display: flex; gap: 8px; }
+  .cri-actions { display: flex; gap: 8px; align-items: center; }
+  .cri-saved { font-size: 11px; color: var(--color-success); font-weight: 600; }
   .cri-contenu { font-size: 13px; margin: 0; white-space: pre-wrap; }
 
   .renfort-rows { display: flex; gap: 24px; flex-wrap: wrap; }

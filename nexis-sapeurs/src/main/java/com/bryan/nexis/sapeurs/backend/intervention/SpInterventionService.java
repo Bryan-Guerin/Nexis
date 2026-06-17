@@ -370,6 +370,8 @@ public class SpInterventionService {
         var inter = interventionRepo.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + id));
         if (inter.getFin() != null) throw new IllegalStateException("Intervention clôturée.");
+        var v = inter.getEngins().stream().filter(e -> e.getId().equals(vehiculeId)).findFirst().orElse(null);
+        if (v != null) snapshotUnEngin(inter, v);   // fige l'engin + équipage avant retrait
         boolean retire = inter.getEngins().removeIf(e -> e.getId().equals(vehiculeId));
         var saved = interventionRepo.update(inter);
         if (retire) libererVehicule(vehiculeId, inter.getCode());
@@ -456,24 +458,30 @@ public class SpInterventionService {
         return SpInterventionDto.from(inter);
     }
 
-    /** Fige engins (libellé + type) et équipages (matricule, nom, grade, poste) en texte. */
+    /** Fige tous les engins encore présents (libellé + type) et leurs équipages, en texte. */
     private void snapshotEngins(SpIntervention inter) {
-        int ordre = 0;
-        for (var v : inter.getEngins()) {
-            var engin = new SpInterventionEngin(inter, v.getLibelle(),
-                    v.getType() != null ? v.getType().getCode() : null, ordre++);
-            int eo = 0;
-            for (var aff : affectationRepo.findByVehiculeIdAndFinIsNull(v.getId())) {
-                var m = aff.getMembre();
-                String poste = (aff.getPoste() != null && aff.getPoste().getFonction() != null)
-                        ? aff.getPoste().getFonction().getLabel() : null;
-                String nom = (m.getNomComplet() != null && !m.getNomComplet().isBlank())
-                        ? m.getNomComplet() : m.getUser().getUsername();
-                engin.getEquipage().add(new SpInterventionEquipier(
-                        engin, m.getMatricule(), nom, m.getGrade().getLabel(), poste, eo++));
-            }
-            inter.getEnginsHisto().add(engin);
+        for (var v : inter.getEngins()) snapshotUnEngin(inter, v);
+    }
+
+    /**
+     * Fige UN engin et son équipage dans l'historique de l'intervention. Appelé soit à la clôture
+     * (engins restants), soit au moment où l'engin quitte l'intervention (réengagement ailleurs ou
+     * retrait manuel) — sinon son équipage serait perdu, l'engin n'étant plus rattaché à la clôture.
+     */
+    private void snapshotUnEngin(SpIntervention inter, SpVehicule v) {
+        var engin = new SpInterventionEngin(inter, v.getLibelle(),
+                v.getType() != null ? v.getType().getCode() : null, inter.getEnginsHisto().size());
+        int eo = 0;
+        for (var aff : affectationRepo.findByVehiculeIdAndFinIsNull(v.getId())) {
+            var m = aff.getMembre();
+            String poste = (aff.getPoste() != null && aff.getPoste().getFonction() != null)
+                    ? aff.getPoste().getFonction().getLabel() : null;
+            String nom = (m.getNomComplet() != null && !m.getNomComplet().isBlank())
+                    ? m.getNomComplet() : m.getUser().getUsername();
+            engin.getEquipage().add(new SpInterventionEquipier(
+                    engin, m.getMatricule(), nom, m.getGrade().getLabel(), poste, eo++));
         }
+        inter.getEnginsHisto().add(engin);
     }
 
     /**
@@ -508,7 +516,10 @@ public class SpInterventionService {
             if (inter.getId().equals(nouvelle.getId())) continue;
             boolean modifie = false;
             for (var engin : engins) {
-                if (inter.getEngins().removeIf(e -> e.getId().equals(engin.getId()))) {
+                boolean present = inter.getEngins().stream().anyMatch(e -> e.getId().equals(engin.getId()));
+                if (present) {
+                    snapshotUnEngin(inter, engin);   // fige l'engin + équipage avant de le détacher
+                    inter.getEngins().removeIf(e -> e.getId().equals(engin.getId()));
                     modifie = true;
                     events.publishEvent(RealtimeEvent.faction(RealtimeEvent.MAIN_COURANTE, "SP",
                             engin + " réengagé sur " + nouvelle.getCode(),
