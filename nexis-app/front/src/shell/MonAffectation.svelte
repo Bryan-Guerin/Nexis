@@ -1,11 +1,11 @@
 <script>
   import {onMount} from 'svelte'
   import {api} from '../shared/api.js'
-  import {currentUser} from '../shared/stores.js'
+  import {currentUser, feuilleFiltreDemande} from '../shared/stores.js'
   import {realtime} from '../shared/realtime.js'
 
-  // Chip « mon affectation » dans la top-bar (toutes factions). Indique poste + véhicule
-  // de l'utilisateur courant. Cliquable → dispatch. SP pour l'instant (GN quand crews prêts).
+  // Chip « mes affectations » dans la top-bar. Liste tous mes véhicules (poste = code,
+  // compact). Cliquable → Feuille de garde filtrée sur moi.
   let affs = $state([])
   let roles = $derived($currentUser?.roles ?? [])
   let isSp  = $derived(roles.some(r => r === 'ROLE_SP' || r === 'ROLE_SP_DISPATCH' || r === 'ROLE_ADMIN_SP'))
@@ -22,32 +22,40 @@
     })
   })
 
-  let principal = $derived(affs[0] ?? null)
-  function go() { window.location.hash = '#/sp/dispatch' }
+  function go() {
+    feuilleFiltreDemande.set('moi')   // la Feuille filtrera sur l'utilisateur courant
+    window.location.hash = '#/sp/feuille-garde'
+  }
 </script>
 
-{#if principal}
-  <button class="mon-aff" onclick={go} title="Aller au dispatch">
-    <span class="ic">{principal.typeIcone || '🚒'}</span>
-    <span class="lib">{principal.vehiculeLibelle}</span>
-    {#if principal.fonctionLabel}<span class="fct">· {principal.fonctionLabel}</span>{/if}
-    {#if affs.length > 1}<span class="more">+{affs.length - 1}</span>{/if}
+{#if affs.length > 0}
+  <button class="mon-aff" onclick={go} title="Voir mes engins (feuille de garde)">
+    {#each affs as a (a.vehiculeId)}
+      <span class="aff-chip">
+        <span class="ic">{a.typeIcone || '🚒'}</span>
+        <span class="lib">{a.vehiculeLibelle}</span>
+        {#if a.fonctionCode}<span class="fct">{a.fonctionCode}</span>{/if}
+      </span>
+    {/each}
   </button>
 {/if}
 
 <style>
   .mon-aff {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    background: none; border: none; color: var(--color-text);
+    padding: 0; cursor: pointer; max-width: 46vw;
+  }
+  .aff-chip {
+    display: inline-flex; align-items: center; gap: 5px;
     background: color-mix(in srgb, var(--color-success) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
-    color: var(--color-text); border-radius: 20px;
-    padding: 4px 12px; font-size: 13px; cursor: pointer; white-space: nowrap;
+    border-radius: 20px; padding: 3px 10px; font-size: 13px; white-space: nowrap;
   }
-  .mon-aff:hover { border-color: var(--color-success); }
-  .mon-aff .ic { font-size: 15px; line-height: 1; }
-  .mon-aff .lib { font-weight: 600; }
-  .mon-aff .fct { color: var(--color-muted); }
-  .mon-aff .more { font-size: 11px; color: var(--color-muted); background: var(--color-bg); border-radius: 8px; padding: 0 5px; }
-  @media (max-width: 768px) { .mon-aff .fct { display: none; } }
+  .mon-aff:hover .aff-chip { border-color: var(--color-success); }
+  .aff-chip .ic { font-size: 15px; line-height: 1; }
+  .aff-chip .lib { font-weight: 600; }
+  .aff-chip .fct { font-family: monospace; font-size: 11px; color: var(--color-muted); }
+  @media (max-width: 768px) { .aff-chip .fct { display: none; } }
   @media (max-width: 480px) { .mon-aff { display: none; } }   /* libère la barre top mobile */
 </style>

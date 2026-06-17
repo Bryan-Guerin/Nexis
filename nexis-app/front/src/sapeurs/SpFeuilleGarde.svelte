@@ -1,10 +1,12 @@
 <script>
   import {onMount} from 'svelte'
+  import {get} from 'svelte/store'
   import {api} from '../shared/api.js'
   import {toast} from '../shared/toasts.js'
   import {confirm} from '../shared/confirm.js'
   import {realtime} from '../shared/realtime.js'
   import {refStatutsVeh} from '../shared/referentials.js'
+  import {currentUser, feuilleFiltreDemande} from '../shared/stores.js'
   import Modal from '../shared/Modal.svelte'
   import Skeleton from '../shared/Skeleton.svelte'
   import EmptyState from '../shared/EmptyState.svelte'
@@ -20,9 +22,26 @@
   let enServiceSet     = $derived(new Set(enServiceIds))
   let enServiceMembres = $derived(membres.filter(m => enServiceSet.has(m.id)))
 
+  // Filtre par effectif : clic sur un nom (équipage / de garde) → n'affiche que ses engins.
+  let filtreMembres = $state(new Set())   // membreId
+  function toggleFiltreMembre(id) {
+    const s = new Set(filtreMembres)
+    s.has(id) ? s.delete(id) : s.add(id)
+    filtreMembres = s
+  }
+  function clearFiltre() { filtreMembres = new Set() }
+  function membreLabel(id) {
+    const m = membres.find(x => x.id === id)
+    return m ? `${m.gradeCode} ${m.nomComplet || m.username}` : '—'
+  }
+  let vehiculesFiltres = $derived(
+    filtreMembres.size === 0 ? vehicules
+      : vehicules.filter(v => (v.equipe ?? []).some(m => filtreMembres.has(m.membreId)))
+  )
+
   // Regroupement par catégorie principale, sections repliables ; items triés armé → statut.
   let collapsed = $state({})
-  let groupes = $derived(grouperVehicules(vehicules))
+  let groupes = $derived(grouperVehicules(vehiculesFiltres))
   let stats = $derived({
     total:    vehicules.length,
     dispo:    vehicules.filter(v => v.etat?.code === 'DISPONIBLE').length,
@@ -48,9 +67,11 @@
   let reloadTimer = null
   onMount(() => {
     load()
+    // Sur événement : on ne recharge QUE le dynamique (engins, équipages, en-service).
+    // Les hôpitaux (picker) restent figés → moins de remous pendant qu'on édite son statut.
     const off = realtime.on(ev => {
       if (ev.faction === 'SP' && ['AFFECTATION', 'DESAFFECTATION', 'ETAT_VEHICULE'].includes(ev.type)) {
-        clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 400)
+        clearTimeout(reloadTimer); reloadTimer = setTimeout(loadDynamic, 400)
       }
     })
     // Fins de garde temporelles (sans événement) → rafraîchit « de garde » périodiquement.
@@ -60,18 +81,40 @@
     return () => { off(); clearInterval(tick) }
   })
 
+  // Chargement complet (statique hôpitaux + dynamique). Une fois au montage.
   async function load() {
     loading = true
     try {
-      ;[vehicules, membres, enServiceIds, statuts, hopitaux] = await Promise.all([
+      hopitaux = await api.get('/sp/hopitaux')
+      await loadDynamic()
+      consommerFiltreDemande()
+    } catch { /* toast par api.js */ }
+    finally { loading = false }
+  }
+
+  // Données temps réel uniquement (sans toucher au picker hôpitaux).
+  async function loadDynamic() {
+    try {
+      ;[vehicules, membres, enServiceIds, statuts] = await Promise.all([
         api.get('/sp/dispatch'),
         api.get('/sp/membres?actif=true'),
         api.get('/sp/membres/en-service'),
         refStatutsVeh(),
-        api.get('/sp/hopitaux'),
       ])
     } catch { /* toast par api.js */ }
-    finally { loading = false }
+  }
+
+  // Filtre demandé via la navigation (clic sur « mes affectations ») : 'moi' = utilisateur courant.
+  function consommerFiltreDemande() {
+    const dem = get(feuilleFiltreDemande)
+    if (!dem) return
+    feuilleFiltreDemande.set(null)
+    if (dem === 'moi') {
+      const moi = membres.find(m => m.username === $currentUser?.username)
+      if (moi) filtreMembres = new Set([moi.id])
+    } else if (Array.isArray(dem)) {
+      filtreMembres = new Set(dem)
+    }
   }
 
   async function bip(v) {
@@ -196,13 +239,30 @@
       {#if enServiceMembres.length > 0}
         <div class="garde-list">
           {#each enServiceMembres as m (m.id)}
-            <span class="garde-chip"><span class="g-grade">{m.gradeCode}</span> {m.nomComplet || m.username}</span>
+            <button class="garde-chip" class:on={filtreMembres.has(m.id)} title="Filtrer ses engins"
+                    onclick={() => toggleFiltreMembre(m.id)}>
+              <span class="g-grade">{m.gradeCode}</span> {m.nomComplet || m.username}
+            </button>
           {/each}
         </div>
       {:else}
         <span class="muted small">Personne de garde actuellement</span>
       {/if}
     </div>
+
+    {#if filtreMembres.size > 0}
+      <div class="filtre-bar">
+        <span class="muted small">Filtré sur :</span>
+        {#each [...filtreMembres] as id (id)}
+          <button class="filtre-chip" onclick={() => toggleFiltreMembre(id)} title="Retirer">{membreLabel(id)} ✕</button>
+        {/each}
+        <button class="btn-ghost-sm" onclick={clearFiltre}>Tout afficher</button>
+      </div>
+    {/if}
+
+    {#if groupes.length === 0}
+      <EmptyState icon="🔍" title="Aucun engin" message="Aucun engin ne correspond au filtre." />
+    {/if}
 
     {#each groupes as g (g.key)}
     <section class="veh-group">
@@ -240,10 +300,11 @@
           {#if (v.equipe ?? []).length > 0}
             <ul class="crew">
               {#each v.equipe as m (m.membreId)}
-                <li class="crew-member">
+                <li class="crew-member" class:filtre-on={filtreMembres.has(m.membreId)}>
                   {#if enServiceSet.has(m.membreId)}<span class="garde-dot" title="De garde"></span>{/if}
                   <span class="crew-grade">{m.gradeCode}</span>
-                  <span class="crew-name">{m.nomComplet || m.username}</span>
+                  <button class="crew-name crew-name-btn" title="Filtrer ses engins"
+                          onclick={() => toggleFiltreMembre(m.membreId)}>{m.nomComplet || m.username}</button>
                   <div class="crew-right">
                     <span class="crew-matricule">{m.matricule}</span>
                     <span class="crew-fonction">{m.fonctionLabel}</span>
@@ -381,10 +442,18 @@
   }
   .garde-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-success); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .garde-list { display: flex; gap: 8px; flex-wrap: wrap; }
-  .garde-chip { font-size: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; padding: 3px 10px; display: inline-flex; gap: 6px; align-items: center; }
+  .garde-chip { font-size: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 20px; padding: 3px 10px; display: inline-flex; gap: 6px; align-items: center; color: var(--color-text); cursor: pointer; }
+  .garde-chip:hover { border-color: var(--accent); }
+  .garde-chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
   .garde-chip .g-grade { color: var(--color-muted); font-size: 10px; }
   .garde-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); flex-shrink: 0; }
   .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .filtre-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filtre-chip { font-size: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid var(--accent); color: var(--accent); border-radius: 16px; padding: 2px 10px; cursor: pointer; }
+  .crew-name-btn { background: none; border: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .crew-name-btn:hover { color: var(--accent); text-decoration: underline; }
+  .crew-member.filtre-on { background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: var(--radius); }
 
   .field-label select, .postes select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; outline: none; }
   .postes { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow-y: auto; }

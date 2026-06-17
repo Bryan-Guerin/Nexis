@@ -59,3 +59,8 @@ function createThemeStore() {
   return { subscribe, set: setTheme, toggle: () => setTheme(current === 'light' ? 'dark' : 'light') }
 }
 export const theme = createThemeStore()
+
+// Demande de filtre passée à la Feuille de garde lors d'une navigation (ex. clic sur
+// « mon affectation »). Valeurs : 'moi' (filtre sur l'utilisateur courant) ou un tableau
+// de membreId. La Feuille la consomme au montage puis la remet à null.
+export const feuilleFiltreDemande = writable(null)
