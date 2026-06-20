@@ -134,6 +134,14 @@ public class SpVehiculeController {
                 req.centreId(), req.capaciteEau(), req.notes());
     }
 
+    /** Supprime un véhicule (admin SP) — réservé aux véhicules sans historique (ex. doublon). */
+    @Delete("/vehicules/{id}")
+    @Secured("ROLE_ADMIN_SP")
+    @Status(HttpStatus.NO_CONTENT)
+    void deleteVehicule(UUID id) {
+        vehiculeService.delete(id);
+    }
+
     /** Force l'état maître (système : maintenance, inventaire, indisponibilité…). */
     @Put("/vehicules/{id}/etat")
     SpVehiculeDto updateEtat(UUID id, @QueryValue UUID etatId) {

@@ -15,6 +15,10 @@ public interface SpVehiculeAffectationRepository extends JpaRepository<SpVehicul
     @Query("SELECT a FROM SpVehiculeAffectation a WHERE a.vehicule.id = :vehiculeId AND a.fin IS NULL")
     List<SpVehiculeAffectation> findByVehiculeIdAndFinIsNull(UUID vehiculeId);
 
+    /** Toutes affectations (actives ou closes) du véhicule — garde-fou avant suppression. */
+    @Query("SELECT COUNT(a) FROM SpVehiculeAffectation a WHERE a.vehicule.id = :vehiculeId")
+    long countByVehiculeId(UUID vehiculeId);
+
     @Query("SELECT a FROM SpVehiculeAffectation a WHERE a.membre.id = :membreId AND a.fin IS NULL")
     List<SpVehiculeAffectation> findByMembreIdAndFinIsNull(UUID membreId);
 

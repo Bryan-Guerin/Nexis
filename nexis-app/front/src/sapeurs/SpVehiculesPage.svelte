@@ -1,6 +1,7 @@
 <script>
     import {onMount} from 'svelte'
     import {api} from '../shared/api.js'
+    import {confirm} from '../shared/confirm.js'
     import {currentUser} from '../shared/stores.js'
     import {compareBy, nextSort} from '../shared/tableSort.js'
     import Skeleton from '../shared/Skeleton.svelte'
@@ -319,6 +320,16 @@
   }
 
   // ── Vérification d'inventaire d'un véhicule ───────────────────────────────────
+  // Suppression d'un véhicule (admin) — réservée aux véhicules sans historique (ex. doublon).
+  async function supprimerVehicule(v) {
+    if (!await confirm({ title: 'Supprimer le véhicule', danger: true,
+        message: `Supprimer « ${v.libelle} » ?\nAction irréversible. Réservé aux véhicules sans historique (ex. doublon créé par erreur).` })) return
+    try {
+      await api.delete(`/sp/vehicules/${v.id}`)
+      vehicules = vehicules.filter(x => x.id !== v.id)
+    } catch { /* toast par api.js (ex. véhicule avec historique) */ }
+  }
+
   async function openVerif(v) {
     verifVeh = v; verifError = ''
     const items = await api.get(`/sp/vehicules/types/${v.type.id}/inventaire`).catch(() => [])
@@ -479,6 +490,9 @@
             <td class="actions">
               <button class="btn-ghost-sm" onclick={() => openEdit(v)}>Éditer</button>
               <button class="btn-ghost-sm" onclick={() => openVerif(v)}>Vérifier</button>
+              {#if isAdmin}
+                <button class="rm-btn" title="Supprimer (doublon)" onclick={() => supprimerVehicule(v)}>×</button>
+              {/if}
             </td>
           </tr>
         {/each}

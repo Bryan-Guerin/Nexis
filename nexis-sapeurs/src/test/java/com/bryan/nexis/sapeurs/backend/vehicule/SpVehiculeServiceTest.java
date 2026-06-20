@@ -47,7 +47,7 @@ class SpVehiculeServiceTest {
                 mock(SpVehiculeRepository.class), mock(SpVehiculeTypeRepository.class),
                 mock(SpVehiculeEtatRepository.class), mock(SpVehiculeStatutRepository.class),
                 mock(SpCentreRepository.class), mock(SpHopitalRepository.class),
-                affectationRepo, posteRepo, interventionService,
+                affectationRepo, posteRepo, mock(SpCriRepository.class), interventionService,
                 (ApplicationEventPublisher<RealtimeEvent>) mock(ApplicationEventPublisher.class),
                 mock(SecurityService.class));
 

@@ -35,6 +35,7 @@ public class SpVehiculeService {
     private final SpHopitalRepository             hopitalRepo;
     private final SpVehiculeAffectationRepository affectationRepo;
     private final SpVehiculeTypePosteRepository   posteRepo;
+    private final SpCriRepository                 criRepo;
     private final SpInterventionService           interventionService;
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final SecurityService securityService;
@@ -43,7 +44,8 @@ public class SpVehiculeService {
                              SpVehiculeEtatRepository etatRepo, SpVehiculeStatutRepository statutRepo,
                              SpCentreRepository centreRepo, SpHopitalRepository hopitalRepo,
                              SpVehiculeAffectationRepository affectationRepo,
-                             SpVehiculeTypePosteRepository posteRepo, SpInterventionService interventionService,
+                             SpVehiculeTypePosteRepository posteRepo, SpCriRepository criRepo,
+                             SpInterventionService interventionService,
                              ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
         this.vehiculeRepo    = vehiculeRepo;
         this.typeRepo        = typeRepo;
@@ -53,6 +55,7 @@ public class SpVehiculeService {
         this.hopitalRepo     = hopitalRepo;
         this.affectationRepo = affectationRepo;
         this.posteRepo       = posteRepo;
+        this.criRepo         = criRepo;
         this.interventionService = interventionService;
         this.events          = events;
         this.securityService = securityService;
@@ -129,6 +132,30 @@ public class SpVehiculeService {
         if (centreId != null)        vehicule.setCentre(centreRepo.findById(centreId)
                 .orElseThrow(() -> new NoSuchElementException("Centre introuvable : " + centreId)));
         return SpVehiculeDto.from(vehiculeRepo.update(vehicule));
+    }
+
+    /**
+     * Supprime un véhicule (admin). Réservé aux véhicules sans historique (ex. doublon créé par
+     * erreur) : refusé s'il est engagé sur une intervention en cours, s'il a un historique
+     * d'affectations, ou des comptes rendus d'intervention. Les vérifications d'inventaire sont
+     * supprimées en cascade (FK ON DELETE CASCADE).
+     */
+    @Transactional
+    public void delete(UUID id) {
+        var vehicule = vehiculeRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Véhicule SP introuvable : " + id));
+        interventionService.codeInterventionEnCours(id).ifPresent(code -> {
+            throw new IllegalStateException("Suppression impossible : véhicule engagé sur l'intervention " + code + ".");
+        });
+        if (affectationRepo.countByVehiculeId(id) > 0) {
+            throw new IllegalStateException("Suppression impossible : ce véhicule a un historique d'affectations. "
+                    + "Seul un véhicule jamais armé (ex. doublon) peut être supprimé.");
+        }
+        if (criRepo.existsByVehiculeId(id)) {
+            throw new IllegalStateException("Suppression impossible : ce véhicule a des comptes rendus d'intervention.");
+        }
+        log.info("Suppression du véhicule {} ({}) par {}", vehicule.getLibelle(), id, actor());
+        vehiculeRepo.delete(vehicule);   // sp_verification supprimées en cascade
     }
 
     /** Force l'état maître (action système : maintenance, inventaire, indisponibilité…). */
