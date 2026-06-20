@@ -207,6 +207,21 @@
     catch { /* toast par api.js */ }
   }
   function exportPdf() { exportInterventionPdf(inter, journal, cris) }
+  function exportPdfDetaille() {
+    const detail = victimes.map(v => {
+      const c = bilanSapDe(v.id)?.contenu ?? {}
+      return {
+        titre: victimeNom(v) + (v.sexe ? ` (${v.sexe})` : ''),
+        lignes: [
+          ['Hémorragie', c.hemorragie == null ? '—' : (c.hemorragie ? 'Oui' : 'Non')],
+          ['Perte estimée', c.perteEstimee || '—'],
+          ['Fréquence respiratoire', c.frequenceRespiratoire ?? '—'],
+          ['Observations', c.observations || '—'],
+        ],
+      }
+    })
+    exportInterventionPdf(inter, journal, cris, detail)
+  }
 </script>
 
 <div class="dossier">
@@ -227,7 +242,8 @@
         {#if isDispatcher && inter.enCours && !editing}
           <button class="btn-ghost-sm" onclick={startEdit}>Éditer</button>
         {/if}
-        <button class="btn-ghost-sm" onclick={exportPdf}>⤓ PDF</button>
+        <button class="btn-ghost-sm" onclick={exportPdf}>⤓ PDF synthèse</button>
+        <button class="btn-ghost-sm" onclick={exportPdfDetaille}>⤓ PDF détaillé</button>
       </div>
     </div>
 

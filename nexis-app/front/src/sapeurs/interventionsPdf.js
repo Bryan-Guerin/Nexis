@@ -12,8 +12,11 @@ const fmt = iso => iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'sho
 const fmtCoord = c => c && c.length === 6 ? c.slice(0, 3) + ' ' + c.slice(3) : (c || '—');
 const renfortLabel = v => RENFORT_LABEL[v] ?? v;
 
-/** Ouvre une fenêtre d'impression avec la fiche de l'intervention. */
-export function exportInterventionPdf(i, journal, cris) {
+/**
+ * Ouvre une fenêtre d'impression avec la fiche de l'intervention.
+ * `bilans` (optionnel) = liste {titre, lignes:[[label,valeur]]} → section « Bilans » (PDF détaillé).
+ */
+export function exportInterventionPdf(i, journal, cris, bilans) {
   const row = (k, v) => `<tr><th>${k}</th><td>${esc(v) || '—'}</td></tr>`;
   // En cours : engins live. Clôturée : snapshot historisé, équipage en colonne (liste).
   const engins = i.enCours
@@ -32,6 +35,8 @@ export function exportInterventionPdf(i, journal, cris) {
     `<div class="cri"><h4>${esc(c.vehiculeLibelle)} — ${CRI_LABEL[c.statut] ?? c.statut}</h4>
       <p>${esc(c.contenu) || '<span class="muted">(vide)</span>'}</p>
       ${c.validePar ? `<p class="muted">Validé par ${esc(c.validePar)}</p>` : ''}</div>`).join('') || '<p class="muted">Aucun</p>';
+  const bilansH = (bilans ?? []).map(b =>
+    `<div class="bilan"><h4>${esc(b.titre)}</h4><table class="meta">${b.lignes.map(([k, v]) => row(k, v)).join('')}</table></div>`).join('');
 
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(i.code)}</title>
     <style>
@@ -49,6 +54,8 @@ export function exportInterventionPdf(i, journal, cris) {
       .cri { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
       .cri h4 { margin: 0 0 4px; font-size: 12px; }
       .cri p { margin: 0; white-space: pre-wrap; }
+      .bilan { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+      .bilan h4 { margin: 0 0 6px; font-size: 12px; }
       .engin-h { margin: 0 0 10px; }
       .engin-t { font-size: 12px; }
       ul.crew { margin: 3px 0 0; padding-left: 18px; }
@@ -78,6 +85,7 @@ export function exportInterventionPdf(i, journal, cris) {
     <h3>Main courante</h3>
     <table class="mc"><tbody>${mc || '<tr><td class="muted">Aucun événement</td></tr>'}</tbody></table>
     <h3>Comptes rendus (CRI)</h3>${crisH}
+    ${bilans && bilans.length ? `<h3>Bilans</h3>${bilansH}` : ''}
     <footer>Nexis — fiche d'intervention ${esc(i.code)} · exportée le ${new Date().toLocaleString('fr-FR')}</footer>
     </body></html>`;
 
