@@ -765,7 +765,6 @@
   .cap-input { width: 48px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 3px 6px; text-align: center; }
   .type-icone { font-size: 18px; line-height: 1; }
   .type-label { font-size: 14px; font-weight: 500; flex: 1; }
-  .icone-input { width: 56px; text-align: center; font-size: 14px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 3px 6px; }
   .expand-icon { color: var(--color-muted); font-size: 11px; }
 
   .type-body { border-top: 1px solid var(--color-border); padding: 12px 16px; display: flex; flex-direction: column; gap: 16px; }

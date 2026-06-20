@@ -483,7 +483,6 @@
   .defaut-btn.on { border-color: var(--accent); color: var(--accent); }
   .type-fonction-sel { font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; cursor: pointer; }
   .coord-input { width: 90px; font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; }
-  .icone-input { width: 56px; text-align: center; font-size: 14px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; }
 
   .add-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .check-label { display: flex; align-items: center; gap: 6px; font-size: 13px; align-self: flex-end; padding-bottom: 8px; white-space: nowrap; }
