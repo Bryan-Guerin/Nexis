@@ -215,7 +215,12 @@
 
   const MIN_PER_KM = 2   // vitesse retenue (≈ 2 min/km), à peaufiner
   function fmtClock(d) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-  function vehDiv(t) { return `<div class="veh-marker" style="--c:${t.couleur || '#4f6ef7'}">${t.icone || '🚒'}</div>` }
+  function vehDiv(t) {
+    const inner = t.imageId
+      ? `<img class="veh-img" src="/api/sp/icones/${t.imageId}/contenu" alt="">`
+      : (t.icone || '🚒')
+    return `<div class="veh-marker" style="--c:${t.couleur || '#4f6ef7'}">${inner}</div>`
+  }
   // Marqueur véhicule : tooltip au survol + clic → callback parent (changer le statut depuis la carte).
   function vehMarker(ll, icon, t, tip) {
     const m = window.L.marker(ll, { icon }).addTo(layer).bindTooltip(tip, { direction: 'top' })
@@ -278,7 +283,16 @@
   }
 
   $effect(() => { transits; tick; render() })                 // engins animés (chaque seconde)
-  $effect(() => { interventions; renderInterventions() })     // pins inter (à la demande)
+  // Pins d'intervention : re-rendus seulement si la liste change RÉELLEMENT (code/position/icône).
+  // Un simple changement de statut véhicule recharge la liste des interventions à l'identique →
+  // sans cette garde, les pins clignoteraient à chaque maj live.
+  let interSig = ''
+  $effect(() => {
+    const sig = interventions.map(i => `${i.code}|${i.coordonnees}|${i.nature?.icone ?? ''}|${i.incendie ? 1 : 0}`).join(';')
+    if (sig === interSig) return
+    interSig = sig
+    renderInterventions()
+  })
   $effect(() => { centres; hopitaux; renderBase() })          // repères permanents (rares maj)
 </script>
 
@@ -327,6 +341,7 @@
   :global(.itv-marker .num) { font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.65); border-radius: 6px; padding: 0 4px; margin-top: -2px; }
   :global(.map-label) { color: #e8eef5; font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; text-align: center; pointer-events: none; }
   :global(.veh-marker) { font-size: 18px; line-height: 1; filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 1px 2px rgba(0,0,0,.7)); cursor: pointer; }
+  :global(.veh-marker .veh-img) { width: 22px; height: 22px; object-fit: contain; display: block; }
   :global(.poi) { font-size: 15px; line-height: 18px; width: 22px; height: 22px; text-align: center; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
   :global(.poi.caserne) { background: rgba(79,110,247,.28); border: 1px solid #4f6ef7; }
   :global(.poi.hopital) { background: rgba(224,92,92,.28); border: 1px solid #e05c5c; }

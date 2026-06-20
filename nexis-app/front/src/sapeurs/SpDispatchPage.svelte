@@ -27,19 +27,20 @@
       if (!i.coordonnees) continue
       for (const e of (i.engins ?? [])) {
         const v = vmap.get(e.vehiculeId); if (!v) continue
-        const id = v.id, couleur = v.statut?.couleur, label = v.libelle, icone = v.type?.icone, dep = v.legDepart
+        const id = v.id, couleur = v.statut?.couleur, label = v.libelle, icone = v.type?.icone,
+              imageId = v.type?.iconeImageId, dep = v.legDepart
         const action = v.statut?.actionCarte, dest = v.hopitalDestinationCoordonnees, caserne = v.centreCoordonnees, pos = v.positionCoordonnees
         if (action === 'TRANSPORT_HOPITAL') {
-          if (dest) out.push({ id, from: i.coordonnees, to: dest, couleur, label, icone, depart: dep })
-          else out.push({ id, at: i.coordonnees, couleur, label, icone })   // destination non choisie : garé sur l'inter
+          if (dest) out.push({ id, from: i.coordonnees, to: dest, couleur, label, icone, imageId, depart: dep })
+          else out.push({ id, at: i.coordonnees, couleur, label, icone, imageId })   // destination non choisie : garé sur l'inter
         } else if (action === 'SUR_PLACE') {
-          out.push({ id, at: dest || i.coordonnees, couleur, label, icone })
+          out.push({ id, at: dest || i.coordonnees, couleur, label, icone, imageId })
         } else if (action === 'RETOUR_CASERNE') {
           const from = pos || dest || i.coordonnees   // origine = dernière position (ex. hôpital)
-          if (caserne) out.push({ id, from, to: caserne, couleur, label, icone, depart: dep })
-          else out.push({ id, at: from, couleur, label, icone })
+          if (caserne) out.push({ id, from, to: caserne, couleur, label, icone, imageId, depart: dep })
+          else out.push({ id, at: from, couleur, label, icone, imageId })
         } else if (action === 'EN_ROUTE' && caserne) {
-          out.push({ id, from: caserne, to: i.coordonnees, couleur, label, icone, depart: dep || i.debut })   // en route, ETA animée
+          out.push({ id, from: caserne, to: i.coordonnees, couleur, label, icone, imageId, depart: dep || i.debut })   // en route, ETA animée
         }
         // AUCUNE / DEPANNEUR : aucun tracé — l'engin ne bouge pas tant qu'il n'est pas « en route »
       }
