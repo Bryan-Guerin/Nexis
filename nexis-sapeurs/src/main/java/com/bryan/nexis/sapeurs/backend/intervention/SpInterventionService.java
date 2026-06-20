@@ -225,11 +225,11 @@ public class SpInterventionService {
         // pas recevoir le bip de départ d'un engin avec lequel ils ne partent pas.
         engagement.desaffecterPostesNonObligatoires(engins, saved.getCode());
         engagement.engager(engins, saved);
-        // Armement auto côté serveur, séquentiel dans CETTE transaction : chaque engin voit
-        // l'équipage déjà posé sur les précédents (occupesAilleurs) → pas de double-affectation
-        // (vs N appels front parallèles). L'affecter() de chaque membre déclenche son bip de départ.
+        // Armement auto côté serveur, dans CETTE transaction : le lot est armé en un seul passage
+        // (matching global → pas de double-affectation ni de famine entre engins). L'affecter() de
+        // chaque membre déclenche son bip de départ.
         if (req.armerAuto()) {
-            for (var engin : engins) affectationAutoService.affecterAuto(engin.getId());
+            affectationAutoService.affecterAutoLot(engins);
         }
         log.info("Intervention {} créée par {} (nature={}, {} engin(s))", saved.getCode(), actor(),
                 saved.getNature() != null ? saved.getNature().getCode() : "?", engins.size());
