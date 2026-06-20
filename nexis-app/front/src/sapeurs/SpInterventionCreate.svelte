@@ -4,6 +4,7 @@
   import {toast} from '../shared/toasts.js'
   import {confirm} from '../shared/confirm.js'
   import {refNatures} from '../shared/referentials.js'
+  import {can} from '../shared/roles.js'
   import MapView from '../shared/MapView.svelte'
   import Modal from '../shared/Modal.svelte'
 
@@ -19,6 +20,42 @@
   let form      = $state({ motif: '', natureId: '', requerant: '', telephone: '', observation: '', commune: '', coordonnees: '', nbVictimes: '', incendie: false, vehiculeImplique: false })
   let createSel = $state([])
   let createError = $state('')
+
+  // ── Mode guidé (dispatch uniquement) : questionnaire qui préremplit le formulaire ──────
+  let mode      = $state('std')   // 'std' | 'guide'
+  let questions = $state([])
+  let reponses  = $state({})      // questionId -> boolean | number | ''
+  let questionsChargees = false
+
+  async function passerGuide() {
+    mode = 'guide'
+    if (!questionsChargees) { questions = await api.get('/sp/questions').catch(() => []); questionsChargees = true }
+  }
+  // Affichée si pas de condition, ou si la question parente a la réponse attendue.
+  function questionVisible(q) {
+    return !q.conditionQuestionId || reponses[q.conditionQuestionId] === q.conditionAttendue
+  }
+  let questionsVisibles = $derived(questions.filter(questionVisible))
+  function positive(q) {
+    const r = reponses[q.id]
+    return q.type === 'OUI_NON' ? r === true : Number(r) > 0
+  }
+  function repondre(q, val) {
+    reponses = { ...reponses, [q.id]: val }
+    appliquerEffets()
+  }
+  // Recalcule les champs pilotés par les réponses (réversible) + propose la nature.
+  function appliquerEffets() {
+    const vis = questions.filter(questionVisible)
+    const incQ = vis.filter(q => q.cible === 'INCENDIE')
+    if (incQ.length) form.incendie = incQ.some(q => reponses[q.id] === true)
+    const vehQ = vis.filter(q => q.cible === 'VEHICULE_IMPLIQUE')
+    if (vehQ.length) form.vehiculeImplique = vehQ.some(q => reponses[q.id] === true)
+    const nbQ = vis.find(q => q.cible === 'NB_VICTIMES' && reponses[q.id] !== '' && reponses[q.id] != null)
+    if (nbQ) form.nbVictimes = reponses[nbQ.id]
+    const sugg = vis.filter(q => q.natureSuggereeId && positive(q)).map(q => q.natureSuggereeId)
+    if (sugg.length) form.natureId = sugg[0]   // 1re nature suggérée (ordre des questions)
+  }
 
   onMount(async () => {
     ;[vehicules, natures, centres, hopitaux] = await Promise.all([
@@ -147,6 +184,35 @@
       <div class="cm-cols">
         <!-- Colonne gauche : formulaire -->
         <div class="cm-form">
+          {#if $can.dispatch}
+            <div class="mode-toggle" role="tablist" aria-label="Mode de création">
+              <button type="button" role="tab" aria-selected={mode === 'std'} class:on={mode === 'std'} onclick={() => mode = 'std'}>Standard</button>
+              <button type="button" role="tab" aria-selected={mode === 'guide'} class:on={mode === 'guide'} onclick={passerGuide}>🧭 Guidé</button>
+            </div>
+          {/if}
+          {#if mode === 'guide'}
+            <div class="guide-panel">
+              {#if questionsVisibles.length === 0}
+                <p class="muted small">Aucune question configurée. Voir Configuration › Questionnaire dispatch.</p>
+              {:else}
+                {#each questionsVisibles as q (q.id)}
+                  <div class="guide-q">
+                    <span class="gq-lib">{q.libelle}</span>
+                    {#if q.type === 'OUI_NON'}
+                      <div class="gq-yn">
+                        <button type="button" class:on={reponses[q.id] === true} onclick={() => repondre(q, true)}>Oui</button>
+                        <button type="button" class:on={reponses[q.id] === false} onclick={() => repondre(q, false)}>Non</button>
+                      </div>
+                    {:else}
+                      <input type="number" min="0" class="gq-num" value={reponses[q.id] ?? ''}
+                             oninput={e => repondre(q, e.target.value === '' ? '' : Number(e.target.value))} />
+                    {/if}
+                  </div>
+                {/each}
+                <p class="muted small">Les réponses préremplissent la nature et les champs. Ajuste librement avant de déclencher.</p>
+              {/if}
+            </div>
+          {/if}
           <div class="sec-alerte">
             <label class="big">Nature *
               <select bind:value={form.natureId} required>
@@ -229,6 +295,18 @@
 </Modal>
 
 <style>
+  /* Mode guidé (dispatch) */
+  .mode-toggle { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; align-self: flex-start; }
+  .mode-toggle button { background: var(--color-surface); color: var(--color-muted); border: none; font-size: 12px; padding: 5px 14px; cursor: pointer; }
+  .mode-toggle button.on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight: 600; }
+  .guide-panel { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: color-mix(in srgb, var(--accent) 7%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--color-border)); border-radius: var(--radius); }
+  .guide-q { display: flex; align-items: center; gap: 10px; }
+  .gq-lib { flex: 1; font-size: 13px; color: var(--color-text); }
+  .gq-yn { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+  .gq-yn button { background: var(--color-surface); color: var(--color-muted); border: none; font-size: 12px; padding: 4px 12px; cursor: pointer; }
+  .gq-yn button.on { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-weight: 600; }
+  .gq-num { width: 80px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 8px; }
+
   /* 2 colonnes : formulaire (gauche) + carte (droite, repère visuel) */
   .cm-cols { display: flex; gap: 16px; align-items: stretch; }
   .cm-form { flex: 1.1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
