@@ -9,5 +9,7 @@ public enum CibleQuestion {
     /** Renseigne le nombre de victimes (réponse numérique). */
     NB_VICTIMES,
     /** Coche « véhicule impliqué » si la réponse est oui. */
-    VEHICULE_IMPLIQUE
+    VEHICULE_IMPLIQUE,
+    /** Coche « secours routier » (AVP) si la réponse est oui. */
+    SR
 }

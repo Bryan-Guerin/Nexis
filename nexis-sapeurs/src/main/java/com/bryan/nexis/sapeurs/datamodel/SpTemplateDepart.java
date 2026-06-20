@@ -18,9 +18,15 @@ public class SpTemplateDepart {
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "nature_id", nullable = false)
+    /** Déclencheur « nature » (exclusif avec {@link #declencheurFlag}). */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "nature_id")
     private SpNatureIntervention nature;
+
+    /** Déclencheur « flag » (incendie, SR, véhicule impliqué) — exclusif avec {@link #nature}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "declencheur_flag", length = 30)
+    private DeclencheurFlag declencheurFlag;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "vehicule_type_id", nullable = false)
@@ -49,8 +55,15 @@ public class SpTemplateDepart {
         this.quantite     = quantite;
     }
 
+    public SpTemplateDepart(DeclencheurFlag declencheurFlag, SpVehiculeType vehiculeType, int quantite) {
+        this.declencheurFlag = declencheurFlag;
+        this.vehiculeType    = vehiculeType;
+        this.quantite        = quantite;
+    }
+
     public UUID getId()                     { return id; }
     public SpNatureIntervention getNature() { return nature; }
+    public DeclencheurFlag getDeclencheurFlag() { return declencheurFlag; }
     public SpVehiculeType getVehiculeType() { return vehiculeType; }
     public int getQuantite()                { return quantite; }
     public String getDescription()          { return description; }

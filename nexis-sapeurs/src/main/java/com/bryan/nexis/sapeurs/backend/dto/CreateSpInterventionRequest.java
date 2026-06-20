@@ -20,5 +20,7 @@ public record CreateSpInterventionRequest(
         boolean vehiculeImplique,
         @Nullable List<UUID> vehiculeIds,
         /** Arme automatiquement les engins (équipage de garde) dans la transaction de création. */
-        boolean armerAuto
+        boolean armerAuto,
+        /** Secours routier (AVP) : flag pilotant la couverture (lot SR). */
+        boolean sr
 ) {}

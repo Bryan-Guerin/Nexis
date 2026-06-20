@@ -208,6 +208,7 @@ public class SpInterventionService {
         inter.setNbVictimes(req.nbVictimes());
         inter.setIncendie(req.incendie());
         inter.setVehiculeImplique(req.vehiculeImplique());
+        inter.setSr(req.sr());
 
         var engins = req.vehiculeIds() == null ? List.<SpVehicule>of() : req.vehiculeIds().stream().map(this::vehicule).toList();
         // Bloque AVANT toute écriture : poste obligatoire tenu par un effectif déjà parti.

@@ -62,6 +62,10 @@ public class SpIntervention {
     @Column(name = "vehicule_implique", nullable = false)
     private boolean vehiculeImplique = false;
 
+    /** Secours routier (accident de la voie publique). Flag pilotant la couverture (lot SR). */
+    @Column(nullable = false)
+    private boolean sr = false;
+
     // ── Renforts (statut éditable par tous) ─────────────────────────────────────
     public static final String RENFORT_NON_PREVENU = "NON_PREVENU";
     public static final String RENFORT_PREVENU     = "PREVENU";
@@ -108,6 +112,7 @@ public class SpIntervention {
     public Integer getNbVictimes()       { return nbVictimes; }
     public boolean isIncendie()          { return incendie; }
     public boolean isVehiculeImplique()  { return vehiculeImplique; }
+    public boolean isSr()                { return sr; }
     public String getRenfortGn()         { return renfortGn; }
     public String getRenfortVinci()      { return renfortVinci; }
     public Set<SpVehicule> getEngins()   { return engins; }
@@ -128,6 +133,7 @@ public class SpIntervention {
     public void setNbVictimes(Integer nbVictimes)  { this.nbVictimes = nbVictimes; }
     public void setIncendie(boolean incendie)      { this.incendie = incendie; }
     public void setVehiculeImplique(boolean v)     { this.vehiculeImplique = v; }
+    public void setSr(boolean sr)                  { this.sr = sr; }
     public void setRenfortGn(String r)             { this.renfortGn = r; }
     public void setRenfortVinci(String r)          { this.renfortVinci = r; }
 }

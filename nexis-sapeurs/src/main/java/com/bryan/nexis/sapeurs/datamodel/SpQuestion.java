@@ -37,6 +37,15 @@ public class SpQuestion {
     @JoinColumn(name = "nature_suggeree_id")
     private SpNatureIntervention natureSuggeree;
 
+    /** Type de véhicule recommandé (en plus des lots) si la réponse est positive. Optionnel. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reco_vehicule_type_id")
+    private SpVehiculeType recoVehiculeType;
+
+    /** Question NOMBRE : un véhicule recommandé par unité (ex. 1 VSAV par victime) plutôt qu'un seul. */
+    @Column(name = "reco_par_unite", nullable = false)
+    private boolean recoParUnite = false;
+
     /** Question parente (OUI_NON) conditionnant l'affichage. Null = toujours affichée. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "condition_question_id")
@@ -59,6 +68,8 @@ public class SpQuestion {
     public int getPosition()                  { return position; }
     public CibleQuestion getCible()           { return cible; }
     public SpNatureIntervention getNatureSuggeree() { return natureSuggeree; }
+    public SpVehiculeType getRecoVehiculeType() { return recoVehiculeType; }
+    public boolean isRecoParUnite()           { return recoParUnite; }
     public SpQuestion getConditionQuestion()  { return conditionQuestion; }
     public boolean isConditionAttendue()      { return conditionAttendue; }
 
@@ -67,6 +78,8 @@ public class SpQuestion {
     public void setPosition(int position)             { this.position = position; }
     public void setCible(CibleQuestion cible)         { this.cible = cible; }
     public void setNatureSuggeree(SpNatureIntervention n) { this.natureSuggeree = n; }
+    public void setRecoVehiculeType(SpVehiculeType t)  { this.recoVehiculeType = t; }
+    public void setRecoParUnite(boolean recoParUnite)  { this.recoParUnite = recoParUnite; }
     public void setConditionQuestion(SpQuestion q)    { this.conditionQuestion = q; }
     public void setConditionAttendue(boolean v)       { this.conditionAttendue = v; }
 }
