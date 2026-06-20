@@ -9,6 +9,7 @@
     import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
     import SpBadgesAdmin from './SpBadgesAdmin.svelte'
     import SpIconesPage from './SpIconesPage.svelte'
+    import SpQuestionnaireAdmin from './SpQuestionnaireAdmin.svelte'
 
     // Catégories de configuration (chacune = une "enum" ordonnée)
   const CATEGORIES = [
@@ -23,6 +24,7 @@
     { key: 'objets',    label: 'Objets inventaire', list: '/sp/objets-inventaire', order: '/sp/objets-inventaire/order', kind: 'codelabel', deletable: true },
     { key: 'evenements', label: 'Événements', kind: 'evenements' },
     { key: 'badges',     label: 'Badges (succès)', kind: 'badges' },
+    { key: 'questionnaire', label: 'Questionnaire dispatch', kind: 'questionnaire' },
     { key: 'icones',     label: 'Icônes & logo', kind: 'icones' },
   ]
 
@@ -242,6 +244,8 @@
         <SpBadgesAdmin />
       {:else if cat.kind === 'icones'}
         <SpIconesPage />
+      {:else if cat.kind === 'questionnaire'}
+        <SpQuestionnaireAdmin />
       {:else}
       <h3>{cat.label} <span class="hint">— glisser-déposer pour réordonner</span></h3>
 
