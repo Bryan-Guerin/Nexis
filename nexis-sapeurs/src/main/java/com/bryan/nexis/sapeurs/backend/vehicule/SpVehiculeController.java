@@ -97,7 +97,7 @@ public class SpVehiculeController {
     /** Icône (emoji) du type pour la carte. */
     @Put("/vehicules/types/{typeId}/icone")
     SpVehiculeTypeDto setTypeIcone(UUID typeId, @Body SetIconeRequest req) {
-        return typeService.setIcone(typeId, req.icone());
+        return typeService.setIcone(typeId, req.icone(), req.iconeImageId());
     }
 
     @Get("/vehicules/etats")

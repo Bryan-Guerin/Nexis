@@ -137,12 +137,12 @@ public class SpConfigController {
     @Post("/fonctions-orga")
     @Status(HttpStatus.CREATED)
     SpFonctionOrgaDto createFonctionOrga(@Body CreateSpFonctionOrgaRequest req) {
-        return fonctionOrgaService.create(req.code(), req.label(), req.parentId(), req.icone());
+        return fonctionOrgaService.create(req.code(), req.label(), req.parentId(), req.icone(), req.iconeImageId());
     }
 
     @Put("/fonctions-orga/{id}")
     SpFonctionOrgaDto updateFonctionOrga(UUID id, @Body UpdateSpFonctionOrgaRequest req) {
-        return fonctionOrgaService.update(id, req.label(), req.parentId(), req.icone());
+        return fonctionOrgaService.update(id, req.label(), req.parentId(), req.icone(), req.iconeImageId());
     }
 
     @Put("/fonctions-orga/order")
@@ -335,10 +335,10 @@ public class SpConfigController {
         natureService.reorder(req.ids());
     }
 
-    /** Icône (emoji) repérant la nature sur la carte. */
+    /** Icône repérant la nature sur la carte : emoji + image optionnelle. */
     @Put("/natures/{id}/icone")
     SpNatureInterventionDto setNatureIcone(UUID id, @Body SetIconeRequest req) {
-        return natureService.setIcone(id, req.icone());
+        return natureService.setIcone(id, req.icone(), req.iconeImageId());
     }
 
     /** Supprime une nature (refusée si des interventions l'utilisent ; détachée des types). */

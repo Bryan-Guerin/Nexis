@@ -13,7 +13,7 @@ import java.util.UUID;
 public record SpFonctionOrgaDto(
         UUID id, String code, String label,
         UUID parentId, String parentCode,
-        int position, String icone) {
+        int position, String icone, UUID iconeImageId) {
 
     public static SpFonctionOrgaDto from(SpFonctionOrga f) {
         SpFonctionOrga p = f.getParent();
@@ -21,6 +21,7 @@ public record SpFonctionOrgaDto(
                 f.getId(), f.getCode(), f.getLabel(),
                 p != null ? p.getId() : null,
                 p != null ? p.getCode() : null,
-                f.getPosition(), f.getIcone());
+                f.getPosition(), f.getIcone(),
+                f.getIconeImage() != null ? f.getIconeImage().getId() : null);
     }
 }

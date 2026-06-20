@@ -2,7 +2,9 @@ package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpNatureInterventionDto;
 import com.bryan.nexis.sapeurs.backend.effectif.SpBadgeService;
+import com.bryan.nexis.sapeurs.datamodel.SpIcone;
 import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
+import com.bryan.nexis.sapeurs.datarepository.SpIconeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpNatureInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeTypeRepository;
@@ -23,15 +25,22 @@ public class SpNatureInterventionService {
     private final SpInterventionRepository       interventionRepo;
     private final SpVehiculeTypeRepository        typeRepo;
     private final SpBadgeService                  badgeService;
+    private final SpIconeRepository               iconeRepo;
 
     public SpNatureInterventionService(SpNatureInterventionRepository repo,
                                        SpInterventionRepository interventionRepo,
                                        SpVehiculeTypeRepository typeRepo,
-                                       SpBadgeService badgeService) {
+                                       SpBadgeService badgeService,
+                                       SpIconeRepository iconeRepo) {
         this.repo             = repo;
         this.interventionRepo = interventionRepo;
         this.typeRepo         = typeRepo;
         this.badgeService     = badgeService;
+        this.iconeRepo        = iconeRepo;
+    }
+
+    private SpIcone resolveIcone(UUID iconeImageId) {
+        return iconeImageId != null ? iconeRepo.findById(iconeImageId).orElse(null) : null;
     }
 
     /**
@@ -76,10 +85,11 @@ public class SpNatureInterventionService {
     }
 
     @Transactional
-    public SpNatureInterventionDto setIcone(UUID id, String icone) {
+    public SpNatureInterventionDto setIcone(UUID id, String icone, UUID iconeImageId) {
         var n = repo.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Nature introuvable : " + id));
         n.setIcone(icone == null || icone.isBlank() ? null : icone.trim());
+        n.setIconeImage(resolveIcone(iconeImageId));
         return SpNatureInterventionDto.from(repo.update(n));
     }
 

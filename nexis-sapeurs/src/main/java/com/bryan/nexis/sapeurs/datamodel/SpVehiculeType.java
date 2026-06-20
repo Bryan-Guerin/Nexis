@@ -24,6 +24,11 @@ public class SpVehiculeType {
     @Column(length = 8)
     private String icone;
 
+    /** Image-icône optionnelle (remplace l'emoji si définie). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "icone_image_id")
+    private SpIcone iconeImage;
+
     /** Natures d'intervention pour lesquelles ce type est pertinent (proposition d'engins). */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -49,11 +54,13 @@ public class SpVehiculeType {
     public String getCode()  { return code; }
     public String getLabel() { return label; }
     public String getIcone() { return icone; }
+    public SpIcone getIconeImage() { return iconeImage; }
     public Set<SpNatureIntervention> getNatures() { return natures; }
     public SpNatureIntervention getNaturePrincipale() { return naturePrincipale; }
 
     public void setCode(String code)   { this.code = code; }
     public void setLabel(String label) { this.label = label; }
     public void setIcone(String icone) { this.icone = icone; }
+    public void setIconeImage(SpIcone iconeImage) { this.iconeImage = iconeImage; }
     public void setNaturePrincipale(SpNatureIntervention naturePrincipale) { this.naturePrincipale = naturePrincipale; }
 }

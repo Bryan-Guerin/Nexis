@@ -2,6 +2,7 @@ package com.bryan.nexis.sapeurs.backend.vehicule;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeTypeDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeTypePosteDto;
+import com.bryan.nexis.sapeurs.datamodel.SpIcone;
 import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeType;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeTypePoste;
@@ -22,17 +23,24 @@ public class SpVehiculeTypeService {
     private final SpFonctionRepository           fonctionRepo;
     private final SpNatureInterventionRepository natureRepo;
     private final SpVehiculeAffectationRepository affectationRepo;
+    private final SpIconeRepository              iconeRepo;
 
     public SpVehiculeTypeService(SpVehiculeTypeRepository typeRepo,
                                   SpVehiculeTypePosteRepository posteRepo,
                                   SpFonctionRepository fonctionRepo,
                                   SpNatureInterventionRepository natureRepo,
-                                  SpVehiculeAffectationRepository affectationRepo) {
+                                  SpVehiculeAffectationRepository affectationRepo,
+                                  SpIconeRepository iconeRepo) {
         this.typeRepo     = typeRepo;
         this.posteRepo    = posteRepo;
         this.fonctionRepo = fonctionRepo;
         this.natureRepo   = natureRepo;
         this.affectationRepo = affectationRepo;
+        this.iconeRepo    = iconeRepo;
+    }
+
+    private SpIcone resolveIcone(UUID iconeImageId) {
+        return iconeImageId != null ? iconeRepo.findById(iconeImageId).orElse(null) : null;
     }
 
     @Transactional
@@ -45,12 +53,13 @@ public class SpVehiculeTypeService {
         return SpVehiculeTypeDto.from(typeRepo.save(new SpVehiculeType(code, label)));
     }
 
-    /** Définit l'icône (emoji) du type pour la carte. */
+    /** Définit l'icône du type pour la carte : emoji + image optionnelle. */
     @Transactional
-    public SpVehiculeTypeDto setIcone(UUID typeId, String icone) {
+    public SpVehiculeTypeDto setIcone(UUID typeId, String icone, UUID iconeImageId) {
         var type = typeRepo.findById(typeId)
                 .orElseThrow(() -> new NoSuchElementException("Type véhicule SP introuvable : " + typeId));
         type.setIcone(icone == null || icone.isBlank() ? null : icone.trim());
+        type.setIconeImage(resolveIcone(iconeImageId));
         return SpVehiculeTypeDto.from(typeRepo.update(type));
     }
 

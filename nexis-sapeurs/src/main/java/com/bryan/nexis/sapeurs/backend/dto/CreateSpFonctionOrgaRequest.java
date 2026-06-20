@@ -5,4 +5,4 @@ import io.micronaut.serde.annotation.Serdeable;
 import java.util.UUID;
 
 @Serdeable
-public record CreateSpFonctionOrgaRequest(String code, String label, UUID parentId, String icone) {}
+public record CreateSpFonctionOrgaRequest(String code, String label, UUID parentId, String icone, UUID iconeImageId) {}

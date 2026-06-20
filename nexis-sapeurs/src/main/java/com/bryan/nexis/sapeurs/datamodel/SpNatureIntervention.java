@@ -26,6 +26,11 @@ public class SpNatureIntervention {
     @Column(length = 16)
     private String icone;
 
+    /** Image-icône optionnelle (remplace l'emoji si définie). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "icone_image_id")
+    private SpIcone iconeImage;
+
     protected SpNatureIntervention() {}
 
     public SpNatureIntervention(String code, String label) {
@@ -37,7 +42,9 @@ public class SpNatureIntervention {
     public String getLabel() { return label; }
     public int getPosition() { return position; }
     public String getIcone() { return icone; }
+    public SpIcone getIconeImage() { return iconeImage; }
 
     public void setPosition(int position) { this.position = position; }
     public void setIcone(String icone)    { this.icone = icone; }
+    public void setIconeImage(SpIcone iconeImage) { this.iconeImage = iconeImage; }
 }
