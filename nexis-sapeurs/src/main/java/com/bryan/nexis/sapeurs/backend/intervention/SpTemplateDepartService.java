@@ -15,6 +15,7 @@ import com.bryan.nexis.sapeurs.datarepository.SpVehiculeTypeRepository;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -61,15 +62,22 @@ public class SpTemplateDepartService {
             types.putIfAbsent(t.getVehiculeType().getId(), t.getVehiculeType());
             quantites.merge(t.getVehiculeType().getId(), t.getQuantite(), Integer::max);
         });
-        // Recos par unité (NB_VICTIMES → N véhicules), fusionnées au max elles aussi.
+        // Dimensionnement victimes (capacité-aware) : un type porteur couvre n victimes en
+        // ceil(n / capacité) véhicules. S'applique aux recos par unité (question NB_VICTIMES)
+        // ET à tout type porteur déjà présent dans les lots nature/flag. Fusion au max.
         int n = nbVictimes != null ? nbVictimes : 0;
         if (n > 0) {
             for (var q : questionRepo.findAll()) {
                 if (q.isRecoParUnite() && q.getRecoVehiculeType() != null && q.getCible() == CibleQuestion.NB_VICTIMES) {
                     var t = q.getRecoVehiculeType();
+                    int besoin = t.getCapaciteVictime() > 0 ? (int) Math.ceil((double) n / t.getCapaciteVictime()) : n;
                     types.putIfAbsent(t.getId(), t);
-                    quantites.merge(t.getId(), n, Integer::max);
+                    quantites.merge(t.getId(), besoin, Integer::max);
                 }
+            }
+            for (var id : new ArrayList<>(quantites.keySet())) {
+                int cap = types.get(id).getCapaciteVictime();
+                if (cap > 0) quantites.merge(id, (int) Math.ceil((double) n / cap), Integer::max);
             }
         }
         return quantites.entrySet().stream()

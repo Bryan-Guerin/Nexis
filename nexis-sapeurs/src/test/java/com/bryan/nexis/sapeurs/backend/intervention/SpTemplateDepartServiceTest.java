@@ -69,17 +69,31 @@ class SpTemplateDepartServiceTest {
     }
 
     @Test
-    void proposerLot_recoParUnite_ajouteUnVehiculeParVictime() {
-        // Question NB_VICTIMES → 1 VSAV par victime ; 2 victimes → 2 VSAV.
+    void proposerLot_recoParUnite_dimensionneSelonLaCapaciteVictime() {
+        // VSAV capacité 2 ; 3 victimes → ceil(3/2) = 2 VSAV (capacity-aware).
+        vsav.setCapaciteVictime(2);
         var q = new SpQuestion("Nombre de victimes", TypeQuestion.NOMBRE);
         q.setCible(CibleQuestion.NB_VICTIMES);
         q.setRecoParUnite(true);
         q.setRecoVehiculeType(vsav);
         when(questionRepo.findAll()).thenReturn(List.of(q));
 
-        var lot = service.proposerLot(null, List.of(), 2);
+        var lot = service.proposerLot(null, List.of(), 3);
 
         assertEquals(1, lot.size());
+        assertEquals(2, qte(lot, "VSAV"));
+    }
+
+    @Test
+    void proposerLot_dimensionneUnPorteurPresentDansLeLotNature() {
+        // VSAV (capacité 1) dans le lot nature ; 2 victimes → 2 VSAV même sans reco par-unité.
+        vsav.setCapaciteVictime(1);
+        var nat = nature();
+        when(repo.findByNatureIdOrderByPosition(nat.getId()))
+                .thenReturn(List.of(new SpTemplateDepart(nat, vsav, 1)));
+
+        var lot = service.proposerLot(nat.getId(), List.of(), 2);
+
         assertEquals(2, qte(lot, "VSAV"));
     }
 
