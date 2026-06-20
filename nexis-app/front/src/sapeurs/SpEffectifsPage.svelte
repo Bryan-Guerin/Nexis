@@ -8,6 +8,7 @@
     import {currentUser} from '../shared/stores.js'
     import Skeleton from '../shared/Skeleton.svelte'
     import Modal from '../shared/Modal.svelte'
+    import Icone from '../shared/Icone.svelte'
 
     // ── Données ──────────────────────────────────────────────────────────────
   let membres   = $state([])
@@ -695,7 +696,7 @@
                             title={hidden ? 'Clique pour découvrir ce nouveau badge !' : (b.description || b.condition || '')}
                             disabled={!hidden}
                             onclick={() => hidden && decouvrirBadge(b.badgeId)}>
-                      <span class="rp-badge-ico">{hidden ? '❓' : (b.icone || '🏅')}</span>
+                      <span class="rp-badge-ico">{#if hidden}❓{:else}<Icone imageId={b.iconeImageId} emoji={b.icone || '🏅'} size={18} />{/if}</span>
                       <span class="rp-badge-label">{hidden ? '????' : b.label}</span>
                       {#if revealedBadgeIds.has(b.badgeId)}
                         {#each Array(20) as _, i}

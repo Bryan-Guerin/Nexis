@@ -4,6 +4,8 @@
     import {toast} from '../shared/toasts.js'
     import {confirm} from '../shared/confirm.js'
     import Modal from '../shared/Modal.svelte'
+    import Icone from '../shared/Icone.svelte'
+    import IconePicker from '../shared/IconePicker.svelte'
 
     // Catalogue des badges (succès) géré par l'admin SP.
     // Conditions = ce qu'on compte pour attribuer le badge.
@@ -50,7 +52,7 @@
     let dragIndex = $state(null)
 
     function emptyForm() {
-        return { code: '', label: '', icone: '🏅', description: '',
+        return { code: '', label: '', icone: '🏅', iconeImageId: null, description: '',
                  typeCondition: 'INTER_COUNT', natureId: '', typeFonction: 'CONDUCTEUR', fonctionOrgaId: '', seuil: 1, xpReward: 50 }
     }
 
@@ -66,7 +68,7 @@
     function openEdit(b) {
         editing = b
         form = {
-            code: b.code, label: b.label, icone: b.icone || '🏅',
+            code: b.code, label: b.label, icone: b.icone || '🏅', iconeImageId: b.iconeImageId ?? null,
             description: b.description ?? '',
             typeCondition: b.typeCondition,
             natureId: b.natureId ?? '',
@@ -88,6 +90,7 @@
         const payload = {
             label: form.label.trim(),
             icone: form.icone || null,
+            iconeImageId: form.iconeImageId || null,
             description: form.description || null,
             typeCondition: form.typeCondition,
             natureId: form.typeCondition === 'INTER_NATURE_COUNT' ? form.natureId : null,
@@ -162,7 +165,7 @@
                 ondragover={(e) => onDragOver(e, i)}
                 ondragend={persistOrder}>
                 <span class="handle" title="Glisser pour réordonner">⠿</span>
-                <span class="b-ico">{b.icone || '🏅'}</span>
+                <span class="b-ico"><Icone imageId={b.iconeImageId} emoji={b.icone || '🏅'} size={24} /></span>
                 <div class="b-main">
                     <div class="b-label">{b.label} <span class="chip-code">{b.code}</span></div>
                     <div class="b-cond muted small">
@@ -195,9 +198,9 @@
                 <input type="text" bind:value={form.label} placeholder="ex: Pompier des feux" maxlength="120" />
             </label>
             <div class="row">
-                <label class="field-label" style="flex:0 0 80px">Icône
-                    <input type="text" bind:value={form.icone} placeholder="🔥" maxlength="4" />
-                </label>
+                <div class="field-label" style="flex:0 0 auto">Icône
+                    <IconePicker bind:emoji={form.icone} bind:imageId={form.iconeImageId} />
+                </div>
                 <label class="field-label">Description (optionnelle)
                     <input type="text" bind:value={form.description} placeholder="Affichée au survol" maxlength="200" />
                 </label>

@@ -6,6 +6,6 @@ import java.util.UUID;
 
 @Serdeable
 public record UpdateSpBadgeRequest(
-        String label, String icone, String description,
+        String label, String icone, UUID iconeImageId, String description,
         String typeCondition, UUID natureId, String typeFonction, UUID fonctionOrgaId,
         Integer seuil, Integer xpReward) {}

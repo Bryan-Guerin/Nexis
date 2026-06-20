@@ -8,6 +8,7 @@ import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
 import com.bryan.nexis.sapeurs.datamodel.TypeFonction;
 import com.bryan.nexis.sapeurs.datarepository.SpBadgeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpFonctionOrgaRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpIconeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreBadgeRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpNatureInterventionRepository;
 import io.micronaut.data.model.Sort;
@@ -35,15 +36,23 @@ public class SpBadgeService {
     private final SpMembreBadgeRepository        membreBadgeRepo;
     private final SpNatureInterventionRepository natureRepo;
     private final SpFonctionOrgaRepository       fonctionOrgaRepo;
+    private final SpIconeRepository              iconeRepo;
 
     public SpBadgeService(SpBadgeRepository badgeRepo,
                           SpMembreBadgeRepository membreBadgeRepo,
                           SpNatureInterventionRepository natureRepo,
-                          SpFonctionOrgaRepository fonctionOrgaRepo) {
+                          SpFonctionOrgaRepository fonctionOrgaRepo,
+                          SpIconeRepository iconeRepo) {
         this.badgeRepo        = badgeRepo;
         this.membreBadgeRepo  = membreBadgeRepo;
         this.natureRepo       = natureRepo;
         this.fonctionOrgaRepo = fonctionOrgaRepo;
+        this.iconeRepo        = iconeRepo;
+    }
+
+    /** Résout une image-icône par id (null si absent/introuvable). */
+    private com.bryan.nexis.sapeurs.datamodel.SpIcone resolveIcone(UUID iconeImageId) {
+        return iconeImageId != null ? iconeRepo.findById(iconeImageId).orElse(null) : null;
     }
 
     // ── Catalogue ────────────────────────────────────────────────────────────
@@ -54,12 +63,13 @@ public class SpBadgeService {
     }
 
     @Transactional
-    public SpBadgeDto create(String code, String label, String icone, String description,
+    public SpBadgeDto create(String code, String label, String icone, UUID iconeImageId, String description,
                              String typeCondition, UUID natureId, String typeFonction, UUID fonctionOrgaId,
                              int seuil, int xpReward) {
         var type = BadgeCondition.valueOf(typeCondition);
         var b = new SpBadge(code, label, type, seuil);
         b.setIcone(icone);
+        b.setIconeImage(resolveIcone(iconeImageId));
         b.setDescription(description);
         b.setXpReward(xpReward);
         b.setPosition((int) badgeRepo.count());
@@ -81,13 +91,14 @@ public class SpBadgeService {
     }
 
     @Transactional
-    public SpBadgeDto update(UUID id, String label, String icone, String description,
+    public SpBadgeDto update(UUID id, String label, String icone, UUID iconeImageId, String description,
                              String typeCondition, UUID natureId, String typeFonction, UUID fonctionOrgaId,
                              Integer seuil, Integer xpReward) {
         var b = badgeRepo.findById(id).orElseThrow(
                 () -> new NoSuchElementException("Badge introuvable : " + id));
         if (label != null)         b.setLabel(label);
         b.setIcone(icone);
+        b.setIconeImage(resolveIcone(iconeImageId));
         b.setDescription(description);
         if (typeCondition != null) b.setTypeCondition(BadgeCondition.valueOf(typeCondition));
         if (seuil != null)         b.setSeuil(seuil);

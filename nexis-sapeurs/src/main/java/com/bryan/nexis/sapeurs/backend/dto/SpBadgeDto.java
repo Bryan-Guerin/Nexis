@@ -7,14 +7,16 @@ import java.util.UUID;
 
 @Serdeable
 public record SpBadgeDto(
-        UUID id, String code, String label, String icone, String description,
+        UUID id, String code, String label, String icone, UUID iconeImageId, String description,
         String typeCondition, UUID natureId, String natureLabel, String typeFonction,
         UUID fonctionOrgaId, String fonctionOrgaLabel,
         int seuil, int xpReward, int position) {
 
     public static SpBadgeDto from(SpBadge b) {
         return new SpBadgeDto(
-                b.getId(), b.getCode(), b.getLabel(), b.getIcone(), b.getDescription(),
+                b.getId(), b.getCode(), b.getLabel(), b.getIcone(),
+                b.getIconeImage() != null ? b.getIconeImage().getId() : null,
+                b.getDescription(),
                 b.getTypeCondition().name(),
                 b.getNature() != null ? b.getNature().getId()    : null,
                 b.getNature() != null ? b.getNature().getLabel() : null,

@@ -51,6 +51,11 @@ public class SpBadge {
     @JoinColumn(name = "fonction_orga_id")
     private SpFonctionOrga fonctionOrga;
 
+    /** Image-icône optionnelle (remplace l'emoji {@code icone} si définie). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "icone_image_id")
+    private SpIcone iconeImage;
+
     @Column(nullable = false)
     private int seuil;
 
@@ -80,6 +85,7 @@ public class SpBadge {
     public SpNatureIntervention getNature()   { return nature; }
     public TypeFonction getTypeFonction()     { return typeFonction; }
     public SpFonctionOrga getFonctionOrga()   { return fonctionOrga; }
+    public SpIcone getIconeImage()            { return iconeImage; }
     public int getSeuil()                     { return seuil; }
     public int getXpReward()                  { return xpReward; }
     public int getPosition()                  { return position; }
@@ -91,6 +97,7 @@ public class SpBadge {
     public void setNature(SpNatureIntervention n)    { this.nature = n; }
     public void setTypeFonction(TypeFonction t)      { this.typeFonction = t; }
     public void setFonctionOrga(SpFonctionOrga f)    { this.fonctionOrga = f; }
+    public void setIconeImage(SpIcone iconeImage)    { this.iconeImage = iconeImage; }
     public void setSeuil(int seuil)                  { this.seuil = seuil; }
     public void setXpReward(int xpReward)            { this.xpReward = xpReward; }
     public void setPosition(int position)            { this.position = position; }

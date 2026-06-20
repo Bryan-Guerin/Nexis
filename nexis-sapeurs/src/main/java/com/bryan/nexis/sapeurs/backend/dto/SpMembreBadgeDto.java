@@ -11,13 +11,15 @@ import java.util.UUID;
 /** Badge obtenu par un membre (vue publique : visible par tous). */
 @Serdeable
 public record SpMembreBadgeDto(
-        UUID badgeId, String code, String label, String icone, String description,
+        UUID badgeId, String code, String label, String icone, UUID iconeImageId, String description,
         String condition, int xpReward, Instant obtenuLe, boolean decouvert) {
 
     public static SpMembreBadgeDto from(SpMembreBadge mb) {
         var b = mb.getBadge();
         return new SpMembreBadgeDto(
-                b.getId(), b.getCode(), b.getLabel(), b.getIcone(), b.getDescription(),
+                b.getId(), b.getCode(), b.getLabel(), b.getIcone(),
+                b.getIconeImage() != null ? b.getIconeImage().getId() : null,
+                b.getDescription(),
                 conditionText(b), b.getXpReward(), mb.getObtenuLe(), mb.isDecouvert());
     }
 
