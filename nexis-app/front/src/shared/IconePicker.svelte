@@ -8,15 +8,17 @@
   // onchange (optionnel) : appelé après un choix/retrait d'image ou au blur de l'emoji
   // (édition inline qui persiste aussitôt). Les formulaires modaux l'ignorent (lecture au submit).
   // imageOnly : masque la saisie d'emoji (champ purement image, ex. logo).
-  let { emoji = $bindable(''), imageId = $bindable(null), onchange, imageOnly = false } = $props()
+  // Pas de valeur par défaut sur les $bindable : les champs liés peuvent être undefined
+  // (serde omet les null), et bind: sur un $bindable avec fallback interdit undefined.
+  let { emoji = $bindable(), imageId = $bindable(), onchange, imageOnly = false } = $props()
 
-  let lib    = $state([])
-  let open   = $state(false)
-  let loaded = false
+  let lib  = $state([])
+  let open = $state(false)
 
+  // Charge la bibliothèque à chaque ouverture (reflète les images ajoutées entre-temps).
   async function openGallery() {
     open = true
-    if (!loaded) { lib = await api.get('/sp/icones').catch(() => []); loaded = true }
+    lib = await api.get('/sp/icones').catch(() => [])
   }
   function choisir(id) { imageId = id; open = false; onchange?.() }
   function retirer()   { imageId = null; onchange?.() }
@@ -39,7 +41,7 @@
 {#if open}
   <Modal title="Choisir une image" onclose={() => open = false}>
     {#if lib.length === 0}
-      <p class="muted small">Bibliothèque vide. Ajoutez des images dans le menu « Icônes » (admin).</p>
+      <p class="muted small">Bibliothèque vide. Ajoutez des images dans Configuration › « Icônes &amp; logo ».</p>
     {:else}
       <div class="ipick-gal">
         {#each lib as ic (ic.id)}

@@ -17,7 +17,6 @@
     { path: '/sp/stats',           label: 'Statistiques',    icon: '📈', roles: ['ROLE_SP'] },
     { path: '/sp/documents',       label: 'Documents',       icon: '📄', roles: ['ROLE_SP'] },
     { path: '/sp/rh',              label: 'RH / Paie',       icon: '💶', roles: ['ROLE_SP_RH'] },
-    { path: '/sp/icones',          label: 'Icônes',          icon: '🖼️', roles: ['ROLE_ADMIN_SP'] },
     { path: '/sp/config',          label: 'Configuration',   icon: '⚙️', roles: ['ROLE_ADMIN_SP'] },
 
     { section: 'Gendarmerie',                                icon: '🚓', roles: ['ROLE_GN'] },
