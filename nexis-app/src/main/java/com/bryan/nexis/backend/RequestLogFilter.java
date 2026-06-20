@@ -44,6 +44,12 @@ public class RequestLogFilter implements Ordered {
 
     @ResponseFilter
     public void onResponse(HttpRequest<?> request, @Nullable HttpResponse<?> response) {
+        // La réponse (et les logs métier) peut s'exécuter sur un autre thread que onRequest
+        // (controllers @ExecuteOn(BLOCKING)) → le MDC posé à la requête y est absent. On le
+        // repose ici depuis le principal porté par la requête (indépendant du thread).
+        String user = request.getAttribute(HttpAttributes.PRINCIPAL, Principal.class)
+                .map(Principal::getName).orElse("anonyme");
+        MDC.put("user", user);
         try {
             int code = response != null ? response.code() : 0;
             String outcome = (code >= 200 && code < 400) ? "OK" : "ERROR";

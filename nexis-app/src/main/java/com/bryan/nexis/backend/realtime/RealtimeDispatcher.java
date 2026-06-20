@@ -3,11 +3,14 @@ package com.bryan.nexis.backend.realtime;
 import com.bryan.nexis.core.backend.JournalService;
 import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.core.realtime.RealtimeEventDto;
+import com.bryan.nexis.core.realtime.Scope;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.transaction.annotation.TransactionalEventListener;
 import io.micronaut.websocket.WebSocketBroadcaster;
 import io.micronaut.websocket.WebSocketSession;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 
@@ -20,6 +23,9 @@ import java.util.Set;
 @Singleton
 public class RealtimeDispatcher {
 
+    /** Logger « main courante » : trace lisible des événements métier dans la console serveur. */
+    private static final Logger JOURNAL = LoggerFactory.getLogger("com.bryan.nexis.maincourante");
+
     private final JournalService journalService;
     private final WebSocketBroadcaster broadcaster;   // null si le serveur ne supporte pas les WS
 
@@ -30,10 +36,23 @@ public class RealtimeDispatcher {
 
     @TransactionalEventListener
     public void onEvent(RealtimeEvent event) {
-        if (!event.isEphemere()) journalService.record(event);   // éphémère : diffusé sans trace journal
+        if (!event.isEphemere()) {
+            journalService.record(event);   // éphémère : diffusé sans trace journal
+            logJournal(event);
+        }
         if (broadcaster != null) {
             broadcaster.broadcastSync(RealtimeEventDto.from(event), session -> matches(session, event));
         }
+    }
+
+    /** Trace chaque événement journalisé (création/clôture d'inter, affectation, statut, bip…). */
+    private void logJournal(RealtimeEvent event) {
+        var ctx = new StringBuilder();
+        if (event.getActorUsername() != null) ctx.append(" · par ").append(event.getActorUsername());
+        if (event.getScope() == Scope.USERS && event.getRecipients() != null && !event.getRecipients().isEmpty())
+            ctx.append(" · à ").append(String.join(", ", event.getRecipients()));
+        if (event.getReference() != null) ctx.append(" · ").append(event.getReference());
+        JOURNAL.info("[{}] {}{}", event.getType(), event.getMessage(), ctx);
     }
 
     @SuppressWarnings("unchecked")
