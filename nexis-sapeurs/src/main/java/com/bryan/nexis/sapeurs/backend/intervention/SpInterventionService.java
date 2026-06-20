@@ -474,12 +474,13 @@ public class SpInterventionService {
         int eo = 0;
         for (var aff : affectationRepo.findByVehiculeIdAndFinIsNull(v.getId())) {
             var m = aff.getMembre();
-            String poste = (aff.getPoste() != null && aff.getPoste().getFonction() != null)
-                    ? aff.getPoste().getFonction().getLabel() : null;
+            var fonction = aff.getPoste() != null ? aff.getPoste().getFonction() : null;
+            String poste = fonction != null ? fonction.getLabel() : null;
+            var typeFonction = fonction != null ? fonction.getTypeFonction() : null;
             String nom = (m.getNomComplet() != null && !m.getNomComplet().isBlank())
                     ? m.getNomComplet() : m.getUser().getUsername();
             engin.getEquipage().add(new SpInterventionEquipier(
-                    engin, m.getId(), m.getMatricule(), nom, m.getGrade().getLabel(), poste, eo++));
+                    engin, m.getId(), m.getMatricule(), nom, m.getGrade().getLabel(), poste, typeFonction, eo++));
         }
         inter.getEnginsHisto().add(engin);
     }

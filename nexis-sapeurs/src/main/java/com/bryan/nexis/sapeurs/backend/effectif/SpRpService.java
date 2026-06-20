@@ -44,6 +44,7 @@ public class SpRpService {
     private final SpInterventionRepository        interRepo;
     private final SpInterventionEquipierRepository equipierRepo;
     private final SpPlanningRepository            planningRepo;
+    private final SpInterventionVoteService       voteService;
     private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpRpService(SpMembreRepository membreRepo,
@@ -53,6 +54,7 @@ public class SpRpService {
                        SpInterventionRepository interRepo,
                        SpInterventionEquipierRepository equipierRepo,
                        SpPlanningRepository planningRepo,
+                       SpInterventionVoteService voteService,
                        ApplicationEventPublisher<RealtimeEvent> events) {
         this.membreRepo      = membreRepo;
         this.badgeRepo       = badgeRepo;
@@ -61,6 +63,7 @@ public class SpRpService {
         this.equipierRepo    = equipierRepo;
         this.interRepo       = interRepo;
         this.planningRepo    = planningRepo;
+        this.voteService     = voteService;
         this.events          = events;
     }
 
@@ -149,6 +152,11 @@ public class SpRpService {
                 if (b.getNature() == null) yield false;
                 yield countInterventionsByNature(membre.getId(), b.getNature().getId()) >= b.getSeuil();
             }
+            case INTER_TYPE_FONCTION_COUNT -> {
+                if (b.getTypeFonction() == null) yield false;
+                yield countInterventionsAsType(membre.getId(), b.getTypeFonction()) >= b.getSeuil();
+            }
+            case INTER_SEMAINE_COUNT -> countInterventionSemaine(membre.getId()) >= b.getSeuil();
             case GARDE_HEURES        -> c.heuresGarde() >= b.getSeuil();
             case SERVICE_JOURS       -> c.joursService() >= b.getSeuil();
             case GRADE_JOURS         -> c.joursGrade()   >= b.getSeuil();
@@ -185,6 +193,26 @@ public class SpRpService {
     }
 
     /**
+     * Compte les interventions où le membre a tenu un type de fonction donné. Même double
+     * source que {@link #countInterventions} : snapshot figé (clôturées) + affectations
+     * actives (ouvertes), filtrées sur le {@link TypeFonction} du poste.
+     */
+    private int countInterventionsAsType(UUID membreId, TypeFonction type) {
+        var matched = new HashSet<>(equipierRepo.distinctInterventionIdsByTypeFonction(membreId, type));
+
+        var vehIds = affRepo.findByMembreIdAndFinIsNull(membreId).stream()
+                .filter(a -> a.getPoste() != null && a.getPoste().getFonction() != null
+                        && a.getPoste().getFonction().getTypeFonction() == type)
+                .map(a -> a.getVehicule().getId()).collect(Collectors.toSet());
+        if (!vehIds.isEmpty()) {
+            for (var inter : interRepo.findByFinIsNull()) {
+                if (inter.getEngins().stream().anyMatch(v -> vehIds.contains(v.getId()))) matched.add(inter.getId());
+            }
+        }
+        return matched.size();
+    }
+
+    /**
      * Compte les interventions du membre. Deux sources, car l'engin live est détaché à la
      * clôture (historisation) :
      * <ul>
@@ -208,6 +236,18 @@ public class SpRpService {
             }
         }
         return matched.size();
+    }
+
+    /**
+     * Nombre d'interventions « de la semaine » (gagnantes du vote) auxquelles le membre a
+     * participé. Les gagnantes sont clôturées → participation lue depuis l'équipage figé.
+     */
+    private int countInterventionSemaine(UUID membreId) {
+        var gagnants = voteService.winningInterventionIds();
+        if (gagnants.isEmpty()) return 0;
+        var miennes = new HashSet<>(equipierRepo.distinctInterventionIds(membreId));
+        miennes.retainAll(gagnants);
+        return miennes.size();
     }
 
     private int sumHeuresParCategorie(UUID membreId, TypeService cat) {

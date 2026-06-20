@@ -28,6 +28,10 @@
   // Vote intervention de la semaine
   let voteEtat = $state(null)        // { semaineDate, candidates[], monVote, gagnant }
   let voteOpen = $state(false)
+  // Candidates toujours triées par numéro d'intervention croissant (tri naturel sur le code).
+  const candidatesTriees = $derived(
+    voteEtat ? [...voteEtat.candidates].sort((a, b) =>
+      (a.code || '').localeCompare(b.code || '', undefined, { numeric: true })) : [])
   function fmtSemaine(iso) {
     if (!iso) return ''
     const d = new Date(iso + 'T12:00:00')
@@ -435,7 +439,7 @@
   <Modal title="Vote intervention de la semaine" width="640px" onclose={() => voteOpen = false}>
     <p class="muted small">Semaine du {fmtSemaine(voteEtat.semaineDate)} · 1 vote par personne. Clique sur une intervention pour voir le détail.</p>
     <div class="vote-list">
-      {#each voteEtat.candidates as c (c.interventionId)}
+      {#each candidatesTriees as c (c.interventionId)}
         {@const mine    = voteEtat.monVote === c.interventionId}
         {@const open    = expandedInter === c.interventionId}
         {@const details = interDetails[c.interventionId]}
@@ -595,7 +599,7 @@
   .vw-votes { font-size: 12px; color: var(--accent); font-weight: 600; }
   .vote-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .vote-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
-  .vote-cand { display: flex; flex-direction: column; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+  .vote-cand { display: flex; flex-direction: column; flex-shrink: 0; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
   .vote-cand.mine { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .vote-cand.open { border-color: color-mix(in srgb, var(--accent) 60%, var(--color-border)); }
   .vc-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: none; border: none; color: inherit; font: inherit; cursor: pointer; text-align: left; width: 100%; }

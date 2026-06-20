@@ -68,8 +68,8 @@ public class SpBadgeService {
             b.setNature(natureRepo.findById(natureId).orElseThrow(
                     () -> new NoSuchElementException("Nature introuvable : " + natureId)));
         }
-        if (type == BadgeCondition.QUALIF_TYPE_COUNT) {
-            if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour QUALIF_TYPE_COUNT");
+        if (type == BadgeCondition.QUALIF_TYPE_COUNT || type == BadgeCondition.INTER_TYPE_FONCTION_COUNT) {
+            if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour " + type);
             b.setTypeFonction(TypeFonction.valueOf(typeFonction));
         }
         if (type == BadgeCondition.FONCTION_ORGA) {
@@ -98,8 +98,9 @@ public class SpBadgeService {
         } else if (b.getTypeCondition() != BadgeCondition.INTER_NATURE_COUNT) {
             b.setNature(null);
         }
-        if (b.getTypeCondition() == BadgeCondition.QUALIF_TYPE_COUNT) {
-            if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour QUALIF_TYPE_COUNT");
+        if (b.getTypeCondition() == BadgeCondition.QUALIF_TYPE_COUNT
+                || b.getTypeCondition() == BadgeCondition.INTER_TYPE_FONCTION_COUNT) {
+            if (typeFonction == null) throw new IllegalArgumentException("typeFonction requis pour " + b.getTypeCondition());
             b.setTypeFonction(TypeFonction.valueOf(typeFonction));
         } else {
             b.setTypeFonction(null);

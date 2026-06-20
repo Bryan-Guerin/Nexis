@@ -8,8 +8,10 @@
     // Catalogue des badges (succès) géré par l'admin SP.
     // Conditions = ce qu'on compte pour attribuer le badge.
     const CONDITIONS = [
-        ['INTER_COUNT',         'Nombre d\'interventions'],
-        ['INTER_NATURE_COUNT',  'Interventions d\'une nature'],
+        ['INTER_COUNT',              'Nombre d\'interventions'],
+        ['INTER_NATURE_COUNT',       'Interventions d\'une nature'],
+        ['INTER_TYPE_FONCTION_COUNT','Interventions dans un rôle (chef, conducteur…)'],
+        ['INTER_SEMAINE_COUNT',      'Interventions de la semaine (votées)'],
         ['GARDE_HEURES',        'Heures de garde cumulées'],
         ['SERVICE_JOURS',       'Jours d\'ancienneté'],
         ['GRADE_JOURS',         'Jours dans le grade'],
@@ -29,6 +31,8 @@
         ['EQUIPIER',    'Équipier'],
     ]
     function typeFonctionLabel(t) { return TYPES_FONCTION.find(x => x[0] === t)?.[1] ?? t }
+    // Conditions qui ciblent un type de fonction (réutilisent le champ typeFonction)
+    const TYPE_FONCTION_CONDS = new Set(['QUALIF_TYPE_COUNT', 'INTER_TYPE_FONCTION_COUNT'])
     function seuilUnite(c) {
         if (c === 'GARDE_HEURES') return 'heures'
         if (c === 'SERVICE_JOURS' || c === 'GRADE_JOURS') return 'jours'
@@ -87,7 +91,7 @@
             description: form.description || null,
             typeCondition: form.typeCondition,
             natureId: form.typeCondition === 'INTER_NATURE_COUNT' ? form.natureId : null,
-            typeFonction: form.typeCondition === 'QUALIF_TYPE_COUNT' ? form.typeFonction : null,
+            typeFonction: TYPE_FONCTION_CONDS.has(form.typeCondition) ? form.typeFonction : null,
             fonctionOrgaId: form.typeCondition === 'FONCTION_ORGA' ? form.fonctionOrgaId : null,
             seuil: SANS_SEUIL.has(form.typeCondition) ? 1 : (Number(form.seuil) || 1),
             xpReward: Number(form.xpReward) || 0,
@@ -211,7 +215,7 @@
                     </select>
                 </label>
             {/if}
-            {#if form.typeCondition === 'QUALIF_TYPE_COUNT'}
+            {#if TYPE_FONCTION_CONDS.has(form.typeCondition)}
                 <label class="field-label">Type de fonction ciblé
                     <select bind:value={form.typeFonction}>
                         {#each TYPES_FONCTION as [v, l]}<option value={v}>{l}</option>{/each}

@@ -33,20 +33,26 @@ public class SpInterventionEquipier {
     @Column(length = 100)
     private String poste;
 
+    /** Type de fonction tenu (CA/COND/CE/EQUIPIER), figé — pour compter par rôle. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_fonction", length = 20)
+    private TypeFonction typeFonction;
+
     @Column(name = "ordre", nullable = false)
     private int position;
 
     protected SpInterventionEquipier() {}
 
     public SpInterventionEquipier(SpInterventionEngin engin, UUID membreId, String matricule, String nom,
-                                  String grade, String poste, int position) {
-        this.engin     = engin;
-        this.membreId  = membreId;
-        this.matricule = matricule;
-        this.nom       = nom;
-        this.grade     = grade;
-        this.poste     = poste;
-        this.position  = position;
+                                  String grade, String poste, TypeFonction typeFonction, int position) {
+        this.engin        = engin;
+        this.membreId     = membreId;
+        this.matricule    = matricule;
+        this.nom          = nom;
+        this.grade        = grade;
+        this.poste        = poste;
+        this.typeFonction = typeFonction;
+        this.position     = position;
     }
 
     public UUID getId()               { return id; }
@@ -56,5 +62,6 @@ public class SpInterventionEquipier {
     public String getNom()            { return nom; }
     public String getGrade()          { return grade; }
     public String getPoste()          { return poste; }
+    public TypeFonction getTypeFonction() { return typeFonction; }
     public int getPosition()          { return position; }
 }

@@ -26,6 +26,8 @@ public record SpMembreBadgeDto(
         String base = switch (b.getTypeCondition()) {
             case INTER_COUNT        -> "Interventions";
             case INTER_NATURE_COUNT -> "Interventions « " + label(b.getNature() != null ? b.getNature().getLabel() : null) + " »";
+            case INTER_TYPE_FONCTION_COUNT -> "Interventions en « " + label(b.getTypeFonction() != null ? b.getTypeFonction().getLabel() : null) + " »";
+            case INTER_SEMAINE_COUNT -> "Interventions de la semaine";
             case GARDE_HEURES       -> "Heures de garde";
             case SERVICE_JOURS      -> "Jours d'ancienneté";
             case GRADE_JOURS        -> "Jours dans le grade";

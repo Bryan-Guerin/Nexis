@@ -1333,9 +1333,9 @@
   /* Racine(s) : pas de connecteur au-dessus. */
   .orga-pyr > ul > li::before, .orga-pyr > ul > li::after { display: none; }
 
-  .pyr-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px; width: 150px; }
-  .pyr-box-head { display: flex; align-items: center; gap: 6px; }
-  .pyr-box-label { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pyr-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px; width: 185px; }
+  .pyr-box-head { display: flex; align-items: flex-start; gap: 6px; }
+  .pyr-box-label { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
   .pyr-crew { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
   .pyr-crew .orga-membre { border-radius: var(--radius); padding: 3px 8px; }
 

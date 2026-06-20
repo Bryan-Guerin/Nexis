@@ -122,6 +122,35 @@ public class SpInterventionVoteService {
         return etat(membreId);
     }
 
+    /**
+     * IDs des interventions gagnantes du vote, toutes semaines passées confondues.
+     * Pour chaque semaine ayant reçu des votes, l'intervention la plus votée (égalité →
+     * fin la plus récente, comme {@link #etat}). Sert au badge « intervention de la semaine ».
+     */
+    @Transactional
+    public Set<UUID> winningInterventionIds() {
+        var votes = voteRepo.findAll();
+        if (votes.isEmpty()) return Set.of();
+
+        Map<LocalDate, Map<UUID, Long>> bySemaine = votes.stream().collect(Collectors.groupingBy(
+                SpInterventionVote::getSemaineDate,
+                Collectors.groupingBy(v -> v.getIntervention().getId(), Collectors.counting())));
+        Map<UUID, Instant> finByInter = votes.stream().collect(Collectors.toMap(
+                v -> v.getIntervention().getId(),
+                v -> v.getIntervention().getFin() != null ? v.getIntervention().getFin() : Instant.EPOCH,
+                (a, b) -> a));
+
+        Set<UUID> gagnants = new HashSet<>();
+        for (var counts : bySemaine.values()) {
+            counts.entrySet().stream()
+                    .max(Comparator.<Map.Entry<UUID, Long>>comparingLong(Map.Entry::getValue)
+                            .thenComparing(e -> finByInter.getOrDefault(e.getKey(), Instant.EPOCH)))
+                    .map(Map.Entry::getKey)
+                    .ifPresent(gagnants::add);
+        }
+        return gagnants;
+    }
+
     private static String codeIntervention(SpIntervention i) {
         return i.getNumero() != null ? String.format("INT-%04d", i.getNumero()) : i.getId().toString().substring(0, 8);
     }

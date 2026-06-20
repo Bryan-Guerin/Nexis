@@ -9,6 +9,10 @@ public enum BadgeCondition {
     INTER_COUNT,
     /** Nombre d'interventions d'une nature spécifique (natureId requis). */
     INTER_NATURE_COUNT,
+    /** Nombre d'interventions tenues dans un type de fonction donné (typeFonction requis : CA/COND/CE/EQUIPIER). */
+    INTER_TYPE_FONCTION_COUNT,
+    /** Nombre de fois où le membre a participé à l'intervention gagnante du vote de la semaine. */
+    INTER_SEMAINE_COUNT,
     /** Heures de garde cumulées (issue du planning). */
     GARDE_HEURES,
     /** Jours d'ancienneté depuis l'intégration. */
