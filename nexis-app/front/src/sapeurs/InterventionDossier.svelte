@@ -8,6 +8,7 @@
   import {can} from '../shared/roles.js'
   import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
   import {exportInterventionPdf} from './interventionsPdf.js'
+  import Modal from '../shared/Modal.svelte'
 
   // Dossier d'intervention plein-cadre (route /sp/interventions/:id). Onglet Synthèse = l'ancien
   // panneau détail ; onglet Bilans à venir (Front B). Charge l'intervention par son id.
@@ -27,6 +28,18 @@
   let tab          = $state('synthese')
   let loading      = $state(true)
   let reloadTimer  = null
+
+  // ── Bilans ──
+  let victimes      = $state([])
+  let bilans        = $state([])
+  let famille       = $state('SAP')
+  let victimeSel    = $state(null)
+  let sapForm       = $state({})
+  let sapSaved      = $state(false)
+  let sapTimer      = null
+  let showVictime   = $state(false)
+  let victimeForm   = $state({})
+  let editVictimeId = $state(null)
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isDispatcher = $derived($can.dispatch)
@@ -52,8 +65,62 @@
         refNatures().catch(() => []),
       ])
       myMembreId = me?.id ?? null
+      await loadBilansVictimes()
     } catch { /* toast par api.js */ }
     finally { loading = false }
+  }
+
+  async function loadBilansVictimes() {
+    const id = params.id
+    ;[victimes, bilans] = await Promise.all([
+      api.get(`/sp/interventions/${id}/victimes`).catch(() => []),
+      api.get(`/sp/interventions/${id}/bilans`).catch(() => []),
+    ])
+    if (!victimeSel && victimes.length) selectVictime(victimes[0])
+  }
+
+  function bilanSapDe(victimeId) { return bilans.find(b => b.famille === 'SAP' && b.victimeId === victimeId) }
+  function victimeNom(v) { return [v.nom, v.prenom].filter(Boolean).join(' ') || v.libelle || `Victime ${v.numero}` }
+
+  function selectVictime(v) {
+    victimeSel = v.id
+    const b = bilanSapDe(v.id)
+    sapForm = b && b.contenu ? { ...b.contenu } : {}
+    sapSaved = false
+  }
+  function onSapChange() {
+    sapSaved = false
+    clearTimeout(sapTimer)
+    sapTimer = setTimeout(saveSap, 600)
+  }
+  async function saveSap() {
+    if (!victimeSel) return
+    try {
+      const b = await api.put(`/sp/victimes/${victimeSel}/bilan-sap`, {
+        hemorragie: sapForm.hemorragie ?? null,
+        perteEstimee: sapForm.perteEstimee || null,
+        frequenceRespiratoire: sapForm.frequenceRespiratoire !== '' && sapForm.frequenceRespiratoire != null ? Number(sapForm.frequenceRespiratoire) : null,
+        observations: sapForm.observations || null,
+      })
+      bilans = [...bilans.filter(x => x.id !== b.id), b]
+      sapSaved = true
+    } catch { /* toast par api.js */ }
+  }
+
+  function openAjoutVictime() { editVictimeId = null; victimeForm = { libelle: '', nom: '', prenom: '', sexe: '' }; showVictime = true }
+  function openEditVictime(v) { editVictimeId = v.id; victimeForm = { libelle: v.libelle ?? '', nom: v.nom ?? '', prenom: v.prenom ?? '', sexe: v.sexe ?? '' }; showVictime = true }
+  async function submitVictime() {
+    const payload = { libelle: victimeForm.libelle || null, nom: victimeForm.nom || null, prenom: victimeForm.prenom || null, sexe: victimeForm.sexe || null }
+    try {
+      if (editVictimeId) {
+        const u = await api.put(`/sp/victimes/${editVictimeId}`, payload)
+        victimes = victimes.map(v => v.id === u.id ? u : v)
+      } else {
+        const c = await api.post(`/sp/interventions/${params.id}/victimes`, payload)
+        victimes = [...victimes, c]; selectVictime(c)
+      }
+      showVictime = false
+    } catch { /* toast par api.js */ }
   }
 
   async function refresh() {
@@ -72,6 +139,10 @@
       if (ev.faction === 'SP' && (ev.type?.startsWith('INTERVENTION_') || ev.type === 'ETAT_VEHICULE'
           || ev.type === 'AFFECTATION' || ev.type === 'DESAFFECTATION' || ev.type === 'MAIN_COURANTE')) {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(refresh, 300)
+      }
+      // Bilan modifié par un autre équipier → recharge victimes/bilans (sans écraser la saisie en cours).
+      if (ev.faction === 'SP' && ev.type === 'BILAN_MAJ' && ev.payload?.interventionId === params.id) {
+        loadBilansVictimes()
       }
     })
     return () => { unsub(); clearTimeout(reloadTimer) }
@@ -327,12 +398,88 @@
         </div>
       </div>
     {:else}
-      <div class="bilans-stub">
-        <p class="muted small">Bilans (SAP / SR / INC) — à venir.</p>
+      <div class="bilans">
+        <div class="famille-chips">
+          <button class:on={famille === 'SAP'} onclick={() => famille = 'SAP'}>SAP · secours à personne</button>
+          <button class:on={famille === 'SR'} onclick={() => famille = 'SR'}>SR · secours routier</button>
+          <button class:on={famille === 'INC'} onclick={() => famille = 'INC'}>INC · incendie</button>
+        </div>
+
+        {#if famille === 'SAP'}
+          <div class="victimes-bar">
+            {#each victimes as v (v.id)}
+              <button class="vic" class:on={victimeSel === v.id} onclick={() => selectVictime(v)}>
+                {victimeNom(v)}{#if v.sexe}<span class="vic-sexe">{v.sexe}</span>{/if}
+              </button>
+            {/each}
+            <button class="btn-ghost-sm" onclick={openAjoutVictime}>+ Victime</button>
+          </div>
+
+          {#if victimeSel}
+            {@const vsel = victimes.find(v => v.id === victimeSel)}
+            <div class="sap-head">
+              <span class="sap-titre">Bilan SAP — {victimeNom(vsel)}</span>
+              {#if inter.enCours}<button class="btn-ghost-sm" onclick={() => openEditVictime(vsel)}>Éditer la victime</button>{/if}
+              {#if sapSaved}<span class="saved">✓ Enregistré</span>{/if}
+            </div>
+            <div class="sap-form">
+              <div class="sap-row">
+                <span class="sap-lib">Hémorragie</span>
+                <span class="yn">
+                  <button class:on={sapForm.hemorragie === true} onclick={() => { sapForm.hemorragie = true; onSapChange() }}>Oui</button>
+                  <button class:on={sapForm.hemorragie === false} onclick={() => { sapForm.hemorragie = false; onSapChange() }}>Non</button>
+                </span>
+              </div>
+              <div class="sap-row">
+                <span class="sap-lib">Perte estimée</span>
+                <select bind:value={sapForm.perteEstimee} onchange={onSapChange}>
+                  <option value="">—</option>
+                  <option value="FAIBLE">Faible</option>
+                  <option value="IMPORTANTE">Importante</option>
+                </select>
+              </div>
+              <div class="sap-row">
+                <span class="sap-lib">Fréquence respiratoire</span>
+                <input type="number" min="0" bind:value={sapForm.frequenceRespiratoire} oninput={onSapChange} />
+              </div>
+              <label class="sap-obs">Observations
+                <textarea rows="3" bind:value={sapForm.observations} oninput={onSapChange}></textarea>
+              </label>
+            </div>
+            <p class="muted small">Aperçu phase 1 (4 champs, enregistrés à chaque saisie). Formulaire XABCDE complet en phase 2.</p>
+          {:else}
+            <p class="muted small">Aucune victime. Ajoute-en une pour saisir un bilan SAP.</p>
+          {/if}
+        {:else}
+          <p class="muted small">Bilan {famille} — structure à définir (coquille).</p>
+        {/if}
       </div>
     {/if}
   {/if}
 </div>
+
+{#if showVictime}
+  <Modal width="440px" title={editVictimeId ? 'Modifier la victime' : 'Nouvelle victime'} onclose={() => showVictime = false}>
+    <div class="vic-form">
+      <label>Position / rôle<input type="text" bind:value={victimeForm.libelle} placeholder="ex: Conducteur" maxlength="120" /></label>
+      <div class="form-row">
+        <label>Nom<input type="text" bind:value={victimeForm.nom} maxlength="80" /></label>
+        <label>Prénom<input type="text" bind:value={victimeForm.prenom} maxlength="80" /></label>
+      </div>
+      <label>Sexe
+        <select bind:value={victimeForm.sexe}>
+          <option value="">— inconnu —</option>
+          <option value="H">Homme</option>
+          <option value="F">Femme</option>
+        </select>
+      </label>
+    </div>
+    {#snippet actions()}
+      <button class="btn-ghost" onclick={() => showVictime = false}>Annuler</button>
+      <button class="btn-primary" onclick={submitVictime}>{editVictimeId ? 'Enregistrer' : 'Ajouter'}</button>
+    {/snippet}
+  </Modal>
+{/if}
 
 <style>
   .dossier { display: flex; flex-direction: column; gap: 14px; }
@@ -405,4 +552,29 @@
   .renfort-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .renfort-cible { font-weight: 600; }
   .renfort-row select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
+
+  /* Bilans */
+  .bilans { display: flex; flex-direction: column; gap: 12px; max-width: 700px; }
+  .famille-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .famille-chips button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; }
+  .famille-chips button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
+  .victimes-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .vic { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .vic.on { border-color: var(--accent); color: var(--accent); }
+  .vic-sexe { font-size: 10px; font-weight: 700; color: var(--color-muted); border: 1px solid var(--color-border); border-radius: 6px; padding: 0 4px; }
+  .sap-head { display: flex; align-items: center; gap: 12px; }
+  .sap-titre { font-weight: 600; font-size: 14px; }
+  .saved { font-size: 11px; color: var(--color-success); font-weight: 600; }
+  .sap-form { display: flex; flex-direction: column; gap: 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px 14px; }
+  .sap-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .sap-lib { font-size: 13px; }
+  .sap-row select, .sap-row input { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 5px 9px; width: 170px; }
+  .yn { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+  .yn button { background: var(--color-surface); border: none; color: var(--color-muted); font-size: 12px; padding: 4px 14px; cursor: pointer; }
+  .yn button.on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight: 600; }
+  .sap-obs { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
+  .sap-obs textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; text-transform: none; letter-spacing: 0; }
+  .vic-form { display: flex; flex-direction: column; gap: 10px; }
+  .vic-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
+  .vic-form input, .vic-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
 </style>

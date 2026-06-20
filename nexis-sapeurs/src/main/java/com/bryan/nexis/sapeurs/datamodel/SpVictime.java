@@ -24,8 +24,19 @@ public class SpVictime {
     @Column(nullable = false)
     private int numero;
 
+    /** Rôle / position (ex. « Conducteur »). Optionnel. */
     @Column(length = 120)
     private String libelle;
+
+    @Column(length = 80)
+    private String nom;
+
+    @Column(length = 80)
+    private String prenom;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 1)
+    private Sexe sexe;
 
     @Column(name = "cree_le", nullable = false, updatable = false)
     private Instant creeLe = Instant.now();
@@ -41,7 +52,13 @@ public class SpVictime {
     public SpIntervention getIntervention() { return intervention; }
     public int getNumero()                  { return numero; }
     public String getLibelle()              { return libelle; }
+    public String getNom()                  { return nom; }
+    public String getPrenom()               { return prenom; }
+    public Sexe getSexe()                   { return sexe; }
     public Instant getCreeLe()              { return creeLe; }
 
     public void setLibelle(String libelle)  { this.libelle = libelle; }
+    public void setNom(String nom)          { this.nom = nom; }
+    public void setPrenom(String prenom)    { this.prenom = prenom; }
+    public void setSexe(Sexe sexe)          { this.sexe = sexe; }
 }

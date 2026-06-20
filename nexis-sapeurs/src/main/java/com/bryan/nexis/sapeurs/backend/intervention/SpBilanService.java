@@ -1,9 +1,11 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
 
+import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.bilan.BilanSapContenu;
 import com.bryan.nexis.sapeurs.backend.dto.SpBilanDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVictimeDto;
 import com.bryan.nexis.sapeurs.datamodel.FamilleBilan;
+import com.bryan.nexis.sapeurs.datamodel.Sexe;
 import com.bryan.nexis.sapeurs.datamodel.SpBilan;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVictime;
@@ -11,6 +13,7 @@ import com.bryan.nexis.sapeurs.datarepository.SpBilanRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeAffectationRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVictimeRepository;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.core.type.Argument;
 import io.micronaut.json.JsonMapper;
 import io.micronaut.security.utils.SecurityService;
@@ -22,7 +25,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Bilans d'intervention (SAP / SR / INC) + victimes. Le contenu typé (records par famille) est
@@ -32,22 +37,27 @@ import java.util.UUID;
 @Singleton
 public class SpBilanService {
 
+    private static final String BILAN_MAJ = "BILAN_MAJ";
+
     private final SpInterventionRepository        interventionRepo;
     private final SpVictimeRepository             victimeRepo;
     private final SpBilanRepository               bilanRepo;
     private final SpVehiculeAffectationRepository affectationRepo;
     private final SecurityService                 security;
     private final JsonMapper                      json;
+    private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpBilanService(SpInterventionRepository interventionRepo, SpVictimeRepository victimeRepo,
                           SpBilanRepository bilanRepo, SpVehiculeAffectationRepository affectationRepo,
-                          SecurityService security, JsonMapper json) {
+                          SecurityService security, JsonMapper json,
+                          ApplicationEventPublisher<RealtimeEvent> events) {
         this.interventionRepo = interventionRepo;
         this.victimeRepo      = victimeRepo;
         this.bilanRepo        = bilanRepo;
         this.affectationRepo  = affectationRepo;
         this.security         = security;
         this.json             = json;
+        this.events           = events;
     }
 
     @Transactional
@@ -56,13 +66,29 @@ public class SpBilanService {
     }
 
     @Transactional
-    public SpVictimeDto ajouterVictime(UUID interventionId, String libelle) {
+    public SpVictimeDto ajouterVictime(UUID interventionId, String libelle, String nom, String prenom, String sexe) {
         var inter = interventionRepo.findById(interventionId)
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + interventionId));
         assertPeutSaisir(inter);
         var victime = new SpVictime(inter, (int) victimeRepo.countByInterventionId(interventionId) + 1);
-        if (libelle != null && !libelle.isBlank()) victime.setLibelle(libelle.trim());
-        return SpVictimeDto.from(victimeRepo.save(victime));
+        appliquerIdentite(victime, libelle, nom, prenom, sexe);
+        var dto = SpVictimeDto.from(victimeRepo.save(victime));
+        notifierMaj(inter);
+        return dto;
+    }
+
+    /** Édite l'identité d'une victime — refusé si l'intervention est close. */
+    @Transactional
+    public SpVictimeDto modifierVictime(UUID victimeId, String libelle, String nom, String prenom, String sexe) {
+        var victime = victimeRepo.findById(victimeId)
+                .orElseThrow(() -> new NoSuchElementException("Victime introuvable : " + victimeId));
+        var inter = victime.getIntervention();
+        assertPeutSaisir(inter);
+        if (inter.getFin() != null) throw new IllegalStateException("Intervention close : victime non modifiable.");
+        appliquerIdentite(victime, libelle, nom, prenom, sexe);
+        var dto = SpVictimeDto.from(victimeRepo.update(victime));
+        notifierMaj(inter);
+        return dto;
     }
 
     @Transactional
@@ -82,7 +108,28 @@ public class SpBilanService {
         bilan.setContenu(ecrire(contenu));
         bilan.setAuteur(actor());
         bilan.setMajLe(Instant.now());
-        return toDto(bilanRepo.save(bilan));
+        var dto = toDto(bilanRepo.save(bilan));
+        notifierMaj(inter);
+        return dto;
+    }
+
+    private void appliquerIdentite(SpVictime v, String libelle, String nom, String prenom, String sexe) {
+        v.setLibelle(vide(libelle));
+        v.setNom(vide(nom));
+        v.setPrenom(vide(prenom));
+        v.setSexe(sexe != null && !sexe.isBlank() ? Sexe.valueOf(sexe.trim()) : null);
+    }
+    private String vide(String s) { return s == null || s.isBlank() ? null : s.trim(); }
+
+    /** Diffuse aux équipiers (temps réel éphémère, non journalisé) qu'un bilan / une victime a changé. */
+    private void notifierMaj(SpIntervention inter) {
+        Set<String> equipage = inter.getEngins().stream()
+                .flatMap(e -> affectationRepo.findByVehiculeIdAndFinIsNull(e.getId()).stream())
+                .map(a -> a.getMembre().getUser().getUsername())
+                .collect(Collectors.toSet());
+        if (equipage.isEmpty()) return;
+        events.publishEvent(RealtimeEvent.users(BILAN_MAJ, "SP", equipage, "Bilan mis à jour",
+                Map.of("interventionId", inter.getId().toString()), actor()).ephemere().withReference(inter.getCode()));
     }
 
     private SpBilanDto toDto(SpBilan b) {

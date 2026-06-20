@@ -4,6 +4,7 @@ import com.bryan.nexis.sapeurs.backend.bilan.BilanSapContenu;
 import com.bryan.nexis.sapeurs.backend.dto.CreateVictimeRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpBilanDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVictimeDto;
+import com.bryan.nexis.sapeurs.backend.dto.UpdateVictimeRequest;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.scheduling.TaskExecutors;
@@ -36,7 +37,12 @@ public class SpBilanController {
     @Post("/interventions/{interventionId}/victimes")
     @Status(HttpStatus.CREATED)
     SpVictimeDto ajouterVictime(UUID interventionId, @Body CreateVictimeRequest req) {
-        return service.ajouterVictime(interventionId, req.libelle());
+        return service.ajouterVictime(interventionId, req.libelle(), req.nom(), req.prenom(), req.sexe());
+    }
+
+    @Put("/victimes/{victimeId}")
+    SpVictimeDto modifierVictime(UUID victimeId, @Body UpdateVictimeRequest req) {
+        return service.modifierVictime(victimeId, req.libelle(), req.nom(), req.prenom(), req.sexe());
     }
 
     @Get("/interventions/{interventionId}/bilans")

@@ -7,7 +7,9 @@ import com.bryan.nexis.sapeurs.datamodel.SpVictime;
 import com.bryan.nexis.sapeurs.datarepository.SpBilanRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeAffectationRepository;
+import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.datarepository.SpVictimeRepository;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.core.type.Argument;
 import io.micronaut.security.utils.SecurityService;
 import io.micronaut.serde.ObjectMapper;
@@ -41,7 +43,9 @@ class SpBilanServiceTest {
         var affectationRepo = mock(SpVehiculeAffectationRepository.class);
         security = mock(SecurityService.class);
         json     = ObjectMapper.getDefault();   // vrai serde (round-trip réel)
-        service  = new SpBilanService(interventionRepo, victimeRepo, bilanRepo, affectationRepo, security, json);
+        @SuppressWarnings("unchecked")
+        ApplicationEventPublisher<RealtimeEvent> events = mock(ApplicationEventPublisher.class);
+        service  = new SpBilanService(interventionRepo, victimeRepo, bilanRepo, affectationRepo, security, json, events);
         when(security.username()).thenReturn(Optional.of("admin"));
         when(security.hasRole("ROLE_ADMIN_SP")).thenReturn(true);   // bypass équipier
     }
@@ -74,7 +78,7 @@ class SpBilanServiceTest {
         when(victimeRepo.countByInterventionId(inter.getId())).thenReturn(2L);
         when(victimeRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var dto = service.ajouterVictime(inter.getId(), "Conducteur");
+        var dto = service.ajouterVictime(inter.getId(), "Conducteur", "Durand", "Paul", "H");
 
         assertEquals(3, dto.numero());
         assertEquals("Conducteur", dto.libelle());
