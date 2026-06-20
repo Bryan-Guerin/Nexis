@@ -147,7 +147,7 @@
           {#if pager.payload.commune || pager.payload.coord}
             <div class="scr">{[pager.payload.commune, pager.payload.coord].filter(Boolean).join('  ·  ')}</div>
           {/if}
-          <div class="scr">🚒 {pager.payload.engin ?? ''}  ·  {pager.payload.poste ?? pager.payload.code}</div>
+          <div class="scr">{#if pager.payload.enginImageId}<img class="bip-veh" src="/api/sp/icones/{pager.payload.enginImageId}/contenu" alt="" />{:else}🚒{/if} {pager.payload.engin ?? ''}  ·  {pager.payload.poste ?? pager.payload.code}</div>
         {:else}
           <div class="scr big">🔔 BIP</div>
           <div class="scr">{pager.message}</div>
@@ -409,6 +409,7 @@
     word-break: break-word;
   }
   .scr.big { font-size: 16px; font-weight: 700; }
+  .bip-veh { height: 16px; width: 16px; object-fit: contain; vertical-align: -3px; }
   .pager-ack {
     width: 100%; margin-top: 12px;
     background: #e8a23a; color: #1a1a1a; border: none;

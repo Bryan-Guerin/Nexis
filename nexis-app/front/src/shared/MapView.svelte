@@ -192,7 +192,10 @@
     heavyCells.set(fk, gj); gj.addTo(heavyGroup)
   }
 
-  function iconHtml(i) { return i.nature?.icone || (i.incendie ? '🔥' : '🚨') }
+  function iconHtml(i) {
+    if (i.nature?.iconeImageId) return `<img class="itv-img" src="/api/sp/icones/${i.nature.iconeImageId}/contenu" alt="">`
+    return i.nature?.icone || (i.incendie ? '🔥' : '🚨')
+  }
   function numero(i) { return (i.code ?? '').replace(/^INT-?/i, '') }
   function llOf(coord) { const p = gridToImg(coord); return p ? toLatLng(p[0], p[1]) : null }
 
@@ -288,7 +291,7 @@
   // sans cette garde, les pins clignoteraient à chaque maj live.
   let interSig = ''
   $effect(() => {
-    const sig = interventions.map(i => `${i.code}|${i.coordonnees}|${i.nature?.icone ?? ''}|${i.incendie ? 1 : 0}`).join(';')
+    const sig = interventions.map(i => `${i.code}|${i.coordonnees}|${i.nature?.icone ?? ''}|${i.nature?.iconeImageId ?? ''}|${i.incendie ? 1 : 0}`).join(';')
     if (sig === interSig) return
     interSig = sig
     renderInterventions()
@@ -338,6 +341,7 @@
   :global(.itv-pin) { background: none; border: none; }
   :global(.itv-marker) { display: flex; flex-direction: column; align-items: center; line-height: 1; cursor: pointer; }
   :global(.itv-marker .ic) { font-size: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+  :global(.itv-marker .ic .itv-img) { width: 24px; height: 24px; object-fit: contain; display: block; }
   :global(.itv-marker .num) { font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.65); border-radius: 6px; padding: 0 4px; margin-top: -2px; }
   :global(.map-label) { color: #e8eef5; font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; text-align: center; pointer-events: none; }
   :global(.veh-marker) { font-size: 18px; line-height: 1; filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 1px 2px rgba(0,0,0,.7)); cursor: pointer; }

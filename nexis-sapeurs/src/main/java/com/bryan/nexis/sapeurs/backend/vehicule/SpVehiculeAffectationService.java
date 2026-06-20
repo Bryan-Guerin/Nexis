@@ -286,6 +286,8 @@ public class SpVehiculeAffectationService {
         p.put("code", inter.getCode());
         p.put("motif", inter.getMotif());
         p.put("engin", engin.getLibelle());
+        if (engin.getType() != null && engin.getType().getIconeImage() != null)
+            p.put("enginImageId", engin.getType().getIconeImage().getId().toString());
         if (inter.getNature() != null)      p.put("nature", inter.getNature().getLabel());
         if (inter.getObservation() != null) p.put("observation", inter.getObservation());
         if (inter.getCommune() != null)     p.put("commune", inter.getCommune());
