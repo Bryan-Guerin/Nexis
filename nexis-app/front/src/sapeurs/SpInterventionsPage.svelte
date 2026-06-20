@@ -5,6 +5,7 @@
     import {confirm} from '../shared/confirm.js'
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
+    import {can} from '../shared/roles.js'
     import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
     import Pagination from '../shared/Pagination.svelte'
     import Skeleton from '../shared/Skeleton.svelte'
@@ -18,7 +19,7 @@
   let loading       = $state(true)
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
-  let isDispatcher = $derived($currentUser?.roles?.includes('ROLE_SP_DISPATCH') ?? false)
+  let isDispatcher = $derived($can.dispatch)   // dispatch OU admin (source centrale roles.js)
 
   // Contexte du détail (changement de statut + note par l'équipage + CRI)
   let statuts      = $state([])

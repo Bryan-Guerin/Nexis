@@ -156,9 +156,8 @@ public class SpVehiculeController {
         return affectationService.bip(id);
     }
 
-    /** Affecte automatiquement l'équipage de garde aux postes libres de l'engin (action dispatch). */
+    /** Affecte automatiquement l'équipage de garde aux postes libres de l'engin (ouvert à tous les SP). */
     @Post("/vehicules/{id}/affecter-auto")
-    @Secured("ROLE_SP_DISPATCH")
     List<SpVehiculeAffectationDto> affecterAuto(UUID id) {
         return affectationAutoService.affecterAuto(id);
     }

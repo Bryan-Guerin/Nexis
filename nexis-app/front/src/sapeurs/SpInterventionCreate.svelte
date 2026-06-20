@@ -4,14 +4,12 @@
   import {toast} from '../shared/toasts.js'
   import {confirm} from '../shared/confirm.js'
   import {refNatures} from '../shared/referentials.js'
-  import {currentUser} from '../shared/stores.js'
   import MapView from '../shared/MapView.svelte'
   import Modal from '../shared/Modal.svelte'
 
   // Modal de création d'intervention, réutilisable (écran interventions + bouton rapide dispatch).
   let { onclose, oncreated } = $props()
 
-  let isDispatch = $derived(($currentUser?.roles ?? []).some(r => r === 'ROLE_SP_DISPATCH' || r === 'ROLE_ADMIN_SP'))
   let affecterAutoApresDepart = $state(true)
 
   let natures   = $state([])
@@ -114,8 +112,8 @@
         vehiculeIds: createSel,
       })
       // Affectation auto de l'équipage de garde — uniquement sur les engins NON armés
-      // (un engin déjà armé garde son équipage en place).
-      if (isDispatch && affecterAutoApresDepart) {
+      // (un engin déjà armé garde son équipage en place). Ouvert à tous les SP.
+      if (affecterAutoApresDepart) {
         const nonArmes = new Set(vehicules.filter(v => !v.arme).map(v => v.vehiculeId))
         await Promise.all((created?.engins ?? [])
           .filter(e => nonArmes.has(e.vehiculeId))
@@ -219,9 +217,7 @@
       </div>
 
       <div class="modal-actions">
-        {#if isDispatch}
-          <label class="auto-chk"><input type="checkbox" bind:checked={affecterAutoApresDepart} /> Affecter auto l'équipage de garde</label>
-        {/if}
+        <label class="auto-chk"><input type="checkbox" bind:checked={affecterAutoApresDepart} /> Affecter auto l'équipage de garde</label>
         <button type="submit" class="btn-primary">Déclencher l'intervention</button>
       </div>
     </form>
