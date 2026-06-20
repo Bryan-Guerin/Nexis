@@ -89,6 +89,22 @@ public class SpTemplateDepartService {
     }
 
     @Transactional
+    public List<SpTemplateDepartDto> listByFlag(DeclencheurFlag flag) {
+        return repo.findByDeclencheurFlagOrderByPosition(flag).stream().map(SpTemplateDepartDto::from).toList();
+    }
+
+    @Transactional
+    public SpTemplateDepartDto addFlag(DeclencheurFlag flag, UUID typeId, int quantite, String description, UUID iconeImageId) {
+        var type = typeRepo.findById(typeId)
+                .orElseThrow(() -> new NoSuchElementException("Type véhicule introuvable : " + typeId));
+        var ligne = new SpTemplateDepart(flag, type, Math.max(1, quantite));
+        ligne.setDescription(description == null || description.isBlank() ? null : description.trim());
+        ligne.setIconeImage(resolveIcone(iconeImageId));
+        ligne.setPosition(repo.findByDeclencheurFlagOrderByPosition(flag).size());
+        return SpTemplateDepartDto.from(repo.save(ligne));
+    }
+
+    @Transactional
     public SpTemplateDepartDto add(UUID natureId, UUID typeId, int quantite, String description, UUID iconeImageId) {
         var nature = natureRepo.findById(natureId)
                 .orElseThrow(() -> new NoSuchElementException("Nature introuvable : " + natureId));

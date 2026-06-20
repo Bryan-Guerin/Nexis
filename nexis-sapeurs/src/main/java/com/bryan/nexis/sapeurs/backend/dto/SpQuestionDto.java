@@ -10,7 +10,8 @@ import java.util.UUID;
 public record SpQuestionDto(
         UUID id, String libelle, String type, int position, String cible,
         UUID natureSuggereeId, String natureSuggereeLabel,
-        UUID conditionQuestionId, boolean conditionAttendue) {
+        UUID conditionQuestionId, boolean conditionAttendue,
+        UUID recoVehiculeTypeId, String recoVehiculeTypeLabel, boolean recoParUnite) {
 
     public static SpQuestionDto from(SpQuestion q) {
         return new SpQuestionDto(
@@ -18,6 +19,9 @@ public record SpQuestionDto(
                 q.getNatureSuggeree() != null ? q.getNatureSuggeree().getId()    : null,
                 q.getNatureSuggeree() != null ? q.getNatureSuggeree().getLabel() : null,
                 q.getConditionQuestion() != null ? q.getConditionQuestion().getId() : null,
-                q.isConditionAttendue());
+                q.isConditionAttendue(),
+                q.getRecoVehiculeType() != null ? q.getRecoVehiculeType().getId()    : null,
+                q.getRecoVehiculeType() != null ? q.getRecoVehiculeType().getLabel() : null,
+                q.isRecoParUnite());
     }
 }

@@ -13,14 +13,22 @@
         ['INCENDIE',          'Coche « Incendie » (si oui)'],
         ['NB_VICTIMES',       'Nombre de victimes (réponse numérique)'],
         ['VEHICULE_IMPLIQUE', 'Coche « Véhicule impliqué » (si oui)'],
+        ['SR',               'Coche « Secours routier » (si oui)'],
     ]
     function typeLabel(t)  { return TYPES.find(x => x[0] === t)?.[1] ?? t }
     function cibleLabel(c) { return CIBLES.find(x => x[0] === c)?.[1] ?? c }
     function natureLabel(id) { return natures.find(n => n.id === id)?.label ?? '?' }
-    function questionLabel(id) { return questions.find(q => q.id === id)?.libelle ?? '?' }
+    function typeVehLabel(id) { return types.find(t => t.id === id)?.label ?? '?' }
+    function condLabel(q) {
+        const p = questions.find(x => x.id === q.conditionQuestionId)
+        if (!p) return ''
+        const val = p.type === 'NOMBRE' ? (q.conditionAttendue ? '> 0' : '= 0') : (q.conditionAttendue ? 'oui' : 'non')
+        return `si « ${p.libelle} » = ${val}`
+    }
 
     let questions = $state([])
     let natures   = $state([])
+    let types     = $state([])
     let showForm  = $state(false)
     let editing   = $state(null)
     let form      = $state(emptyForm())
@@ -28,13 +36,15 @@
 
     function emptyForm() {
         return { libelle: '', type: 'OUI_NON', cible: 'AUCUNE', natureSuggereeId: '',
-                 conditionQuestionId: '', conditionAttendue: true }
+                 conditionQuestionId: '', conditionAttendue: true,
+                 recoVehiculeTypeId: '', recoParUnite: false }
     }
 
     onMount(async () => {
-        ;[questions, natures] = await Promise.all([
+        ;[questions, natures, types] = await Promise.all([
             api.get('/sp/questions').catch(() => []),
             api.get('/sp/natures').catch(() => []),
+            api.get('/sp/vehicules/types').catch(() => []),
         ])
     })
 
@@ -43,7 +53,8 @@
         editing = q
         form = { libelle: q.libelle, type: q.type, cible: q.cible,
                  natureSuggereeId: q.natureSuggereeId ?? '', conditionQuestionId: q.conditionQuestionId ?? '',
-                 conditionAttendue: q.conditionAttendue }
+                 conditionAttendue: q.conditionAttendue,
+                 recoVehiculeTypeId: q.recoVehiculeTypeId ?? '', recoParUnite: q.recoParUnite ?? false }
         showForm = true
     }
 
@@ -54,6 +65,8 @@
             natureSuggereeId: form.natureSuggereeId || null,
             conditionQuestionId: form.conditionQuestionId || null,
             conditionAttendue: form.conditionAttendue,
+            recoVehiculeTypeId: form.recoVehiculeTypeId || null,
+            recoParUnite: form.type === 'NOMBRE' && form.recoParUnite,
         }
         try {
             if (editing) {
@@ -75,8 +88,10 @@
         catch { /* toast par api.js */ }
     }
 
-    // Conditions possibles = toutes les questions OUI_NON sauf celle éditée.
-    let conditionsPossibles = $derived(questions.filter(q => q.type === 'OUI_NON' && q.id !== editing?.id))
+    // Conditions possibles = toute question (OUI_NON ou NOMBRE) sauf celle éditée.
+    let conditionsPossibles = $derived(questions.filter(q => q.id !== editing?.id))
+    // Type de la question-parente choisie (adapte le libellé « réponse attendue »).
+    let conditionParent = $derived(questions.find(q => q.id === form.conditionQuestionId) ?? null)
 
     function onDragStart(i) { dragIndex = i }
     function onDragOver(e, i) {
@@ -119,7 +134,8 @@
                     <div class="q-meta muted small">
                         {typeLabel(q.type)} · {cibleLabel(q.cible)}
                         {#if q.natureSuggereeId} · 🚒 propose {natureLabel(q.natureSuggereeId)}{/if}
-                        {#if q.conditionQuestionId} · si « {questionLabel(q.conditionQuestionId)} » = {q.conditionAttendue ? 'oui' : 'non'}{/if}
+                        {#if q.recoVehiculeTypeId} · +{typeVehLabel(q.recoVehiculeTypeId)}{q.recoParUnite ? '/unité' : ''}{/if}
+                        {#if q.conditionQuestionId} · {condLabel(q)}{/if}
                     </div>
                 </div>
                 <button class="btn-ghost-sm" onclick={() => openEdit(q)}>Éditer</button>
@@ -153,6 +169,18 @@
                     {#each natures as n (n.id)}<option value={n.id}>{n.label}</option>{/each}
                 </select>
             </label>
+            <label class="field-label">Véhicule recommandé en plus (si réponse positive)
+                <select bind:value={form.recoVehiculeTypeId}>
+                    <option value="">— aucun —</option>
+                    {#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
+                </select>
+            </label>
+            {#if form.recoVehiculeTypeId && form.type === 'NOMBRE'}
+                <label class="check">
+                    <input type="checkbox" bind:checked={form.recoParUnite} />
+                    Un véhicule par unité (ex. 1 par victime) plutôt qu'un seul
+                </label>
+            {/if}
             <label class="field-label">N'afficher que si (condition)
                 <select bind:value={form.conditionQuestionId}>
                     <option value="">— toujours afficher —</option>
@@ -162,8 +190,13 @@
             {#if form.conditionQuestionId}
                 <label class="field-label">Réponse attendue à cette condition
                     <select bind:value={form.conditionAttendue}>
-                        <option value={true}>Oui</option>
-                        <option value={false}>Non</option>
+                        {#if conditionParent?.type === 'NOMBRE'}
+                            <option value={true}>Renseignée (&gt; 0)</option>
+                            <option value={false}>Absente (= 0)</option>
+                        {:else}
+                            <option value={true}>Oui</option>
+                            <option value={false}>Non</option>
+                        {/if}
                     </select>
                 </label>
             {/if}
@@ -187,6 +220,7 @@
     .form { display: flex; flex-direction: column; gap: 12px; }
     .row { display: flex; gap: 10px; }
     .row .field-label { flex: 1; }
+    .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-muted); }
     .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 6px; }
     .rm-btn:hover { color: var(--color-danger); }
 </style>

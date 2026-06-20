@@ -39,7 +39,7 @@ public class SpQuestionController {
     @Status(HttpStatus.CREATED)
     SpQuestionDto create(@Body CreateSpQuestionRequest req) {
         return service.create(req.libelle(), req.type(), req.cible(), req.natureSuggereeId(),
-                req.conditionQuestionId(), req.conditionAttendue());
+                req.conditionQuestionId(), req.conditionAttendue(), req.recoVehiculeTypeId(), req.recoParUnite());
     }
 
     @Put("/questions/order")
@@ -53,7 +53,7 @@ public class SpQuestionController {
     @Secured("ROLE_ADMIN_SP")
     SpQuestionDto update(UUID id, @Body UpdateSpQuestionRequest req) {
         return service.update(id, req.libelle(), req.type(), req.cible(), req.natureSuggereeId(),
-                req.conditionQuestionId(), req.conditionAttendue());
+                req.conditionQuestionId(), req.conditionAttendue(), req.recoVehiculeTypeId(), req.recoParUnite());
     }
 
     @Delete("/questions/{id}")

@@ -7,19 +7,26 @@
   // gère sa propre sélection de nature + ses lignes. Reçoit les référentiels en props.
   let { natures = [], types = [] } = $props()
 
+  // Un lot se rattache à une nature OU à un flag déclencheur (incendie / secours routier / véhicule
+  // impliqué). À la création, le lot proposé = union des lots des déclencheurs actifs.
+  const FLAGS = [['INCENDIE', 'Incendie'], ['SR', 'Secours routier'], ['VEHICULE_IMPLIQUE', 'Véhicule impliqué']]
+
   let showLots       = $state(false)
-  let templateNat    = $state('')
+  let selected       = $state('')   // id de nature, ou « flag:CODE »
   let templateLignes = $state([])
   let tplForm        = $state({ vehiculeTypeId: '', quantite: 1, description: '', iconeImageId: null })
 
-  async function loadTemplate(natureId) {
-    templateNat = natureId
-    templateLignes = natureId ? await api.get(`/sp/natures/${natureId}/template`).catch(() => []) : []
+  function urlFor(sel) {
+    return sel.startsWith('flag:') ? `/sp/flags/${sel.slice(5)}/template` : `/sp/natures/${sel}/template`
+  }
+  async function loadTemplate(sel) {
+    selected = sel
+    templateLignes = sel ? await api.get(urlFor(sel)).catch(() => []) : []
   }
   async function addTemplate() {
-    if (!tplForm.vehiculeTypeId || !templateNat) return
+    if (!tplForm.vehiculeTypeId || !selected) return
     try {
-      const created = await api.post(`/sp/natures/${templateNat}/template`,
+      const created = await api.post(urlFor(selected),
         { vehiculeTypeId: tplForm.vehiculeTypeId, quantite: Number(tplForm.quantite) || 1,
           description: tplForm.description || null, iconeImageId: tplForm.iconeImageId || null })
       templateLignes = [...templateLignes, created]
@@ -34,17 +41,22 @@
 
 <section class="lots-panel">
   <button class="lots-head" onclick={() => showLots = !showLots}>
-    <span class="caret">{showLots ? '▾' : '▸'}</span> Lots de départ (par nature)
+    <span class="caret">{showLots ? '▾' : '▸'}</span> Lots de départ (par nature / flag)
   </button>
   {#if showLots}
     <div class="lots-body">
-      <label class="lots-nat">Nature
-        <select value={templateNat} onchange={e => loadTemplate(e.target.value)}>
-          <option value="">— choisir une nature —</option>
-          {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
+      <label class="lots-nat">Déclencheur
+        <select value={selected} onchange={e => loadTemplate(e.target.value)}>
+          <option value="">— choisir —</option>
+          <optgroup label="Natures">
+            {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
+          </optgroup>
+          <optgroup label="Flags">
+            {#each FLAGS as [v, l]}<option value={`flag:${v}`}>⚑ {l}</option>{/each}
+          </optgroup>
         </select>
       </label>
-      {#if templateNat}
+      {#if selected}
         <ul class="lots-list">
           {#each templateLignes as l (l.id)}
             <li>

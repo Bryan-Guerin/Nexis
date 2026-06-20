@@ -17,7 +17,7 @@
   let vehicules = $state([])
   let centres   = $state([])
   let hopitaux  = $state([])
-  let form      = $state({ motif: '', natureId: '', requerant: '', telephone: '', observation: '', commune: '', coordonnees: '', nbVictimes: '', incendie: false, vehiculeImplique: false })
+  let form      = $state({ motif: '', natureId: '', requerant: '', telephone: '', observation: '', commune: '', coordonnees: '', nbVictimes: '', incendie: false, vehiculeImplique: false, sr: false })
   let createSel = $state([])
   let createError = $state('')
 
@@ -31,9 +31,15 @@
     mode = 'guide'
     if (!questionsChargees) { questions = await api.get('/sp/questions').catch(() => []); questionsChargees = true }
   }
-  // Affichée si pas de condition, ou si la question parente a la réponse attendue.
+  // Affichée si pas de condition, ou si la question parente (OUI_NON ou NOMBRE>0) a la réponse
+  // attendue. Cascade : si la parente est masquée, l'enfant l'est aussi.
   function questionVisible(q) {
-    return !q.conditionQuestionId || reponses[q.conditionQuestionId] === q.conditionAttendue
+    if (!q.conditionQuestionId) return true
+    const parent = questions.find(p => p.id === q.conditionQuestionId)
+    if (!parent) return true
+    if (!questionVisible(parent)) return false
+    const positif = parent.type === 'NOMBRE' ? Number(reponses[parent.id]) > 0 : reponses[parent.id] === true
+    return positif === q.conditionAttendue
   }
   let questionsVisibles = $derived(questions.filter(questionVisible))
   function positive(q) {
@@ -51,6 +57,8 @@
     if (incQ.length) form.incendie = incQ.some(q => reponses[q.id] === true)
     const vehQ = vis.filter(q => q.cible === 'VEHICULE_IMPLIQUE')
     if (vehQ.length) form.vehiculeImplique = vehQ.some(q => reponses[q.id] === true)
+    const srQ = vis.filter(q => q.cible === 'SR')
+    if (srQ.length) form.sr = srQ.some(q => reponses[q.id] === true)
     const nbQ = vis.find(q => q.cible === 'NB_VICTIMES' && reponses[q.id] !== '' && reponses[q.id] != null)
     if (nbQ) form.nbVictimes = reponses[nbQ.id]
     const sugg = vis.filter(q => q.natureSuggereeId && positive(q)).map(q => q.natureSuggereeId)
@@ -95,25 +103,27 @@
     ? autres.filter(v => `${v.libelle} ${v.typeCode}`.toLowerCase().includes(vehSearch.trim().toLowerCase()))
     : autres)
 
-  // « Engager le lot » : présélectionne les engins du template de la nature (souple : avertit si manque).
+  // « Engager le lot » : lot recommandé par le serveur (union nature + flags actifs + reco par
+  // victime), puis présélection des engins disponibles par type (souple : avertit si manque).
   async function engagerLot() {
     if (!form.natureId) return
     createError = ''
-    const tpl = await api.get(`/sp/natures/${form.natureId}/template`).catch(() => [])
-    if (!tpl.length) { createError = 'Aucun lot de départ défini pour cette nature.'; return }
+    const flags = []
+    if (form.incendie)         flags.push('INCENDIE')
+    if (form.sr)               flags.push('SR')
+    if (form.vehiculeImplique) flags.push('VEHICULE_IMPLIQUE')
+    const lot = await api.post('/sp/couverture/lot', {
+      natureId: form.natureId, flags,
+      nbVictimes: form.nbVictimes !== '' ? Number(form.nbVictimes) : null,
+    }).catch(() => [])
+    if (!lot.length) { createError = 'Aucun lot de départ pour ces critères.'; return }
     const sel = [...createSel]
     const manques = []
-    const nbVic = Number(form.nbVictimes) || 0
-    for (const ligne of tpl) {
-      // Dimensionnement victimes : un type porteur (capacité victime > 0) est monté à la
-      // quantité couvrant le nb de victimes saisi (ex. 2 victimes + VSAV cap 1 → 2 VSAV).
-      const cap = vehicules.find(v => v.typeId === ligne.vehiculeTypeId)?.capaciteVictime ?? 0
-      const besoinVic = cap > 0 && nbVic > 0 ? Math.ceil(nbVic / cap) : 0
-      const qty = Math.max(ligne.quantite, besoinVic)
+    for (const ligne of lot) {
       const dispo = engageablesTries.filter(v => v.typeId === ligne.vehiculeTypeId && !sel.includes(v.vehiculeId))
-      const pris = dispo.slice(0, qty)
+      const pris = dispo.slice(0, ligne.quantite)
       pris.forEach(v => sel.push(v.vehiculeId))
-      if (pris.length < qty) manques.push(`${ligne.typeLabel} ${pris.length}/${qty}`)
+      if (pris.length < ligne.quantite) manques.push(`${ligne.typeLabel} ${pris.length}/${ligne.quantite}`)
     }
     createSel = sel
     if (manques.length) createError = `Lot partiel — indisponible : ${manques.join(', ')}. Tu peux déclencher quand même.`
@@ -157,6 +167,7 @@
         nbVictimes: form.nbVictimes !== '' ? Number(form.nbVictimes) : null,
         incendie: form.incendie,
         vehiculeImplique: form.vehiculeImplique,
+        sr: form.sr,
         vehiculeIds: createSel,
         // Armement auto fait côté serveur, dans la transaction de création (un seul appel,
         // séquentiel → pas de double-affectation). Les engins déjà armés gardent leur équipage.
@@ -244,6 +255,7 @@
             <div class="qualif-row">
               <label class="q-vic">Nb victimes<input type="number" min="0" bind:value={form.nbVictimes} placeholder="0" /></label>
               <label class="q-chk"><input type="checkbox" bind:checked={form.incendie} /> Incendie</label>
+              <label class="q-chk"><input type="checkbox" bind:checked={form.sr} /> Secours routier</label>
               <label class="q-chk"><input type="checkbox" bind:checked={form.vehiculeImplique} /> Véhicule impliqué</label>
             </div>
           </div>

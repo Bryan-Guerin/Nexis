@@ -3,6 +3,7 @@ import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.ExecuteOn;
 
 import com.bryan.nexis.sapeurs.backend.dto.*;
+import com.bryan.nexis.sapeurs.datamodel.DeclencheurFlag;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
 import io.micronaut.security.annotation.Secured;
@@ -190,14 +191,26 @@ public class SpVehiculeController {
     }
 
     @Post("/natures/{natureId}/template")
-    @Secured("ROLE_ADMIN_SP")
+    @Secured({"ROLE_ADMIN_SP", "ROLE_SP_DISPATCH"})
     @Status(HttpStatus.CREATED)
     SpTemplateDepartDto addTemplate(UUID natureId, @Body CreateTemplateDepartRequest req) {
         return templateService.add(natureId, req.vehiculeTypeId(), req.quantite(), req.description(), req.iconeImageId());
     }
 
+    @Get("/flags/{flag}/template")
+    List<SpTemplateDepartDto> listFlagTemplate(DeclencheurFlag flag) {
+        return templateService.listByFlag(flag);
+    }
+
+    @Post("/flags/{flag}/template")
+    @Secured({"ROLE_ADMIN_SP", "ROLE_SP_DISPATCH"})
+    @Status(HttpStatus.CREATED)
+    SpTemplateDepartDto addFlagTemplate(DeclencheurFlag flag, @Body CreateTemplateDepartRequest req) {
+        return templateService.addFlag(flag, req.vehiculeTypeId(), req.quantite(), req.description(), req.iconeImageId());
+    }
+
     @Delete("/templates/{id}")
-    @Secured("ROLE_ADMIN_SP")
+    @Secured({"ROLE_ADMIN_SP", "ROLE_SP_DISPATCH"})
     @Status(HttpStatus.NO_CONTENT)
     void deleteTemplate(UUID id) {
         templateService.delete(id);

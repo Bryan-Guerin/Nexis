@@ -7,4 +7,5 @@ import java.util.UUID;
 @Serdeable
 public record CreateSpQuestionRequest(String libelle, String type, String cible,
                                       UUID natureSuggereeId, UUID conditionQuestionId,
-                                      Boolean conditionAttendue) {}
+                                      Boolean conditionAttendue,
+                                      UUID recoVehiculeTypeId, Boolean recoParUnite) {}
