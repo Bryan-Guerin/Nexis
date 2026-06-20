@@ -178,6 +178,12 @@ public class SpVehiculeController {
 
     // ── Lots de départ (types de véhicule à engager par nature) ───────────────────
 
+    /** Lot recommandé à la création (union des lots des déclencheurs actifs). Ouvert à tous les SP. */
+    @Post("/couverture/lot")
+    List<SpLotProposeLigneDto> proposerLot(@Body SpLotProposeRequest req) {
+        return templateService.proposerLot(req.natureId(), req.flags(), req.nbVictimes());
+    }
+
     @Get("/natures/{natureId}/template")
     List<SpTemplateDepartDto> listTemplate(UUID natureId) {
         return templateService.listByNature(natureId);
