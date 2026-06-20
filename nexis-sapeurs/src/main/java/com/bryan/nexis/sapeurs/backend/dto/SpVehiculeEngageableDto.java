@@ -8,4 +8,5 @@ import java.util.UUID;
 /** Véhicule disponible à l'engagement, avec son état « armé », les natures de son type et la nature principale. */
 @Serdeable
 public record SpVehiculeEngageableDto(UUID vehiculeId, String libelle, String typeCode, UUID typeId,
-                                      boolean arme, List<UUID> natureIds, UUID naturePrincipaleId) {}
+                                      int capaciteVictime, boolean arme, List<UUID> natureIds,
+                                      UUID naturePrincipaleId) {}

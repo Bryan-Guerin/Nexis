@@ -235,6 +235,14 @@
     } catch { /* toast par api.js */ }
   }
 
+  // Capacité victime du type (dimensionne le lot selon le nb de victimes).
+  async function setCapaciteVictime(t, val) {
+    try {
+      const updated = await api.put(`/sp/vehicules/types/${t.id}/capacite-victime`, { valeur: Number(val) || 0 })
+      types = types.map(x => x.id === updated.id ? updated : x)
+    } catch { /* toast par api.js */ }
+  }
+
   // Icône du type (repère carte) : emoji + image. Lue depuis l'item (lié par IconePicker).
   async function setTypeIcone(t) {
     try {
@@ -535,6 +543,11 @@
           <span class="type-ipick" role="presentation" onclick={e => e.stopPropagation()}>
             <IconePicker bind:emoji={t.icone} bind:imageId={t.iconeImageId} onchange={() => setTypeIcone(t)} />
           </span>
+          <span class="type-cap" role="presentation" onclick={e => e.stopPropagation()}
+                title="Capacité victime (nb transportable ; 0 = aucune). Dimensionne le lot selon le nb de victimes.">
+            🧍 <input type="number" min="0" class="cap-input" value={t.capaciteVictime ?? 0}
+                     onchange={e => setCapaciteVictime(t, e.target.value)} />
+          </span>
           <span class="expand-icon">{typeExpanded[t.id] ? '▲' : '▼'}</span>
         </div>
 
@@ -671,6 +684,7 @@
 {#if verifVeh}
   <Modal width="600px" dismissible={false} title={`Vérifier l'inventaire — ${verifVeh.libelle}`} onclose={() => verifVeh = null}>
       {#if verifError}<p class="inline-error">{verifError}</p>{/if}
+      {#if verifVeh.capaciteEau > 0}<p class="muted small eau-line">💧 Eau : {verifVeh.capaciteEau} L</p>{/if}
 
       {#if verifLignes.length === 0}
         <p class="muted small">Aucun item d'inventaire défini pour ce type de véhicule.</p>
@@ -747,6 +761,8 @@
   .type-block { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
   .type-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; transition: background 0.15s; }
   .type-header:hover { background: var(--hover); }
+  .type-cap { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--color-muted); }
+  .cap-input { width: 48px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 3px 6px; text-align: center; }
   .type-icone { font-size: 18px; line-height: 1; }
   .type-label { font-size: 14px; font-weight: 500; flex: 1; }
   .icone-input { width: 56px; text-align: center; font-size: 14px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 3px 6px; }

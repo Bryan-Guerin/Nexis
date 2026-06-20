@@ -103,11 +103,17 @@
     if (!tpl.length) { createError = 'Aucun lot de départ défini pour cette nature.'; return }
     const sel = [...createSel]
     const manques = []
+    const nbVic = Number(form.nbVictimes) || 0
     for (const ligne of tpl) {
+      // Dimensionnement victimes : un type porteur (capacité victime > 0) est monté à la
+      // quantité couvrant le nb de victimes saisi (ex. 2 victimes + VSAV cap 1 → 2 VSAV).
+      const cap = vehicules.find(v => v.typeId === ligne.vehiculeTypeId)?.capaciteVictime ?? 0
+      const besoinVic = cap > 0 && nbVic > 0 ? Math.ceil(nbVic / cap) : 0
+      const qty = Math.max(ligne.quantite, besoinVic)
       const dispo = engageablesTries.filter(v => v.typeId === ligne.vehiculeTypeId && !sel.includes(v.vehiculeId))
-      const pris = dispo.slice(0, ligne.quantite)
+      const pris = dispo.slice(0, qty)
       pris.forEach(v => sel.push(v.vehiculeId))
-      if (pris.length < ligne.quantite) manques.push(`${ligne.typeLabel} ${pris.length}/${ligne.quantite}`)
+      if (pris.length < qty) manques.push(`${ligne.typeLabel} ${pris.length}/${qty}`)
     }
     createSel = sel
     if (manques.length) createError = `Lot partiel — indisponible : ${manques.join(', ')}. Tu peux déclencher quand même.`

@@ -63,6 +63,15 @@ public class SpVehiculeTypeService {
         return SpVehiculeTypeDto.from(typeRepo.update(type));
     }
 
+    /** Capacité victime du type (nb de victimes transportables ; 0 = aucune). */
+    @Transactional
+    public SpVehiculeTypeDto setCapaciteVictime(UUID typeId, int valeur) {
+        var type = typeRepo.findById(typeId)
+                .orElseThrow(() -> new NoSuchElementException("Type véhicule SP introuvable : " + typeId));
+        type.setCapaciteVictime(valeur);
+        return SpVehiculeTypeDto.from(typeRepo.update(type));
+    }
+
     @Transactional
     public List<SpVehiculeTypePosteDto> listPostes(UUID typeId) {
         return posteRepo.findByVehiculeTypeIdOrderByOrdreAsc(typeId).stream().map(SpVehiculeTypePosteDto::from).toList();

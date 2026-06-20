@@ -100,6 +100,12 @@ public class SpVehiculeController {
         return typeService.setIcone(typeId, req.icone(), req.iconeImageId());
     }
 
+    @Put("/vehicules/types/{typeId}/capacite-victime")
+    @Secured("ROLE_ADMIN_SP")
+    SpVehiculeTypeDto setTypeCapaciteVictime(UUID typeId, @Body SetCapaciteVictimeRequest req) {
+        return typeService.setCapaciteVictime(typeId, req.valeur() != null ? req.valeur() : 0);
+    }
+
     @Get("/vehicules/etats")
     List<SpVehiculeEtatDto> listEtats() {
         return etatService.listAll();

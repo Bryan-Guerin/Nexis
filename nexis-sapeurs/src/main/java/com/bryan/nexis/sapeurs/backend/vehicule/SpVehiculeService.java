@@ -78,7 +78,7 @@ public class SpVehiculeService {
     public List<SpVehiculeEngageableDto> listEngageables() {
         return vehiculeRepo.findByEtatCode("DISPONIBLE").stream()
                 .map(v -> new SpVehiculeEngageableDto(v.getId(), v.getLibelle(), v.getType().getCode(),
-                        v.getType().getId(), estArme(v),
+                        v.getType().getId(), v.getType().getCapaciteVictime(), estArme(v),
                         v.getType().getNatures().stream().map(SpNatureIntervention::getId).toList(),
                         v.getType().getNaturePrincipale() == null ? null : v.getType().getNaturePrincipale().getId()))
                 .toList();

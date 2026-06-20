@@ -29,6 +29,10 @@ public class SpVehiculeType {
     @JoinColumn(name = "icone_image_id")
     private SpIcone iconeImage;
 
+    /** Nb de victimes transportables (ex. VSAV = 1) ; 0 = n'en transporte pas. */
+    @Column(name = "capacite_victime", nullable = false)
+    private int capaciteVictime = 0;
+
     /** Natures d'intervention pour lesquelles ce type est pertinent (proposition d'engins). */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -55,6 +59,7 @@ public class SpVehiculeType {
     public String getLabel() { return label; }
     public String getIcone() { return icone; }
     public SpIcone getIconeImage() { return iconeImage; }
+    public int getCapaciteVictime() { return capaciteVictime; }
     public Set<SpNatureIntervention> getNatures() { return natures; }
     public SpNatureIntervention getNaturePrincipale() { return naturePrincipale; }
 
@@ -62,5 +67,6 @@ public class SpVehiculeType {
     public void setLabel(String label) { this.label = label; }
     public void setIcone(String icone) { this.icone = icone; }
     public void setIconeImage(SpIcone iconeImage) { this.iconeImage = iconeImage; }
+    public void setCapaciteVictime(int capaciteVictime) { this.capaciteVictime = Math.max(0, capaciteVictime); }
     public void setNaturePrincipale(SpNatureIntervention naturePrincipale) { this.naturePrincipale = naturePrincipale; }
 }
