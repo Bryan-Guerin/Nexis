@@ -31,6 +31,7 @@
 
   function coordDisplay(raw) { return raw.length > 3 ? raw.slice(0, 3) + ' ' + raw.slice(3) : raw }
   function onCoordInput(e) { form.coordonnees = e.target.value.replace(/\D/g, '').slice(0, 6) }
+  function onTelInput(e)   { form.telephone   = e.target.value.replace(/\D/g, '').slice(0, 10) }
   function toggle(list, id) { return list.includes(id) ? list.filter(x => x !== id) : [...list, id] }
 
   // Proposition par pertinence : armé + nature principale = nature de l'intervention, puis
@@ -130,7 +131,7 @@
   }
 </script>
 
-<Modal title="Nouvelle intervention" width="880px" onclose={onclose}>
+<Modal title="Nouvelle intervention" width="880px" closeOnBackdrop={false} onclose={onclose}>
     {#if createError}<p class="inline-error">{createError}</p>{/if}
     {#snippet enginRow(v)}
       <label class="veh-check" class:propose={matchPrincipal(v)} class:propose-sec={matchSecondaire(v)}>
@@ -164,7 +165,7 @@
             <span class="sec-h">Appelant</span>
             <div class="form-row">
               <label>Requérant<input type="text" bind:value={form.requerant} maxlength="40" /></label>
-              <label>Téléphone<input type="tel" bind:value={form.telephone} maxlength="10" placeholder="10 chiffres" /></label>
+              <label>Téléphone<input type="tel" inputmode="numeric" value={form.telephone} oninput={onTelInput} maxlength="10" placeholder="10 chiffres" /></label>
             </div>
             <span class="sec-h">Localisation</span>
             <div class="form-row">

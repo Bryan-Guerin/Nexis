@@ -10,8 +10,11 @@
   import {confirmState} from './confirm.js'
 
   // Modale réutilisable : backdrop, Échap (couche du dessus), focus initial, ✕ systématique.
-  // dismissible=false : fermable uniquement par la croix (pas de clic-fond ni Échap)
-  let { title = '', onclose, width = null, z = null, dismissible = true, children, actions } = $props()
+  // dismissible=false : fermable uniquement par la croix (pas de clic-fond ni Échap).
+  // closeOnBackdrop=false : conserve Échap + ✕ mais ignore le clic en dehors (évite la perte
+  //   accidentelle d'un formulaire en cours, ex. création d'intervention).
+  let { title = '', onclose, width = null, z = null, dismissible = true, closeOnBackdrop = true,
+        children, actions } = $props()
 
   const uid = ++uidSeq
   const titleId = `modal-title-${uid}`
@@ -29,7 +32,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="backdrop" style={z ? `z-index:${z}` : ''} onclick={() => dismissible && onclose?.()}>
+<div class="backdrop" style={z ? `z-index:${z}` : ''} onclick={() => dismissible && closeOnBackdrop && onclose?.()}>
   <div class="modal" style={width ? `width:${width}; max-width:94vw` : ''} tabindex="-1"
        bind:this={panel} onclick={e => e.stopPropagation()}
        role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined}>
