@@ -173,7 +173,7 @@ public class SpVehiculeController {
     @Secured("ROLE_ADMIN_SP")
     @Status(HttpStatus.CREATED)
     SpTemplateDepartDto addTemplate(UUID natureId, @Body CreateTemplateDepartRequest req) {
-        return templateService.add(natureId, req.vehiculeTypeId(), req.quantite());
+        return templateService.add(natureId, req.vehiculeTypeId(), req.quantite(), req.description(), req.iconeImageId());
     }
 
     @Delete("/templates/{id}")

@@ -7,7 +7,8 @@
   // bibliothèque sp_icone via une galerie modale. Lie les deux champs de l'entité.
   // onchange (optionnel) : appelé après un choix/retrait d'image ou au blur de l'emoji
   // (édition inline qui persiste aussitôt). Les formulaires modaux l'ignorent (lecture au submit).
-  let { emoji = $bindable(''), imageId = $bindable(null), onchange } = $props()
+  // imageOnly : masque la saisie d'emoji (champ purement image, ex. logo).
+  let { emoji = $bindable(''), imageId = $bindable(null), onchange, imageOnly = false } = $props()
 
   let lib    = $state([])
   let open   = $state(false)
@@ -25,7 +26,9 @@
   <span class="ipick-prev"><Icone {imageId} {emoji} size={26} /></span>
   {#if imageId}
     <button type="button" class="btn-ghost-sm" onclick={openGallery}>Changer</button>
-    <button type="button" class="btn-ghost-sm" onclick={retirer} title="Revenir à l'emoji">Retirer</button>
+    <button type="button" class="btn-ghost-sm" onclick={retirer} title={imageOnly ? 'Retirer l’image' : 'Revenir à l’emoji'}>Retirer</button>
+  {:else if imageOnly}
+    <button type="button" class="btn-ghost-sm" onclick={openGallery}>Image…</button>
   {:else}
     <input class="ipick-emoji" type="text" bind:value={emoji} maxlength="8" placeholder="🏅"
            onchange={() => onchange?.()} />

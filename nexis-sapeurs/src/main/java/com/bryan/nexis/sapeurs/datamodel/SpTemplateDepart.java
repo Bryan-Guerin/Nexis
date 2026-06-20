@@ -29,6 +29,15 @@ public class SpTemplateDepart {
     @Column(nullable = false)
     private int quantite = 1;
 
+    /** Note libre sur la ligne du lot (ex. « 1er VSAV prioritaire »). Optionnel. */
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    /** Image-icône optionnelle illustrant la ligne (sinon celle du type de véhicule). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "icone_image_id")
+    private SpIcone iconeImage;
+
     @Column(name = "ordre", nullable = false)
     private int position;
 
@@ -44,8 +53,12 @@ public class SpTemplateDepart {
     public SpNatureIntervention getNature() { return nature; }
     public SpVehiculeType getVehiculeType() { return vehiculeType; }
     public int getQuantite()                { return quantite; }
+    public String getDescription()          { return description; }
+    public SpIcone getIconeImage()          { return iconeImage; }
     public int getPosition()                { return position; }
 
     public void setQuantite(int quantite)  { this.quantite = quantite; }
+    public void setDescription(String description) { this.description = description; }
+    public void setIconeImage(SpIcone iconeImage)  { this.iconeImage = iconeImage; }
     public void setPosition(int position)  { this.position = position; }
 }

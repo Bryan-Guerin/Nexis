@@ -66,7 +66,7 @@
   let showLots       = $state(false)
   let templateNat    = $state('')
   let templateLignes = $state([])
-  let tplForm        = $state({ vehiculeTypeId: '', quantite: 1 })
+  let tplForm        = $state({ vehiculeTypeId: '', quantite: 1, description: '', iconeImageId: null })
   async function loadTemplate(natureId) {
     templateNat = natureId
     templateLignes = natureId ? await api.get(`/sp/natures/${natureId}/template`).catch(() => []) : []
@@ -75,9 +75,10 @@
     if (!tplForm.vehiculeTypeId || !templateNat) return
     try {
       const created = await api.post(`/sp/natures/${templateNat}/template`,
-        { vehiculeTypeId: tplForm.vehiculeTypeId, quantite: Number(tplForm.quantite) || 1 })
+        { vehiculeTypeId: tplForm.vehiculeTypeId, quantite: Number(tplForm.quantite) || 1,
+          description: tplForm.description || null, iconeImageId: tplForm.iconeImageId || null })
       templateLignes = [...templateLignes, created]
-      tplForm = { vehiculeTypeId: '', quantite: 1 }
+      tplForm = { vehiculeTypeId: '', quantite: 1, description: '', iconeImageId: null }
     } catch { /* toast par api.js */ }
   }
   async function deleteTemplate(id) {
@@ -382,7 +383,10 @@
           {#if templateNat}
             <ul class="lots-list">
               {#each templateLignes as l (l.id)}
-                <li>{l.typeLabel} <span class="qty">×{l.quantite}</span>
+                <li>
+                  {#if l.iconeImageId}<Icone imageId={l.iconeImageId} size={16} />{/if}
+                  {l.typeLabel} <span class="qty">×{l.quantite}</span>
+                  {#if l.description}<span class="lot-desc muted small">— {l.description}</span>{/if}
                   <button class="rm-btn" title="Retirer" onclick={() => deleteTemplate(l.id)}>×</button>
                 </li>
               {/each}
@@ -394,6 +398,8 @@
                 {#each types as t (t.id)}<option value={t.id}>{t.label}</option>{/each}
               </select>
               <input type="number" min="1" bind:value={tplForm.quantite} title="Quantité" style="width:70px" />
+              <input type="text" bind:value={tplForm.description} placeholder="note (optionnel)" title="Note sur la ligne" />
+              <IconePicker imageOnly bind:imageId={tplForm.iconeImageId} />
               <button class="btn-ghost-sm" onclick={addTemplate}>Ajouter</button>
             </div>
           {/if}

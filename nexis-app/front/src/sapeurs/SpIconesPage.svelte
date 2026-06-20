@@ -6,6 +6,7 @@
   import {toast} from '../shared/toasts.js'
   import {confirm} from '../shared/confirm.js'
   import Icone from '../shared/Icone.svelte'
+  import IconePicker from '../shared/IconePicker.svelte'
 
   // Bibliothèque centrale d'images-icônes (admin SP). Les formulaires (badge, nature,
   // fonction orga, type de véhicule) y piochent via le sélecteur d'icône.
@@ -13,9 +14,15 @@
   let nom    = $state('')
   let file   = $state(null)
   let busy   = $state(false)
+  let logoId = $state(null)   // logo de la caserne (icône choisie comme logo)
 
   async function load() { icones = await api.get('/sp/icones').catch(() => []) }
-  onMount(load)
+  async function loadLogo() { const b = await api.get('/sp/branding').catch(() => null); logoId = b?.logoIconeId ?? null }
+  async function saveLogo() {
+    try { const b = await api.put('/sp/branding/logo', { iconeImageId: logoId }); logoId = b?.logoIconeId ?? null; toast.success('Logo mis à jour.') }
+    catch { /* toast par api.js */ }
+  }
+  onMount(() => { load(); loadLogo() })
 
   function onFile(e) { file = e.currentTarget.files?.[0] ?? null }
 
@@ -57,6 +64,12 @@
   <p class="muted small">Images réutilisables (PNG, JPG, WebP, GIF, SVG — max 1 Mo) en remplacement
     des emojis sur les badges, natures, fonctions et types de véhicule.</p>
 
+  <div class="logo-block">
+    <span class="logo-label">Logo de la caserne</span>
+    <IconePicker imageOnly bind:imageId={logoId} onchange={saveLogo} />
+    <span class="muted small">Affiché sur le tableau de bord SP. Vide → logo du volume (/branding/sp-logo.png).</span>
+  </div>
+
   <div class="upload">
     <input type="text" bind:value={nom} placeholder="Nom (optionnel)" maxlength="120" />
     <input id="icone-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onchange={onFile} />
@@ -81,6 +94,10 @@
 <style>
   .page { padding: 4px 0; }
   .page h2 { margin: 0 0 4px; }
+  .logo-block { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0 4px;
+                background: var(--color-surface); border: 1px solid var(--color-border);
+                border-radius: var(--radius); padding: 12px; }
+  .logo-label { font-weight: 600; font-size: 13px; }
   .upload { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 18px;
             border: 1px dashed var(--color-border); border-radius: var(--radius); padding: 12px; }
   .upload input[type="text"] { background: var(--color-bg); border: 1px solid var(--color-border);

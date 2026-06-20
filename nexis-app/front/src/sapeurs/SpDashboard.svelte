@@ -66,9 +66,10 @@
   }
   function fmtHeure(iso) { return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
 
-  // Logo caserne (paramétrable par instance : fichier déposé dans le volume,
-  // servi sur /branding/sp-logo.png). Masqué si aucun fichier n'est présent.
-  let showLogo = $state(true)
+  // Logo caserne : image de la bibliothèque (choisie via le menu Icônes) si définie,
+  // sinon repli sur le fichier de volume /branding/sp-logo.png (masqué si absent).
+  let showLogo    = $state(true)
+  let logoIconeId = $state(null)
 
   // Prise de garde rapide
   let gardeDuree = $state(2)        // heures
@@ -98,7 +99,7 @@
 
   async function load() {
     try {
-      const [s, j, st, sc, fq, ev, vt] = await Promise.all([
+      const [s, j, st, sc, fq, ev, vt, br] = await Promise.all([
         api.get('/sp/dashboard'),
         api.get('/sp/journal?limit=8'),
         api.get('/sp/planning/statuts').catch(() => []),
@@ -106,10 +107,12 @@
         api.get('/sp/frequences').catch(() => []),
         api.get('/sp/evenements').catch(() => []),
         api.get('/sp/vote/semaine-courante').catch(() => null),
+        api.get('/sp/branding').catch(() => null),
       ])
       frequences = fq ?? []
       evenements = ev ?? []
       voteEtat   = vt
+      logoIconeId = br?.logoIconeId ?? null
       // Robustesse : les collections vides peuvent être omises du JSON
       stats = {
         ...s,
@@ -188,7 +191,10 @@
 <div class="page">
   <div class="page-header">
     <div style="display:flex;align-items:center;gap:14px">
-      {#if showLogo}
+      {#if logoIconeId}
+        <img src={`/api/sp/icones/${logoIconeId}/contenu`} alt="Logo caserne"
+             style="height:46px;width:auto;max-width:160px;object-fit:contain" />
+      {:else if showLogo}
         <img src="/branding/sp-logo.png" alt="Logo caserne"
              style="height:46px;width:auto;max-width:160px;object-fit:contain"
              onerror={() => showLogo = false} />
