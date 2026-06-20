@@ -18,9 +18,11 @@ import java.util.UUID;
 public class SpInterventionController {
 
     private final SpInterventionService service;
+    private final SpEngagementService engagement;
 
-    public SpInterventionController(SpInterventionService service) {
+    public SpInterventionController(SpInterventionService service, SpEngagementService engagement) {
         this.service = service;
+        this.engagement = engagement;
     }
 
     @Get("/interventions")
@@ -44,7 +46,7 @@ public class SpInterventionController {
     /** Aperçu des effectifs sur poste non obligatoire qui seraient désaffectés au déclenchement. */
     @Post("/interventions/preview-desaffectation")
     List<DesaffectationPreviewDto> previewDesaffectation(@Body AddEnginsRequest req) {
-        return service.previewDesaffectationNonObligatoire(req.vehiculeIds());
+        return engagement.previewDesaffectationNonObligatoire(req.vehiculeIds());
     }
 
     /** Main courante de l'intervention (événements reliés à son code). */

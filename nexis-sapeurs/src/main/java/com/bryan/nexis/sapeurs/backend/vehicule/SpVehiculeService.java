@@ -3,6 +3,7 @@ package com.bryan.nexis.sapeurs.backend.vehicule;
 import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeEngageableDto;
+import com.bryan.nexis.sapeurs.backend.intervention.SpEngagementService;
 import com.bryan.nexis.sapeurs.backend.intervention.SpInterventionService;
 import com.bryan.nexis.sapeurs.datamodel.SpNatureIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVehicule;
@@ -37,6 +38,7 @@ public class SpVehiculeService {
     private final SpVehiculeTypePosteRepository   posteRepo;
     private final SpCriRepository                 criRepo;
     private final SpInterventionService           interventionService;
+    private final SpEngagementService             engagement;
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final SecurityService securityService;
 
@@ -45,7 +47,7 @@ public class SpVehiculeService {
                              SpCentreRepository centreRepo, SpHopitalRepository hopitalRepo,
                              SpVehiculeAffectationRepository affectationRepo,
                              SpVehiculeTypePosteRepository posteRepo, SpCriRepository criRepo,
-                             SpInterventionService interventionService,
+                             SpInterventionService interventionService, SpEngagementService engagement,
                              ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService) {
         this.vehiculeRepo    = vehiculeRepo;
         this.typeRepo        = typeRepo;
@@ -57,6 +59,7 @@ public class SpVehiculeService {
         this.posteRepo       = posteRepo;
         this.criRepo         = criRepo;
         this.interventionService = interventionService;
+        this.engagement      = engagement;
         this.events          = events;
         this.securityService = securityService;
     }
@@ -92,7 +95,7 @@ public class SpVehiculeService {
     @Transactional
     public boolean estArme(SpVehicule v) {
         var crew = affectationRepo.findByVehiculeIdAndFinIsNull(v.getId());
-        var occupes = interventionService.membresOccupesSurAutreIntervention(v.getId());
+        var occupes = engagement.membresOccupesSurAutreIntervention(v.getId());
         var oblig = posteRepo.findByVehiculeTypeId(v.getType().getId()).stream()
                 .filter(SpVehiculeTypePoste::isObligatoire).toList();
         if (oblig.isEmpty()) return crew.stream().anyMatch(a -> !occupes.contains(a.getMembre().getId()));

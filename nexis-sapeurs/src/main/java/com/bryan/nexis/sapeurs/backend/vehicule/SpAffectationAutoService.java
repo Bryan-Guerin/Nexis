@@ -1,7 +1,7 @@
 package com.bryan.nexis.sapeurs.backend.vehicule;
 
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeAffectationDto;
-import com.bryan.nexis.sapeurs.backend.intervention.SpInterventionService;
+import com.bryan.nexis.sapeurs.backend.intervention.SpEngagementService;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningService;
 import com.bryan.nexis.sapeurs.datamodel.SpMembre;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeTypePoste;
@@ -31,19 +31,19 @@ public class SpAffectationAutoService {
     private final SpMembreRepository               membreRepo;
     private final SpVehiculeAffectationRepository  affectationRepo;
     private final SpPlanningService                planningService;
-    private final SpInterventionService            interventionService;
+    private final SpEngagementService              engagement;
     private final SpVehiculeAffectationService     affectationService;
 
     public SpAffectationAutoService(SpVehiculeRepository vehiculeRepo, SpVehiculeTypePosteRepository posteRepo,
                                     SpMembreRepository membreRepo, SpVehiculeAffectationRepository affectationRepo,
-                                    SpPlanningService planningService, SpInterventionService interventionService,
+                                    SpPlanningService planningService, SpEngagementService engagement,
                                     SpVehiculeAffectationService affectationService) {
         this.vehiculeRepo        = vehiculeRepo;
         this.posteRepo           = posteRepo;
         this.membreRepo          = membreRepo;
         this.affectationRepo     = affectationRepo;
         this.planningService     = planningService;
-        this.interventionService = interventionService;
+        this.engagement          = engagement;
         this.affectationService  = affectationService;
     }
 
@@ -58,7 +58,7 @@ public class SpAffectationAutoService {
         Map<UUID, Long> occupeParPoste = actives.stream().filter(a -> a.getPoste() != null)
                 .collect(Collectors.groupingBy(a -> a.getPoste().getId(), Collectors.counting()));
         Set<UUID> dejaSurVehicule  = actives.stream().map(a -> a.getMembre().getId()).collect(Collectors.toSet());
-        Set<UUID> occupesAilleurs  = interventionService.membresOccupesSurAutreIntervention(vehiculeId);
+        Set<UUID> occupesAilleurs  = engagement.membresOccupesSurAutreIntervention(vehiculeId);
         Set<UUID> enService        = new HashSet<>(planningService.membresEnService());
 
         List<SpMembre> pool = membreRepo.findByActif(true).stream()

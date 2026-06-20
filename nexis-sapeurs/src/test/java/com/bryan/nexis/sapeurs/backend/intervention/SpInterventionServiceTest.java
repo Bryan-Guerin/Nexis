@@ -34,6 +34,7 @@ class SpInterventionServiceTest {
     private SpVehiculeAffectationService affectationService;
 
     private SpInterventionService service;
+    private SpEngagementService engagement;
 
     private SpVehiculeType typeFpt;
     private SpVehicule fpt;
@@ -54,15 +55,19 @@ class SpInterventionServiceTest {
         affectationService = mock(SpVehiculeAffectationService.class);
         SecurityService securityService = mock(SecurityService.class);
         when(securityService.username()).thenReturn(Optional.of("codis"));
+        var events = (ApplicationEventPublisher<RealtimeEvent>) mock(ApplicationEventPublisher.class);
+
+        // Vrai SpEngagementService (filet sur la logique extraite) câblé sur les mêmes mocks.
+        engagement = new SpEngagementService(interventionRepo, affectationRepo, posteRepo,
+                vehiculeRepo, statutRepo, etatRepo, affectationService, events, securityService);
 
         service = new SpInterventionService(interventionRepo, vehiculeRepo,
                 mock(SpNatureInterventionRepository.class), affectationService,
-                affectationRepo, posteRepo, statutRepo, etatRepo, mock(JournalService.class),
+                affectationRepo, statutRepo, etatRepo, mock(JournalService.class),
                 mock(com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage.class),
-                (ApplicationEventPublisher<RealtimeEvent>) mock(ApplicationEventPublisher.class),
-                securityService,
+                events, securityService,
                 mock(com.bryan.nexis.sapeurs.backend.effectif.SpRpService.class),
-                mock(SpHistorisationService.class));
+                mock(SpHistorisationService.class), engagement);
 
         typeFpt    = type("FPT");
         etatDispo  = etat("DISPONIBLE");
@@ -82,9 +87,9 @@ class SpInterventionServiceTest {
         when(affectationRepo.findByVehiculeIdAndFinIsNull(fpt.getId()))
                 .thenReturn(List.of(affectation(fpt, jean, null)));
 
-        assertThat(service.membresOccupesSurAutreIntervention(vsav.getId())).containsExactly(jean.getId());
+        assertThat(engagement.membresOccupesSurAutreIntervention(vsav.getId())).containsExactly(jean.getId());
         // Pour le véhicule lui-même engagé, son équipage n'est pas « occupé ailleurs »
-        assertThat(service.membresOccupesSurAutreIntervention(fpt.getId())).isEmpty();
+        assertThat(engagement.membresOccupesSurAutreIntervention(fpt.getId())).isEmpty();
     }
 
     // ── Aperçu de désaffectation au déclenchement ─────────────────────────────
@@ -109,7 +114,7 @@ class SpInterventionServiceTest {
                 affectation(vsav, jean, null),
                 affectation(vsav, marc, null)));
 
-        var preview = service.previewDesaffectationNonObligatoire(List.of(fpt.getId()));
+        var preview = engagement.previewDesaffectationNonObligatoire(List.of(fpt.getId()));
 
         assertThat(preview).hasSize(1);
         assertThat(preview.getFirst().nom()).isEqualTo("jean");
@@ -122,7 +127,7 @@ class SpInterventionServiceTest {
         when(vehiculeRepo.findById(fpt.getId())).thenReturn(Optional.of(fpt));
         when(posteRepo.findByVehiculeTypeId(typeFpt.getId())).thenReturn(List.of(posteEq));
 
-        var preview = service.previewDesaffectationNonObligatoire(List.of(fpt.getId()));
+        var preview = engagement.previewDesaffectationNonObligatoire(List.of(fpt.getId()));
 
         assertThat(preview).isEmpty();
     }
