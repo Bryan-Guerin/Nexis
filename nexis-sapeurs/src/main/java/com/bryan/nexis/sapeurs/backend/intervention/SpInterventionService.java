@@ -8,8 +8,6 @@ import com.bryan.nexis.sapeurs.backend.dto.SpInterventionDto;
 import com.bryan.nexis.sapeurs.backend.vehicule.SpVehiculeAffectationService;
 import com.bryan.nexis.sapeurs.backend.dto.DesaffectationPreviewDto;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
-import com.bryan.nexis.sapeurs.datamodel.SpInterventionEngin;
-import com.bryan.nexis.sapeurs.datamodel.SpInterventionEquipier;
 import com.bryan.nexis.sapeurs.datamodel.SpVehicule;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeStatut;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeTypePoste;
@@ -52,6 +50,7 @@ public class SpInterventionService {
     private final ApplicationEventPublisher<RealtimeEvent> events;
     private final SecurityService                securityService;
     private final com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService;    // éval badges à la clôture
+    private final SpHistorisationService         historisation;    // fige engins + équipages
 
     public SpInterventionService(SpInterventionRepository interventionRepo, SpVehiculeRepository vehiculeRepo,
                                  SpNatureInterventionRepository natureRepo, SpVehiculeAffectationService affectationService,
@@ -60,7 +59,8 @@ public class SpInterventionService {
                                  JournalService journalService,
                                  com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage,
                                  ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService,
-                                 com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService) {
+                                 com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService,
+                                 SpHistorisationService historisation) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
         this.natureRepo         = natureRepo;
@@ -74,6 +74,7 @@ public class SpInterventionService {
         this.events             = events;
         this.rpService          = rpService;
         this.securityService    = securityService;
+        this.historisation      = historisation;
     }
 
     /**
@@ -371,7 +372,7 @@ public class SpInterventionService {
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + id));
         if (inter.getFin() != null) throw new IllegalStateException("Intervention clôturée.");
         var v = inter.getEngins().stream().filter(e -> e.getId().equals(vehiculeId)).findFirst().orElse(null);
-        if (v != null) snapshotUnEngin(inter, v);   // fige l'engin + équipage avant retrait
+        if (v != null) historisation.snapshotUnEngin(inter, v);   // fige l'engin + équipage avant retrait
         boolean retire = inter.getEngins().removeIf(e -> e.getId().equals(vehiculeId));
         var saved = interventionRepo.update(inter);
         if (retire) libererVehicule(vehiculeId, inter.getCode());
@@ -441,7 +442,7 @@ public class SpInterventionService {
         if (inter.getFin() == null) {
             inter.setFin(Instant.now());
             // Snapshot des engins + équipages AVANT de libérer (les affectations sont encore actives).
-            snapshotEngins(inter);
+            historisation.snapshotEngins(inter);
             events.publishEvent(RealtimeEvent.faction(RealtimeEvent.INTERVENTION_CLOTUREE, "SP",
                     "Intervention clôturée : " + inter.getMotif(),
                     Map.of("interventionId", id.toString()), actor()).withReference(inter.getCode()));
@@ -456,33 +457,6 @@ public class SpInterventionService {
             catch (RuntimeException e) { log.warn("Éval badges après clôture : {}", e.getMessage()); }
         }
         return SpInterventionDto.from(inter);
-    }
-
-    /** Fige tous les engins encore présents (libellé + type) et leurs équipages, en texte. */
-    private void snapshotEngins(SpIntervention inter) {
-        for (var v : inter.getEngins()) snapshotUnEngin(inter, v);
-    }
-
-    /**
-     * Fige UN engin et son équipage dans l'historique de l'intervention. Appelé soit à la clôture
-     * (engins restants), soit au moment où l'engin quitte l'intervention (réengagement ailleurs ou
-     * retrait manuel) — sinon son équipage serait perdu, l'engin n'étant plus rattaché à la clôture.
-     */
-    private void snapshotUnEngin(SpIntervention inter, SpVehicule v) {
-        var engin = new SpInterventionEngin(inter, v.getLibelle(),
-                v.getType() != null ? v.getType().getCode() : null, inter.getEnginsHisto().size());
-        int eo = 0;
-        for (var aff : affectationRepo.findByVehiculeIdAndFinIsNull(v.getId())) {
-            var m = aff.getMembre();
-            var fonction = aff.getPoste() != null ? aff.getPoste().getFonction() : null;
-            String poste = fonction != null ? fonction.getLabel() : null;
-            var typeFonction = fonction != null ? fonction.getTypeFonction() : null;
-            String nom = (m.getNomComplet() != null && !m.getNomComplet().isBlank())
-                    ? m.getNomComplet() : m.getUser().getUsername();
-            engin.getEquipage().add(new SpInterventionEquipier(
-                    engin, m.getId(), m.getMatricule(), nom, m.getGrade().getLabel(), poste, typeFonction, eo++));
-        }
-        inter.getEnginsHisto().add(engin);
     }
 
     /**
@@ -519,7 +493,7 @@ public class SpInterventionService {
             for (var engin : engins) {
                 boolean present = inter.getEngins().stream().anyMatch(e -> e.getId().equals(engin.getId()));
                 if (present) {
-                    snapshotUnEngin(inter, engin);   // fige l'engin + équipage avant de le détacher
+                    historisation.snapshotUnEngin(inter, engin);   // fige l'engin + équipage avant de le détacher
                     inter.getEngins().removeIf(e -> e.getId().equals(engin.getId()));
                     modifie = true;
                     events.publishEvent(RealtimeEvent.faction(RealtimeEvent.MAIN_COURANTE, "SP",
