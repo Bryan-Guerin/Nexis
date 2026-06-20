@@ -95,6 +95,10 @@
     e.preventDefault(); createError = ''
     if (!form.motif.trim()) { createError = 'Motif requis'; return }
     if (!form.natureId) { createError = 'La nature est obligatoire'; return }
+    if (createSel.length === 0) {
+      if (!(await confirm({ title: 'Aucun véhicule assigné', danger: true, confirmLabel: 'Créer quand même',
+        message: 'Cette intervention n\'a aucun véhicule assigné. Vous pourrez en ajouter ensuite.\n\nCréer l\'intervention quand même ?' }))) return
+    }
     if (!(await avertirNonArmes(createSel))) return
     if (!(await avertirDesaffectation(createSel))) return
     try {
