@@ -8,6 +8,7 @@
     import SpInterventionCreate from './SpInterventionCreate.svelte'
     import MapView from '../shared/MapView.svelte'
     import Modal from '../shared/Modal.svelte'
+    import Icone from '../shared/Icone.svelte'
     import Skeleton from '../shared/Skeleton.svelte'
 
     let vehicules    = $state([])
@@ -311,7 +312,7 @@
           {#each filtered as v (v.id)}
             <div class="vrow" style="border-left:3px solid {v.statut.couleur}">
               <div class="vr-main" role="button" tabindex="0" onclick={() => toggleRow(v.id)}>
-                <span class="vr-ic">{v.type?.icone || '🚒'}</span>
+                <span class="vr-ic"><Icone imageId={v.type?.iconeImageId} emoji={v.type?.icone || '🚒'} size={18} /></span>
                 <div class="vr-id">
                   <span class="vr-lib">{v.libelle}</span>
                   <span class="vr-sub">{v.type.code}{#if v.centreLabel} · ⛑️ {v.centreLabel}{/if}</span>

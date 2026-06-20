@@ -8,6 +8,7 @@
   import {refStatutsVeh} from '../shared/referentials.js'
   import {currentUser, feuilleFiltreDemande} from '../shared/stores.js'
   import Modal from '../shared/Modal.svelte'
+  import Icone from '../shared/Icone.svelte'
   import Skeleton from '../shared/Skeleton.svelte'
   import EmptyState from '../shared/EmptyState.svelte'
 
@@ -277,7 +278,7 @@
         <div class="card" style="border-top: 3px solid {v.statut.couleur}">
           <div class="card-head">
             <div class="veh-info">
-              <span class="veh-type">{v.type?.icone || ''} {v.type.code}</span>
+              <span class="veh-type"><Icone imageId={v.type?.iconeImageId} emoji={v.type?.icone || ''} size={14} /> {v.type.code}</span>
               <span class="veh-lib">{v.libelle}</span>
               {#if v.immatriculation}<span class="veh-immat">{v.immatriculation}</span>{/if}
               {#if v.centreLabel}<span class="veh-centre">⛑️ {v.centreLabel}</span>{/if}
