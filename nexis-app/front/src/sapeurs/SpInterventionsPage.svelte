@@ -1,5 +1,6 @@
 <script>
     import {onMount} from 'svelte'
+    import {push} from 'svelte-spa-router'
     import {api} from '../shared/api.js'
     import {toast} from '../shared/toasts.js'
     import {confirm} from '../shared/confirm.js'
@@ -11,9 +12,7 @@
     import Pagination from '../shared/Pagination.svelte'
     import Skeleton from '../shared/Skeleton.svelte'
     import EmptyState from '../shared/EmptyState.svelte'
-    import Modal from '../shared/Modal.svelte'
     import SpInterventionCreate from './SpInterventionCreate.svelte'
-    import {exportInterventionPdf} from './interventionsPdf.js'
 
     let interventions = $state([])
   let vehicules     = $state([])
@@ -23,14 +22,10 @@
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isDispatcher = $derived($can.dispatch)   // dispatch OU admin (source centrale roles.js)
 
-  // Contexte du détail (changement de statut + note par l'équipage + CRI)
+  // Référentiels engagés par la liste (statut engin inline + droits par carte)
   let statuts      = $state([])
   let affectations = $state([])
   let myMembreId   = $state(null)
-  let noteText     = $state('')
-  let cris         = $state([])
-  let editing      = $state(false)
-  let editForm     = $state({})
 
   // Création (modal extrait → SpInterventionCreate)
   let showCreate  = $state(false)
@@ -38,10 +33,6 @@
   // Renfort
   let renfortFor  = $state(null)
   let renfortSel  = $state([])
-
-  // Détail (double-clic)
-  let detailInter   = $state(null)
-  let detailJournal = $state([])
 
   let reloadTimer = null
 
@@ -74,7 +65,7 @@
     const unsub = realtime.on(ev => {
       if (ev.faction === 'SP' && (ev.type?.startsWith('INTERVENTION_') || ev.type === 'ETAT_VEHICULE'
           || ev.type === 'AFFECTATION' || ev.type === 'DESAFFECTATION' || ev.type === 'MAIN_COURANTE')) {
-        clearTimeout(reloadTimer); reloadTimer = setTimeout(() => detailInter ? refreshDetail() : load(), 300)
+        clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 300)
       }
     })
     const tick = setInterval(() => now = Date.now(), 60000)
@@ -107,8 +98,7 @@
     finally { loading = false }
   }
 
-  // Rafraîchit le détail s'il est ouvert, sinon recharge la liste.
-  async function refreshOrLoad() { if (detailInter) await refreshDetail(); else await load() }
+  async function refreshOrLoad() { await load() }
 
   function fmt(iso) { return iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—' }
   function fmtCoord(c) { return c && c.length === 6 ? c.slice(0, 3) + ' ' + c.slice(3) : (c || '—') }
@@ -143,85 +133,6 @@
     catch { /* toast par api.js */ }
   }
 
-  async function openDetail(inter) {
-    detailInter = inter; noteText = ''; editing = false
-    const [j, st, aff, me, c] = await Promise.all([
-      api.get(`/sp/interventions/${inter.id}/journal`).catch(() => []),
-      api.get('/sp/vehicules/statuts').catch(() => []),
-      api.get('/sp/affectations').catch(() => []),
-      api.get('/sp/membres/me').catch(() => null),
-      api.get(`/sp/interventions/${inter.id}/cri`).catch(() => []),
-    ])
-    detailJournal = j; statuts = st; affectations = aff; myMembreId = me?.id ?? null; cris = c
-  }
-
-  async function refreshDetail() {
-    if (!detailInter) return
-    const id = detailInter.id
-    await load()
-    detailInter = interventions.find(i => i.id === id) ?? null
-    if (detailInter) {
-      ;[detailJournal, cris] = await Promise.all([
-        api.get(`/sp/interventions/${id}/journal`).catch(() => []),
-        api.get(`/sp/interventions/${id}/cri`).catch(() => []),
-      ])
-    }
-  }
-
-  // ── Édition de l'intervention (dispatcher/admin) ───────────────────────────
-  function startEdit() {
-    editForm = {
-      motif: detailInter.motif, natureId: detailInter.nature?.id ?? '',
-      requerant: detailInter.requerant ?? '', telephone: detailInter.telephone ?? '',
-      observation: detailInter.observation ?? '', commune: detailInter.commune ?? '',
-      coordonnees: detailInter.coordonnees ?? '',
-    }
-    editing = true
-  }
-  async function submitEdit() {
-    try {
-      await api.patch(`/sp/interventions/${detailInter.id}`, {
-        motif: editForm.motif, natureId: editForm.natureId || null,
-        requerant: editForm.requerant, telephone: editForm.telephone,
-        observation: editForm.observation, commune: editForm.commune, coordonnees: editForm.coordonnees,
-      })
-      editing = false
-      await refreshDetail()
-    } catch { /* toast par api.js */ }
-  }
-
-  async function retirerEngin(engin) {
-    if (!await confirm({ title: 'Retirer l\'engin', message: `Retirer ${engin.libelle} de l'intervention ?`, danger: true })) return
-    try { await api.delete(`/sp/interventions/${detailInter.id}/engins/${engin.vehiculeId}`); await refreshDetail() }
-    catch { /* toast par api.js */ }
-  }
-
-  // ── CRI (compte rendu) ─────────────────────────────────────────────────────
-  function canEditCri(cri) {
-    return cri.statut !== 'VALIDE'
-        && (isAdmin || affectations.some(a => a.vehiculeId === cri.vehiculeId && a.membreId === myMembreId))
-  }
-  // Enregistrement automatique au focus perdu (clic ailleurs / fermeture) : évite
-  // de perdre un CR saisi sans avoir cliqué « Enregistrer ». Silencieux, sans refresh.
-  let criSaved = $state({})   // criId -> true brièvement (retour visuel « ✓ Enregistré »)
-  async function criAutoSave(cri) {
-    try {
-      await api.put(`/sp/cri/${cri.id}`, { contenu: cri.contenu })
-      criSaved = { ...criSaved, [cri.id]: true }
-      setTimeout(() => { criSaved = { ...criSaved, [cri.id]: false } }, 1800)
-    } catch { /* silencieux : la saisie reste à l'écran */ }
-  }
-  async function criSoumettre(cri) {
-    // Persiste le contenu courant avant de soumettre (évite la course avec l'autosave au blur).
-    try { await api.put(`/sp/cri/${cri.id}`, { contenu: cri.contenu }); await api.put(`/sp/cri/${cri.id}/soumettre`); await refreshDetail() }
-    catch { /* toast par api.js */ }
-  }
-  async function criValider(cri) {
-    try { await api.put(`/sp/cri/${cri.id}/valider`); await refreshDetail() }
-    catch { /* toast par api.js */ }
-  }
-  const CRI_LABEL = { BROUILLON: 'Brouillon', SOUMIS: 'Soumis', VALIDE: 'Validé' }
-
   // ── Renforts GN / VINCI (éditable par tous) ────────────────────────────────
   const RENFORT_OPTS = [['NON_PREVENU', 'Non prévenu'], ['PREVENU', 'Prévenu'], ['SUR_PLACE', 'Sur place']]
   function renfortLabel(v) { return (RENFORT_OPTS.find(o => o[0] === v) ?? [, v])[1] }
@@ -233,16 +144,10 @@
     } catch { /* toast par api.js */ }
   }
 
-  // ── Export PDF (impression navigateur) — construction dans interventionsPdf.js ──
-  function exportPdf() { exportInterventionPdf(detailInter, detailJournal, cris) }
-
   // L'utilisateur connecté est-il équipier de cet engin ? (ou admin)
   function canControl(engin) {
     return isAdmin || affectations.some(a => a.vehiculeId === engin.vehiculeId && a.membreId === myMembreId)
   }
-  // Peut ajouter une note : équipier d'au moins un engin de l'intervention (ou admin)
-  let canNote = $derived(detailInter && (isAdmin
-      || detailInter.engins.some(e => affectations.some(a => a.vehiculeId === e.vehiculeId && a.membreId === myMembreId))))
   // Transition avant uniquement : statut courant + suivants
   function statutOptions(engin) { return statuts.filter(s => s.position >= engin.statutPosition) }
 
@@ -252,11 +157,6 @@
     catch { /* toast par api.js */ }
   }
 
-  async function addNote() {
-    if (!noteText.trim()) return
-    try { await api.post(`/sp/interventions/${detailInter.id}/journal`, { message: noteText }); noteText = ''; await refreshDetail() }
-    catch { /* toast par api.js */ }
-  }
 </script>
 
 <div class="page">
@@ -285,7 +185,7 @@
     <div class="list">
       {#each afficheesPage as i (i.id)}
         <div class="card" class:closed={!i.enCours}>
-          <div class="i-head" ondblclick={() => openDetail(i)} role="button" tabindex="0" title="Double-clic pour le détail">
+          <div class="i-head" ondblclick={() => push(`/sp/interventions/${i.id}`)} role="button" tabindex="0" title="Double-clic pour le détail">
             <div class="i-main">
               <span class="badge" class:badge-actif={i.enCours} class:badge-inactif={!i.enCours}>
                 {i.enCours ? 'En cours' : 'Clôturée'}
@@ -352,7 +252,7 @@
           {/if}
 
           <div class="i-actions">
-            <button class="btn-ghost-sm" onclick={() => openDetail(i)}>Détail</button>
+            <button class="btn-ghost-sm" onclick={() => push(`/sp/interventions/${i.id}`)}>Détail</button>
             {#if i.enCours}
               {#if renfortFor === i.id}
                 <div class="renfort">
@@ -394,181 +294,6 @@
   <SpInterventionCreate onclose={() => showCreate = false} oncreated={load} />
 {/if}
 
-<!-- ── Détail intervention + main courante ──────────────────────────────────── -->
-{#if detailInter}
-  <Modal width="600px" title={`${detailInter.code} — ${detailInter.motif}`} onclose={() => detailInter = null}>
-      {#if isDispatcher && detailInter.enCours && !editing}
-        <div class="detail-head"><button class="btn-ghost-sm" onclick={startEdit}>Éditer</button></div>
-      {/if}
-
-      {#if editing}
-        <div class="edit-form">
-          <div class="form-row">
-            <label>Nature
-              <select bind:value={editForm.natureId} required>
-                {#each natures as n (n.id)}<option value={n.id}>{n.code} · {n.label}</option>{/each}
-              </select>
-            </label>
-            <label>Motif<input type="text" bind:value={editForm.motif} required /></label>
-          </div>
-          <div class="form-row">
-            <label>Requérant<input type="text" bind:value={editForm.requerant} maxlength="40" /></label>
-            <label>Téléphone<input type="tel" bind:value={editForm.telephone} maxlength="10" /></label>
-            <label>Commune<input type="text" bind:value={editForm.commune} maxlength="40" /></label>
-            <label>Coordonnées<input type="text" inputmode="numeric" maxlength="7" value={coordDisplay(editForm.coordonnees)} oninput={e => editForm.coordonnees = e.target.value.replace(/\D/g, '').slice(0, 6)} /></label>
-          </div>
-          <label class="full">Observation<input type="text" bind:value={editForm.observation} /></label>
-          <div class="modal-actions">
-            <button class="btn-ghost-sm" onclick={() => editing = false}>Annuler</button>
-            <button class="btn-primary" onclick={submitEdit}>Enregistrer</button>
-          </div>
-        </div>
-      {:else}
-      <div class="detail-grid">
-        <div><span class="dl">Statut</span> {detailInter.enCours ? 'En cours' : 'Clôturée'}</div>
-        <div><span class="dl">Nature</span> {detailInter.nature ? detailInter.nature.label : '—'}</div>
-        <div><span class="dl">Début</span> {fmt(detailInter.debut)}</div>
-        <div><span class="dl">Fin</span> {fmt(detailInter.fin)}</div>
-        <div><span class="dl">Requérant</span> {detailInter.requerant ?? '—'}</div>
-        <div><span class="dl">Téléphone</span> {detailInter.telephone ?? '—'}</div>
-        <div><span class="dl">Commune</span> {detailInter.commune ?? '—'}</div>
-        <div><span class="dl">Coordonnées</span> {fmtCoord(detailInter.coordonnees)}</div>
-        <div><span class="dl">Victimes</span> {detailInter.nbVictimes ?? '—'}</div>
-        <div><span class="dl">Incendie</span> {detailInter.incendie ? 'Oui' : 'Non'}</div>
-        <div><span class="dl">Véhicule impliqué</span> {detailInter.vehiculeImplique ? 'Oui' : 'Non'}</div>
-        <div class="full"><span class="dl">Observation</span> {detailInter.observation ?? '—'}</div>
-        <div class="full"><span class="dl">Créée par</span> {detailInter.creePar ?? '—'}</div>
-      </div>
-      {/if}
-
-      <!-- Renforts GN / VINCI (éditable par tous) -->
-      <div class="mc">
-        <span class="dl">Renforts</span>
-        <div class="renfort-rows">
-          <div class="renfort-row">
-            <span class="renfort-cible">Gendarmerie</span>
-            {#if detailInter.enCours}
-              <select value={detailInter.renfortGn} onchange={e => changeRenfort(detailInter.id, 'GN', e.target.value)}>
-                {#each RENFORT_OPTS as [v, l]}<option value={v}>{l}</option>{/each}
-              </select>
-            {:else}<span>{renfortLabel(detailInter.renfortGn)}</span>{/if}
-          </div>
-          <div class="renfort-row">
-            <span class="renfort-cible">VINCI</span>
-            {#if detailInter.enCours}
-              <select value={detailInter.renfortVinci} onchange={e => changeRenfort(detailInter.id, 'VINCI', e.target.value)}>
-                {#each RENFORT_OPTS as [v, l]}<option value={v}>{l}</option>{/each}
-              </select>
-            {:else}<span>{renfortLabel(detailInter.renfortVinci)}</span>{/if}
-          </div>
-        </div>
-      </div>
-
-      <!-- Engins : live (modifiable) si en cours ; sinon snapshot historisé + équipage -->
-      <div class="mc">
-        <span class="dl">Engins{#if !detailInter.enCours} &amp; équipage{/if}</span>
-        {#if detailInter.enCours}
-          <div class="eng-rows">
-            {#each detailInter.engins as e (e.vehiculeId)}
-              <div class="eng-row">
-                <span class="eng-dot" style="background:{e.etatCouleur}"></span>
-                <span class="eng-name">{e.libelle}</span>
-                {#if canControl(e)}
-                  <select class="eng-statut-sel" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)}>
-                    {#each statutOptions(e) as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
-                  </select>
-                {:else}
-                  <span class="eng-statut" style="color:{e.etatCouleur}">{e.etatLabel}</span>
-                {/if}
-                {#if isDispatcher && detailInter.engins.length > 1}
-                  <button class="rm-btn" title="Retirer l'engin" onclick={() => retirerEngin(e)}>×</button>
-                {/if}
-              </div>
-            {/each}
-            {#if detailInter.engins.length === 0}<span class="muted small">Aucun engin</span>{/if}
-          </div>
-        {:else}
-          <div class="histo-engins">
-            {#each detailInter.enginsHisto ?? [] as e}
-              <div class="histo-engin">
-                <div class="histo-engin-head">
-                  <span class="eng-name">{e.libelle}</span>
-                  {#if e.typeCode}<span class="chip-code">{e.typeCode}</span>{/if}
-                </div>
-                {#if e.equipage.length > 0}
-                  <ul class="histo-crew">
-                    {#each e.equipage as m}
-                      <li>
-                        <span class="hc-grade">{m.grade}</span>
-                        <span class="hc-nom">{m.nom}</span>
-                        {#if m.matricule}<span class="mono">{m.matricule}</span>{/if}
-                        {#if m.poste}<span class="hc-poste">· {m.poste}</span>{/if}
-                      </li>
-                    {/each}
-                  </ul>
-                {:else}
-                  <span class="muted small">Équipage non historisé</span>
-                {/if}
-              </div>
-            {/each}
-            {#if (detailInter.enginsHisto ?? []).length === 0}<span class="muted small">Aucun engin historisé</span>{/if}
-          </div>
-        {/if}
-      </div>
-
-      <div class="mc">
-        <span class="dl">Main courante</span>
-        <div class="mc-list">
-          {#each detailJournal as ev (ev.id)}
-            <div class="mc-line"><span class="mono">{fmt(ev.creeLe)}</span><span>{ev.message}</span>{#if ev.acteurUsername}<span class="muted">{ev.acteurUsername}</span>{/if}</div>
-          {/each}
-          {#if detailJournal.length === 0}<span class="muted small">Aucun événement</span>{/if}
-        </div>
-        {#if detailInter.enCours && canNote}
-          <div class="mc-add">
-            <input type="text" bind:value={noteText} placeholder="Ajouter une note…"
-                   onkeydown={e => { if (e.key === 'Enter') { e.preventDefault(); addNote() } }} />
-            <button class="btn-ghost-sm" disabled={!noteText.trim()} onclick={addNote}>Ajouter</button>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Comptes rendus (CRI) : 1 par engin, soumis par l'équipage, validés par l'admin -->
-      <div class="mc">
-        <span class="dl">Comptes rendus (CRI)</span>
-        <div class="cri-list">
-          {#each cris as cri (cri.id)}
-            <div class="cri-item">
-              <div class="cri-head">
-                <span class="eng-name">{cri.vehiculeLibelle}</span>
-                <span class="cri-badge {cri.statut.toLowerCase()}">{CRI_LABEL[cri.statut] ?? cri.statut}</span>
-                {#if cri.statut === 'SOUMIS' && isAdmin}
-                  <button class="btn-primary cri-validate" onclick={() => criValider(cri)}>Valider</button>
-                {/if}
-                {#if cri.validePar}<span class="muted small">par {cri.validePar}</span>{/if}
-              </div>
-              {#if canEditCri(cri)}
-                <textarea rows="2" bind:value={cri.contenu} placeholder="Compte rendu du véhicule… (enregistré automatiquement)"
-                          onblur={() => criAutoSave(cri)}></textarea>
-                <div class="cri-actions">
-                  {#if criSaved[cri.id]}<span class="cri-saved">✓ Enregistré</span>{/if}
-                  {#if cri.statut === 'BROUILLON'}<button class="btn-ghost-sm" onclick={() => criSoumettre(cri)}>Soumettre</button>{/if}
-                </div>
-              {:else}
-                <p class="cri-contenu">{cri.contenu || '—'}</p>
-              {/if}
-            </div>
-          {/each}
-          {#if cris.length === 0}<span class="muted small">Aucun engin</span>{/if}
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn-ghost-sm" onclick={exportPdf}>⤓ Exporter PDF</button>
-        <button class="btn-ghost-sm" onclick={() => detailInter = null}>Fermer</button>
-      </div>
-  </Modal>
-{/if}
 
 <style>
   .filtres { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -612,57 +337,6 @@
   .veh-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
   .renfort-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 
-  /* Détail */
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 13px; }
-  .detail-grid .full { grid-column: 1 / -1; }
-  .dl { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--color-muted); }
-  .mc { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-  .mc-list { display: flex; flex-direction: column; gap: 4px; max-height: 30vh; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius); padding: 8px; }
-  .mc-line { display: flex; gap: 10px; font-size: 12px; align-items: center; }
-  .mc-line .mono { font-family: monospace; color: var(--color-muted); white-space: nowrap; }
-
-  .eng-rows { display: flex; flex-direction: column; gap: 6px; }
-  .eng-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-  .eng-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .eng-name { flex: 1; }
-  .eng-statut { font-size: 12px; font-weight: 600; }
-  .eng-statut-sel { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
-
-  /* Engins historisés (intervention clôturée) + équipage figé */
-  .histo-engins { display: flex; flex-direction: column; gap: 8px; }
-  .histo-engin { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 8px 10px; }
-  .histo-engin-head { display: flex; align-items: center; gap: 8px; }
-  .histo-crew { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-  .histo-crew li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-  .hc-grade { font-size: 10px; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: .3px; min-width: 80px; }
-  .hc-nom { font-weight: 500; }
-  .hc-poste { color: var(--accent); font-size: 11px; }
-
-  .mc-add { display: flex; gap: 8px; }
-  .mc-add input { flex: 1; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 10px; outline: none; }
-
-  .detail-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
-  .edit-form { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
-  .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
-  .rm-btn:hover { color: var(--color-danger); }
-
-  .cri-list { display: flex; flex-direction: column; gap: 8px; }
-  .cri-item { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-  .cri-head { display: flex; align-items: center; gap: 8px; }
-  .cri-badge { font-size: 10px; font-weight: 700; border-radius: 8px; padding: 1px 7px; }
-  .cri-badge.brouillon { background: color-mix(in srgb, var(--color-muted) 22%, transparent); color: var(--color-muted); }
-  .cri-badge.soumis { background: color-mix(in srgb, #e0a23c 22%, transparent); color: #e0a23c; }
-  .cri-badge.valide { background: color-mix(in srgb, var(--color-success) 22%, transparent); color: var(--color-success); }
-  .cri-validate { margin-left: auto; padding: 2px 10px; font-size: 12px; }
-  .cri-item textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; }
-  .cri-actions { display: flex; gap: 8px; align-items: center; }
-  .cri-saved { font-size: 11px; color: var(--color-success); font-weight: 600; }
-  .cri-contenu { font-size: 13px; margin: 0; white-space: pre-wrap; }
-
-  .renfort-rows { display: flex; gap: 24px; flex-wrap: wrap; }
-  .renfort-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-  .renfort-cible { font-weight: 600; }
-  .renfort-row select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
 
   .non-arme { font-size: 9px; font-weight: 700; color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 16%, transparent); border-radius: 6px; padding: 1px 6px; }
 </style>
