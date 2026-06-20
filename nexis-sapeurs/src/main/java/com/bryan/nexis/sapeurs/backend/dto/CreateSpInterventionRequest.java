@@ -18,5 +18,7 @@ public record CreateSpInterventionRequest(
         @Nullable Integer nbVictimes,
         boolean incendie,
         boolean vehiculeImplique,
-        @Nullable List<UUID> vehiculeIds
+        @Nullable List<UUID> vehiculeIds,
+        /** Arme automatiquement les engins (équipage de garde) dans la transaction de création. */
+        boolean armerAuto
 ) {}

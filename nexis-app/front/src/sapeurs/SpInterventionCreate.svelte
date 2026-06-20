@@ -158,15 +158,10 @@
         incendie: form.incendie,
         vehiculeImplique: form.vehiculeImplique,
         vehiculeIds: createSel,
+        // Armement auto fait côté serveur, dans la transaction de création (un seul appel,
+        // séquentiel → pas de double-affectation). Les engins déjà armés gardent leur équipage.
+        armerAuto: affecterAutoApresDepart,
       })
-      // Affectation auto de l'équipage de garde — uniquement sur les engins NON armés
-      // (un engin déjà armé garde son équipage en place). Ouvert à tous les SP.
-      if (affecterAutoApresDepart) {
-        const nonArmes = new Set(vehicules.filter(v => !v.arme).map(v => v.vehiculeId))
-        await Promise.all((created?.engins ?? [])
-          .filter(e => nonArmes.has(e.vehiculeId))
-          .map(e => api.post(`/sp/vehicules/${e.vehiculeId}/affecter-auto`).catch(() => null)))
-      }
       toast.success(`Intervention ${created?.code ?? ''} déclenchée.`)
       oncreated?.()
       onclose()

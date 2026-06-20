@@ -2,6 +2,7 @@ package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.core.backend.JournalService;
 import com.bryan.nexis.core.realtime.RealtimeEvent;
+import com.bryan.nexis.sapeurs.backend.vehicule.SpAffectationAutoService;
 import com.bryan.nexis.sapeurs.backend.vehicule.SpVehiculeAffectationService;
 import com.bryan.nexis.sapeurs.datamodel.*;
 import com.bryan.nexis.sapeurs.datarepository.*;
@@ -67,7 +68,7 @@ class SpInterventionServiceTest {
                 mock(com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage.class),
                 events, securityService,
                 mock(com.bryan.nexis.sapeurs.backend.effectif.SpRpService.class),
-                mock(SpHistorisationService.class), engagement);
+                mock(SpHistorisationService.class), engagement, mock(SpAffectationAutoService.class));
 
         typeFpt    = type("FPT");
         etatDispo  = etat("DISPONIBLE");

@@ -5,6 +5,7 @@ import com.bryan.nexis.core.backend.dto.JournalEntryDto;
 import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.CreateSpInterventionRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpInterventionDto;
+import com.bryan.nexis.sapeurs.backend.vehicule.SpAffectationAutoService;
 import com.bryan.nexis.sapeurs.backend.vehicule.SpVehiculeAffectationService;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVehicule;
@@ -44,6 +45,7 @@ public class SpInterventionService {
     private final com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService;    // éval badges à la clôture
     private final SpHistorisationService         historisation;    // fige engins + équipages
     private final SpEngagementService            engagement;       // engager / postes / occupation
+    private final SpAffectationAutoService       affectationAutoService;  // armement auto à la création
 
     public SpInterventionService(SpInterventionRepository interventionRepo, SpVehiculeRepository vehiculeRepo,
                                  SpNatureInterventionRepository natureRepo, SpVehiculeAffectationService affectationService,
@@ -53,7 +55,8 @@ public class SpInterventionService {
                                  com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage nommage,
                                  ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService,
                                  com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService,
-                                 SpHistorisationService historisation, SpEngagementService engagement) {
+                                 SpHistorisationService historisation, SpEngagementService engagement,
+                                 SpAffectationAutoService affectationAutoService) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
         this.natureRepo         = natureRepo;
@@ -68,6 +71,7 @@ public class SpInterventionService {
         this.securityService    = securityService;
         this.historisation      = historisation;
         this.engagement         = engagement;
+        this.affectationAutoService = affectationAutoService;
     }
 
     private String actor() { return securityService.username().orElse(null); }
@@ -221,6 +225,12 @@ public class SpInterventionService {
         // pas recevoir le bip de départ d'un engin avec lequel ils ne partent pas.
         engagement.desaffecterPostesNonObligatoires(engins, saved.getCode());
         engagement.engager(engins, saved);
+        // Armement auto côté serveur, séquentiel dans CETTE transaction : chaque engin voit
+        // l'équipage déjà posé sur les précédents (occupesAilleurs) → pas de double-affectation
+        // (vs N appels front parallèles). L'affecter() de chaque membre déclenche son bip de départ.
+        if (req.armerAuto()) {
+            for (var engin : engins) affectationAutoService.affecterAuto(engin.getId());
+        }
         log.info("Intervention {} créée par {} (nature={}, {} engin(s))", saved.getCode(), actor(),
                 saved.getNature() != null ? saved.getNature().getCode() : "?", engins.size());
         return SpInterventionDto.from(saved);
