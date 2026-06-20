@@ -3,6 +3,7 @@ package com.bryan.nexis.sapeurs.backend.vehicule;
 import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpVehiculeAffectationDto;
 import com.bryan.nexis.sapeurs.backend.planning.SpPlanningService;
+import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVehicule;
 import com.bryan.nexis.sapeurs.datamodel.SpVehiculeAffectation;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
@@ -124,6 +125,13 @@ public class SpVehiculeAffectationService {
         events.publishEvent(RealtimeEvent.faction(RealtimeEvent.AFFECTATION, "SP",
                 membre + " affecté à " + vehicule,
                 Map.of("vehiculeId", vehiculeId.toString(), "membreId", membreId.toString()), actor()));
+
+        // Véhicule déjà engagé sur une intervention ouverte → le nouvel équipier (armement auto
+        // ou retardataire affecté après le départ) reçoit le bip de départ, comme l'équipage initial.
+        interventionRepo.findByFinIsNull().stream()
+                .filter(i -> i.getEngins().stream().anyMatch(e -> e.getId().equals(vehiculeId)))
+                .findFirst()
+                .ifPresent(inter -> bipMembreDepart(saved, inter));
 
         return SpVehiculeAffectationDto.from(saved);
     }
@@ -252,5 +260,38 @@ public class SpVehiculeAffectationService {
         }
         log.debug("Bip {} → {} destinataire(s)", vehicule.getLibelle(), equipage.size());
         return equipage.size();
+    }
+
+    /** Bip de départ ciblé sur un seul équipier (affecté à un engin déjà engagé). */
+    private void bipMembreDepart(SpVehiculeAffectation aff, SpIntervention inter) {
+        String username = aff.getMembre().getUser().getUsername();
+        var p = new HashMap<>(departPayload(inter, aff.getVehicule()));
+        if (aff.getPoste() != null) p.put("poste", aff.getPoste().getFonction().getLabel());
+        var ev = RealtimeEvent.users(RealtimeEvent.BIP, "SP", Set.of(username), departMessage(inter), p, actor());
+        ev.withReference(inter.getCode());
+        events.publishEvent(ev);
+        log.debug("Bip départ ciblé : {} ({})", username, inter.getCode());
+    }
+
+    /** Message de départ affiché au pager (déclenchement d'intervention). */
+    public String departMessage(SpIntervention inter) {
+        String nat = inter.getNature() != null ? inter.getNature().getCode() : "";
+        return ("🚨 DÉPART " + nat + " — " + inter.getMotif()).trim();
+    }
+
+    /** Charge utile du bip de départ (infos d'intervention affichées au pager). */
+    public Map<String, String> departPayload(SpIntervention inter, SpVehicule engin) {
+        var p = new HashMap<String, String>();
+        p.put("type", "INTERVENTION");
+        p.put("code", inter.getCode());
+        p.put("motif", inter.getMotif());
+        p.put("engin", engin.getLibelle());
+        if (inter.getNature() != null)      p.put("nature", inter.getNature().getLabel());
+        if (inter.getObservation() != null) p.put("observation", inter.getObservation());
+        if (inter.getCommune() != null)     p.put("commune", inter.getCommune());
+        if (inter.getCoordonnees() != null && inter.getCoordonnees().length() == 6)
+            p.put("coord", inter.getCoordonnees().substring(0, 3) + " " + inter.getCoordonnees().substring(3));
+        else if (inter.getCoordonnees() != null) p.put("coord", inter.getCoordonnees());
+        return p;
     }
 }

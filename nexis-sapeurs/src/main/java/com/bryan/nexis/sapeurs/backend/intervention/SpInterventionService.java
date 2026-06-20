@@ -596,27 +596,8 @@ public class SpInterventionService {
                                "etat", engin.getEtat().getCode()),
                         actor()).withReference(inter.getCode()));
             }
-            affectationService.bipCrew(engin, bipMessage(inter), bipPayload(inter, engin), inter.getCode());
+            affectationService.bipCrew(engin, affectationService.departMessage(inter),
+                    affectationService.departPayload(inter, engin), inter.getCode());
         }
-    }
-
-    private String bipMessage(SpIntervention inter) {
-        String nat = inter.getNature() != null ? inter.getNature().getCode() : "";
-        return ("🚨 DÉPART " + nat + " — " + inter.getMotif()).trim();
-    }
-
-    private Map<String, String> bipPayload(SpIntervention inter, SpVehicule engin) {
-        var p = new java.util.HashMap<String, String>();
-        p.put("type", "INTERVENTION");
-        p.put("code", inter.getCode());
-        p.put("motif", inter.getMotif());
-        p.put("engin", engin.getLibelle());
-        if (inter.getNature() != null)      p.put("nature", inter.getNature().getLabel());
-        if (inter.getObservation() != null) p.put("observation", inter.getObservation());
-        if (inter.getCommune() != null)     p.put("commune", inter.getCommune());
-        if (inter.getCoordonnees() != null && inter.getCoordonnees().length() == 6)
-            p.put("coord", inter.getCoordonnees().substring(0, 3) + " " + inter.getCoordonnees().substring(3));
-        else if (inter.getCoordonnees() != null) p.put("coord", inter.getCoordonnees());
-        return p;
     }
 }
