@@ -5,6 +5,8 @@
     import {compareBy, nextSort} from '../shared/tableSort.js'
     import Skeleton from '../shared/Skeleton.svelte'
     import Modal from '../shared/Modal.svelte'
+    import Icone from '../shared/Icone.svelte'
+    import IconePicker from '../shared/IconePicker.svelte'
     import SortableTh from '../shared/SortableTh.svelte'
     import Pagination from '../shared/Pagination.svelte'
     import EmptyState from '../shared/EmptyState.svelte'
@@ -231,10 +233,11 @@
     } catch { /* toast par api.js */ }
   }
 
-  // Icône (emoji) du type, repère carte.
-  async function setTypeIcone(t, icone) {
+  // Icône du type (repère carte) : emoji + image. Lue depuis l'item (lié par IconePicker).
+  async function setTypeIcone(t) {
     try {
-      const updated = await api.put(`/sp/vehicules/types/${t.id}/icone`, { icone })
+      const updated = await api.put(`/sp/vehicules/types/${t.id}/icone`,
+              { icone: t.icone || null, iconeImageId: t.iconeImageId || null })
       types = types.map(x => x.id === updated.id ? updated : x)
     } catch { /* toast par api.js */ }
   }
@@ -506,13 +509,12 @@
     {#each types as t (t.id)}
       <div class="type-block">
         <div class="type-header" onclick={() => toggleType(t)} role="button" tabindex="0">
-          <span class="type-icone">{t.icone || '🚒'}</span>
+          <span class="type-icone"><Icone imageId={t.iconeImageId} emoji={t.icone || '🚒'} size={18} /></span>
           <span class="type-label">{t.label}</span>
           <span class="chip-code">{t.code}</span>
-          <input class="icone-input" type="text" maxlength="4" placeholder="icône"
-                 title="Icône (emoji) du type sur la carte" value={t.icone ?? ''}
-                 onclick={e => e.stopPropagation()}
-                 onchange={e => setTypeIcone(t, e.target.value)} />
+          <span class="type-ipick" role="presentation" onclick={e => e.stopPropagation()}>
+            <IconePicker bind:emoji={t.icone} bind:imageId={t.iconeImageId} onchange={() => setTypeIcone(t)} />
+          </span>
           <span class="expand-icon">{typeExpanded[t.id] ? '▲' : '▼'}</span>
         </div>
 

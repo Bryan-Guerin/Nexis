@@ -5,7 +5,9 @@
 
   // Sélecteur d'icône pour les formulaires admin : emoji (saisie) OU image piochée dans la
   // bibliothèque sp_icone via une galerie modale. Lie les deux champs de l'entité.
-  let { emoji = $bindable(''), imageId = $bindable(null) } = $props()
+  // onchange (optionnel) : appelé après un choix/retrait d'image ou au blur de l'emoji
+  // (édition inline qui persiste aussitôt). Les formulaires modaux l'ignorent (lecture au submit).
+  let { emoji = $bindable(''), imageId = $bindable(null), onchange } = $props()
 
   let lib    = $state([])
   let open   = $state(false)
@@ -15,8 +17,8 @@
     open = true
     if (!loaded) { lib = await api.get('/sp/icones').catch(() => []); loaded = true }
   }
-  function choisir(id) { imageId = id; open = false }
-  function retirer()   { imageId = null }
+  function choisir(id) { imageId = id; open = false; onchange?.() }
+  function retirer()   { imageId = null; onchange?.() }
 </script>
 
 <div class="ipick">
@@ -25,7 +27,8 @@
     <button type="button" class="btn-ghost-sm" onclick={openGallery}>Changer</button>
     <button type="button" class="btn-ghost-sm" onclick={retirer} title="Revenir à l'emoji">Retirer</button>
   {:else}
-    <input class="ipick-emoji" type="text" bind:value={emoji} maxlength="8" placeholder="🏅" />
+    <input class="ipick-emoji" type="text" bind:value={emoji} maxlength="8" placeholder="🏅"
+           onchange={() => onchange?.()} />
     <button type="button" class="btn-ghost-sm" onclick={openGallery}>Image…</button>
   {/if}
 </div>

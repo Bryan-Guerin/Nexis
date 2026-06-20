@@ -5,6 +5,7 @@
     import {confirm} from '../shared/confirm.js'
     import {invalidateRef} from '../shared/referentials.js'
     import Skeleton from '../shared/Skeleton.svelte'
+    import IconePicker from '../shared/IconePicker.svelte'
     import SpEvenementsAdmin from './SpEvenementsAdmin.svelte'
     import SpBadgesAdmin from './SpBadgesAdmin.svelte'
 
@@ -78,7 +79,7 @@
          : cat.kind === 'statutveh'    ? { code: '', label: '', couleur: '#4f6ef7', etatId: etatsRef[0]?.id ?? '', clotureIntervention: false }
          : cat.kind === 'statut'       ? { code: '', label: '', couleur: '#4f6ef7', categorie: 'GARDE' }
          : cat.kind === 'casier'       ? { numero: null }
-         : cat.kind === 'fonctionorga' ? { code: '', label: '', parentId: '', icone: '' }
+         : cat.kind === 'fonctionorga' ? { code: '', label: '', parentId: '', icone: '', iconeImageId: null }
          : { code: '', label: '' }
     formError = ''
   }
@@ -87,7 +88,7 @@
     e.preventDefault(); formError = ''
     try {
       const payload = cat.kind === 'casier' ? { numero: Number(form.numero) }
-                    : cat.kind === 'fonctionorga' ? { code: form.code, label: form.label, parentId: form.parentId || null, icone: form.icone || null }
+                    : cat.kind === 'fonctionorga' ? { code: form.code, label: form.label, parentId: form.parentId || null, icone: form.icone || null, iconeImageId: form.iconeImageId || null }
                     : { ...form }
       const created = await api.post(cat.list, payload)
       items = [...items, created]
@@ -106,17 +107,18 @@
     } catch { /* toast par api.js */ }
   }
 
-  // Icône (emoji) d'une nature (carte).
-  async function setNatureIcone(it, icone) {
+  // Icône d'une nature (carte) : emoji + image. Lue depuis l'item (lié par IconePicker).
+  async function setNatureIcone(it) {
     try {
-      const u = await api.put(`/sp/natures/${it.id}/icone`, { icone })
+      const u = await api.put(`/sp/natures/${it.id}/icone`, { icone: it.icone || null, iconeImageId: it.iconeImageId || null })
       items = items.map(x => x.id === u.id ? u : x)
     } catch { /* toast par api.js */ }
   }
 
   // Met à jour une fonction d'organigramme (label / parent / icône). Patch fusionné côté front.
   async function updateFonctionOrga(it, patch) {
-    const next = { label: it.label, parentId: it.parentId ?? null, icone: it.icone ?? null, ...patch }
+    const next = { label: it.label, parentId: it.parentId ?? null, icone: it.icone ?? null,
+                   iconeImageId: it.iconeImageId ?? null, ...patch }
     try {
       const u = await api.put(`/sp/fonctions-orga/${it.id}`, next)
       items = items.map(x => x.id === u.id ? u : x)
@@ -279,14 +281,10 @@
                        onchange={e => setCentreCoord(it, e.target.value)} />
               {/if}
               {#if cat.key === 'natures'}
-                <input class="icone-input" type="text" maxlength="4" placeholder="icône"
-                       title="Icône (emoji) repérant l'intervention sur la carte" value={it.icone ?? ''}
-                       onchange={e => setNatureIcone(it, e.target.value)} />
+                <IconePicker bind:emoji={it.icone} bind:imageId={it.iconeImageId} onchange={() => setNatureIcone(it)} />
               {/if}
               {#if cat.kind === 'fonctionorga'}
-                <input class="icone-input" type="text" maxlength="4" placeholder="icône"
-                       title="Icône (emoji) du rôle" value={it.icone ?? ''}
-                       onchange={e => updateFonctionOrga(it, { icone: e.target.value || null })} />
+                <IconePicker bind:emoji={it.icone} bind:imageId={it.iconeImageId} onchange={() => updateFonctionOrga(it, {})} />
                 <select class="type-fonction-sel" title="Fonction parente dans l'arbre"
                         value={it.parentId ?? ''}
                         onchange={e => updateFonctionOrga(it, { parentId: e.target.value || null })}>
@@ -359,7 +357,7 @@
                   </select>
                 </label>
                 <label>Icône
-                  <input type="text" maxlength="4" bind:value={form.icone} placeholder="emoji (optionnel)" />
+                  <IconePicker bind:emoji={form.icone} bind:imageId={form.iconeImageId} />
                 </label>
               {/if}
             {/if}

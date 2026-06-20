@@ -431,7 +431,7 @@
   {@const kids = enfantsDe(f.id)}
   <div class="orga-node">
     <div class="orga-node-head">
-      <span class="orga-node-ico">{f.icone || '🔹'}</span>
+      <span class="orga-node-ico"><Icone imageId={f.iconeImageId} emoji={f.icone || '🔹'} size={16} /></span>
       <span class="orga-node-label">{f.label}</span>
       <span class="orga-node-count">{ms.length}</span>
     </div>
@@ -460,7 +460,7 @@
   <li>
     <div class="pyr-box">
       <div class="pyr-box-head">
-        <span class="orga-node-ico">{f.icone || '🔹'}</span>
+        <span class="orga-node-ico"><Icone imageId={f.iconeImageId} emoji={f.icone || '🔹'} size={16} /></span>
         <span class="pyr-box-label">{f.label}</span>
         <span class="orga-node-count">{ms.length}</span>
       </div>
@@ -941,7 +941,7 @@
                   <label class="orga-check" class:on={checked} class:locked={!canEditInfos}>
                     <input type="checkbox" {checked} disabled={!canEditInfos}
                            onchange={() => toggleFonctionOrga(f.id)} />
-                    {#if f.icone}<span class="orga-ico">{f.icone}</span>{/if}
+                    {#if f.icone || f.iconeImageId}<span class="orga-ico"><Icone imageId={f.iconeImageId} emoji={f.icone} size={14} /></span>{/if}
                     <span>{f.label}</span>
                   </label>
                 {/each}
