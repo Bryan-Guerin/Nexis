@@ -49,6 +49,7 @@
     INTERVENTION_OUVERTE:  { l: 'Inter. ouverte',  c: 'var(--color-success)' },
     INTERVENTION_RENFORT:  { l: 'Renfort',         c: 'var(--color-success)' },
     INTERVENTION_CLOTUREE: { l: 'Inter. clôturée', c: 'var(--color-muted)' },
+    VEHICULE_SUPPRIME:     { l: 'Véhicule supprimé', c: 'var(--color-danger)' },
     LOGIN:                 { l: 'Connexion',       c: '#b450dc' },
     LOGIN_FAILED:          { l: 'Échec connexion', c: 'var(--color-danger)' },
     USER_CREE:             { l: 'User créé',       c: '#4caf82' },

@@ -154,8 +154,13 @@ public class SpVehiculeService {
         if (criRepo.existsByVehiculeId(id)) {
             throw new IllegalStateException("Suppression impossible : ce véhicule a des comptes rendus d'intervention.");
         }
-        log.info("Suppression du véhicule {} ({}) par {}", vehicule.getLibelle(), id, actor());
+        String libelle = vehicule.getLibelle();
+        log.info("Suppression du véhicule {} ({}) par {}", libelle, id, actor());
         vehiculeRepo.delete(vehicule);   // sp_verification supprimées en cascade
+        // Trace d'audit (visible en main courante SP, filtrable par type/acteur).
+        events.publishEvent(RealtimeEvent.faction("VEHICULE_SUPPRIME", "SP",
+                "Véhicule supprimé : " + libelle,
+                Map.of("vehiculeId", id.toString()), actor()));
     }
 
     /** Force l'état maître (action système : maintenance, inventaire, indisponibilité…). */
