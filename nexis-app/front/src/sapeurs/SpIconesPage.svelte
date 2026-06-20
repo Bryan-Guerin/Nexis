@@ -109,8 +109,8 @@
           background: var(--color-surface); border: 1px solid var(--color-border);
           border-radius: var(--radius); padding: 12px 8px; }
   .thumb { height: 48px; display: flex; align-items: center; justify-content: center; }
-  .nm { font-size: 11px; color: var(--color-muted); max-width: 100%; overflow: hidden;
-        text-overflow: ellipsis; white-space: nowrap; }
+  .nm { font-size: 11px; color: var(--color-muted); max-width: 100%; text-align: center;
+        overflow-wrap: anywhere; line-height: 1.2; }
   .rm-btn { position: absolute; top: 2px; right: 4px; background: none; border: none;
             color: var(--color-muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 4px; }
   .rm-btn:hover { color: var(--color-danger); }

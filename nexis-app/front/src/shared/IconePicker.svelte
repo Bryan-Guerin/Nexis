@@ -39,7 +39,7 @@
 </div>
 
 {#if open}
-  <Modal title="Choisir une image" onclose={() => open = false}>
+  <Modal title="Choisir une image" width="720px" onclose={() => open = false}>
     {#if lib.length === 0}
       <p class="muted small">Bibliothèque vide. Ajoutez des images dans Configuration › « Icônes &amp; logo ».</p>
     {:else}
@@ -47,7 +47,8 @@
         {#each lib as ic (ic.id)}
           <button type="button" class="ipick-cell" class:sel={imageId === ic.id}
                   onclick={() => choisir(ic.id)} title={ic.nom}>
-            <Icone imageId={ic.id} size={40} alt={ic.nom} />
+            <Icone imageId={ic.id} size={44} alt={ic.nom} />
+            <span class="ipick-nm">{ic.nom}</span>
           </button>
         {/each}
       </div>
@@ -61,11 +62,14 @@
                 border: 1px solid var(--color-border); border-radius: var(--radius); }
   .ipick-emoji { width: 56px; text-align: center; background: var(--color-bg); border: 1px solid var(--color-border);
                  border-radius: var(--radius); color: var(--color-text); font-size: 16px; padding: 5px 4px; }
-  .ipick-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px;
-               max-height: 50vh; overflow-y: auto; }
-  .ipick-cell { display: flex; align-items: center; justify-content: center; padding: 10px; cursor: pointer;
-                background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .ipick-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px;
+               max-height: 62vh; overflow-y: auto; }
+  .ipick-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px;
+                cursor: pointer; background: var(--color-surface); border: 1px solid var(--color-border);
+                border-radius: var(--radius); font: inherit; color: inherit; }
   .ipick-cell:hover { border-color: var(--accent); }
   .ipick-cell.sel { border-color: var(--accent);
                     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .ipick-nm { font-size: 11px; color: var(--color-muted); text-align: center; line-height: 1.2;
+              overflow-wrap: anywhere; max-width: 100%; }
 </style>
