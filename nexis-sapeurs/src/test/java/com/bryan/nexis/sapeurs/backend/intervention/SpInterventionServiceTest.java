@@ -258,4 +258,25 @@ class SpInterventionServiceTest {
         assertThat(ancienne.getFin()).isNotNull();              // ancienne clôturée (plus d'engin)
         assertThat(nouvelle.getEngins()).extracting("id").containsExactly(fpt.getId());
     }
+
+    // ── Engagement (bascule au premier statut + bip de départ) ────────────────
+
+    @Test
+    void engagement_basculeAuStatutDeclenche_etBipeLequipage() {
+        var declenche = statut("DECLENCHE", etat("INDISPONIBLE"));
+        var indispo   = etat("INDISPONIBLE");
+        var nouvelle  = intervention("Feu");
+        when(interventionRepo.findById(nouvelle.getId())).thenReturn(Optional.of(nouvelle));
+        when(interventionRepo.update(any(SpIntervention.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(vehiculeRepo.findById(fpt.getId())).thenReturn(Optional.of(fpt));
+        when(posteRepo.findByVehiculeTypeId(typeFpt.getId())).thenReturn(List.of());   // aucun poste obligatoire
+        when(statutRepo.listOrderByPositionAsc()).thenReturn(List.of(declenche));
+        when(etatRepo.findByCode("INDISPONIBLE")).thenReturn(Optional.of(indispo));
+
+        service.addEngins(nouvelle.getId(), List.of(fpt.getId()));
+
+        assertThat(fpt.getStatut().getCode()).isEqualTo("DECLENCHE");
+        assertThat(fpt.getEtat().getCode()).isEqualTo("INDISPONIBLE");
+        verify(affectationService).bipCrew(eq(fpt), any(), any(), any());   // équipage bipé au départ
+    }
 }

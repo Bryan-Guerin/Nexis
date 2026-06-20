@@ -154,6 +154,31 @@ class SpVehiculeAffectationServiceTest {
                 .hasMessageContaining("Capacité");
     }
 
+    @Test
+    void affecter_bipeLeNouvelEquipier_siVehiculeDejaEngageSurUneInterventionOuverte() {
+        // FPT déjà engagé sur une intervention ouverte → l'équipier affecté APRÈS le départ
+        // (armement auto / retardataire) reçoit le bip de départ.
+        when(interventionRepo.findByFinIsNull()).thenReturn(List.of(intervention("Feu", fpt)));
+
+        service.affecter(fpt.getId(), jean.getId(), posteCa.getId(), Instant.now());
+
+        var captor = ArgumentCaptor.forClass(RealtimeEvent.class);
+        verify(events, atLeastOnce()).publishEvent(captor.capture());
+        var bip = captor.getAllValues().stream().filter(e -> "BIP".equals(e.getType())).findFirst();
+        assertThat(bip).isPresent();
+        assertThat(bip.get().getRecipients()).containsExactly("jean");
+    }
+
+    @Test
+    void affecter_neBipePas_siVehiculeNonEngage() {
+        // Pré-armement (véhicule disponible) : pas de bip, seulement l'event d'affectation.
+        service.affecter(fpt.getId(), jean.getId(), posteCa.getId(), Instant.now());
+
+        var captor = ArgumentCaptor.forClass(RealtimeEvent.class);
+        verify(events, atLeastOnce()).publishEvent(captor.capture());
+        assertThat(captor.getAllValues()).noneMatch(e -> "BIP".equals(e.getType()));
+    }
+
     // ── Sweep de fin de garde ─────────────────────────────────────────────────
 
     @Test
