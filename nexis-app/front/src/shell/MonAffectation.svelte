@@ -3,6 +3,7 @@
   import {api} from '../shared/api.js'
   import {currentUser, feuilleFiltreDemande} from '../shared/stores.js'
   import {realtime} from '../shared/realtime.js'
+  import Icone from '../shared/Icone.svelte'
 
   // Chip « mes affectations » dans la top-bar. Liste tous mes véhicules (poste = code,
   // compact). Cliquable → Feuille de garde filtrée sur moi.
@@ -32,7 +33,7 @@
   <button class="mon-aff" onclick={go} title="Voir mes engins (feuille de garde)">
     {#each affs as a (a.vehiculeId)}
       <span class="aff-chip">
-        <span class="ic">{a.typeIcone || '🚒'}</span>
+        <span class="ic"><Icone imageId={a.typeIconeImageId} emoji={a.typeIcone || '🚒'} size={15} /></span>
         <span class="lib">{a.vehiculeLibelle}</span>
         {#if a.fonctionCode}<span class="fct">{a.fonctionCode}</span>{/if}
       </span>
