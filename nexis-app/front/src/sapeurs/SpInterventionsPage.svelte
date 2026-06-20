@@ -6,6 +6,7 @@
     import {realtime} from '../shared/realtime.js'
     import {currentUser} from '../shared/stores.js'
     import {can} from '../shared/roles.js'
+    import Icone from '../shared/Icone.svelte'
     import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
     import Pagination from '../shared/Pagination.svelte'
     import Skeleton from '../shared/Skeleton.svelte'
@@ -374,6 +375,7 @@
             {#if i.enCours}
               {#each i.engins as e (e.vehiculeId)}
                 <span class="engin" style="border-left:3px solid {e.etatCouleur}">
+                  <Icone imageId={e.typeIconeImageId} emoji={e.typeIcone || '🚒'} size={15} />
                   {e.libelle} <span class="chip-code">{e.typeCode}</span>
                   {#if canControl(e)}
                     <select class="eng-statut-inline" value={e.statutId} onchange={ev => changeEnginStatut(e, ev.target.value)} title="Statut de l'engin">
