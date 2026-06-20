@@ -9,6 +9,7 @@ import io.micronaut.http.multipart.CompletedFileUpload;
 import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.ExecuteOn;
 import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,10 +49,13 @@ public class SpIconeController {
     }
 
     /**
-     * Sert le binaire de l'icône. Cache long (le contenu est immuable par id) et durcissement
-     * SVG (CSP sandbox + nosniff) : un éventuel script embarqué dans un SVG ne s'exécute pas.
+     * Sert le binaire de l'icône. Anonyme (asset décoratif, chargé en {@code <img src>} qui ne
+     * peut pas porter le header d'auth ; l'UUID n'est pas énumérable, la liste reste protégée).
+     * Cache long (contenu immuable par id) et durcissement SVG (CSP sandbox + nosniff) : un
+     * éventuel script embarqué dans un SVG ne s'exécute pas.
      */
     @Get("/{id}/contenu")
+    @Secured(SecurityRule.IS_ANONYMOUS)
     HttpResponse<byte[]> contenu(UUID id) {
         var icone = service.get(id);
         return HttpResponse.ok(icone.getContenu())
