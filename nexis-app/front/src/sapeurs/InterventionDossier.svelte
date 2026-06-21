@@ -243,6 +243,19 @@
     if (choc === 'AUTRE') return [0, 0]
     return null
   }
+  // Sièges (vue de haut, avant = haut). France : conducteur = avant gauche.
+  function seatXY(position, d) {
+    const [w, h] = d
+    const F = { CONDUCTEUR: [-0.26, -0.28], PASSAGER_AVANT: [0.26, -0.28], PASSAGER_ARRIERE: [0, 0.30] }
+    const f = F[position] ?? [0, 0.05]
+    return [f[0] * w, f[1] * h]
+  }
+  // Victimes (SAP) reliées à ce véhicule + leur position (avp.position).
+  function victimesDuVehicule(vehId) {
+    return victimes
+      .map(vic => { const c = bilanSapDe(vic.id)?.contenu; return c?.vehiculeSrId === vehId ? { vic, position: c?.avp?.position ?? null } : null })
+      .filter(Boolean)
+  }
   function bilanSrDe() { return bilans.find(b => b.famille === 'SR') }
   function intoSr(c) { return { routeType: c?.routeType ?? 'AUTOROUTE_3V', vehicules: (c?.vehicules ?? []).map(v => ({ ...v })) } }
   function vehSel() { return srForm.vehicules.find(v => v.id === srVehSel) }
@@ -732,6 +745,14 @@
                       {@const cp = chocXY(v.choc, d)}
                       {#if cp}<polygon points="0,-7 1.8,-2.2 7,-2 2.6,1.2 4.2,7 0,3.2 -4.2,7 -2.6,1.2 -7,-2 -1.8,-2.2" transform="translate({cp[0]},{cp[1]})" fill="#ef9f27" stroke="#7a3e00" stroke-width="0.5" />{/if}
                     {/if}
+                    {#each victimesDuVehicule(v.id) as occ}
+                      {@const sxy = seatXY(occ.position, d)}
+                      <g class="seat" transform="translate({sxy[0]},{sxy[1]})">
+                        <title>{victimeNom(occ.vic)}</title>
+                        <circle r="4.6" fill="var(--accent)" stroke="#fff" stroke-width="0.7" />
+                        <text text-anchor="middle" dy="2.4" font-size="6" fill="#fff">{occ.vic.numero}</text>
+                      </g>
+                    {/each}
                   </g>
                 {/each}
               </svg>
