@@ -58,7 +58,10 @@ class SpBilanServiceTest {
         when(bilanRepo.findByVictimeId(victime.getId())).thenReturn(Optional.empty());
         when(bilanRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var saisi = new BilanSapContenu(true, BilanSapContenu.PerteEstimee.IMPORTANTE, 12, "RAS");
+        var saisi = new BilanSapContenu(
+                new BilanSapContenu.Hemorragie(true, true, BilanSapContenu.PerteEstimee.IMPORTANTE, false, false, true, false),
+                null, null, null, null, null, null, null,
+                new BilanSapContenu.Sample("douleur thoracique", null, null, null, null, "RAS"));
         var dto = service.enregistrerBilanSap(victime.getId(), saisi);
 
         assertEquals("SAP", dto.famille());

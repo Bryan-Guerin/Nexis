@@ -40,6 +40,62 @@
   let showVictime   = $state(false)
   let victimeForm   = $state({})
   let editVictimeId = $state(null)
+  let sectionIdx    = $state(0)
+
+  // Méthode XABCDE — config de rendu (le modèle reste typé côté back ; ceci n'est que l'UI).
+  // [clé, label, type, options?] ; type = bool | enum | num | text | textarea.
+  const PERTE = [['FAIBLE', 'Faible'], ['IMPORTANTE', 'Importante']]
+  const PUPILLE = [['MYDRIASE', 'Mydriase'], ['NORMALE', 'Normale'], ['MYOSIS', 'Myosis']]
+  const SECTIONS = [
+    ['x', 'X — Hémorragie', [
+      ['presente', 'Hémorragie', 'bool'], ['active', 'Active', 'bool'], ['perte', 'Perte estimée', 'enum', PERTE],
+      ['positionAllongee', 'Position allongée', 'bool'], ['compressionManuelle', 'Compression manuelle', 'bool'],
+      ['pansementCompressif', 'Pansement compressif', 'bool'], ['garrot', 'Garrot', 'bool']]],
+    ['a', 'A — Voies aériennes', [
+      ['obstruction', 'Obstruction VA', 'bool'], ['extractionDigitale', 'Extraction digitale', 'bool'],
+      ['basculeTete', 'Bascule de la tête', 'bool'], ['elevationMenton', 'Élévation du menton', 'bool'],
+      ['canuleOroPharyngee', 'Canule oro-pharyngée', 'bool'], ['aspirationBuccale', 'Aspiration buccale', 'bool']]],
+    ['b', 'B — Ventilation', [
+      ['absenceOuFrFaible', 'Absence ventilation ou FR<6', 'bool'], ['irreguliere', 'Irrégulière / pause', 'bool'],
+      ['superficielle', 'Superficielle', 'bool'], ['signesLutte', 'Signes de lutte', 'bool'], ['cyanose', 'Cyanose', 'bool'],
+      ['difficultesParole', 'Difficultés parole', 'bool'], ['frequenceRespiratoire', 'Fréquence respiratoire', 'num'],
+      ['spo2AirAmbiant', 'SpO2 air ambiant (%)', 'num'], ['spo2SousO2', 'SpO2 sous O2 (%)', 'num'],
+      ['insufflations', 'Insufflations', 'bool'], ['inhalation', 'Inhalation', 'bool']]],
+    ['c', 'C — Circulation', [
+      ['arretCirculatoire', 'Arrêt circulatoire', 'bool'], ['malFrappe', 'Mal frappé', 'bool'],
+      ['poulsRadialNonPercu', 'Pouls radial non perçu', 'bool'], ['irregulier', 'Irrégulier', 'bool'],
+      ['froideurExtremites', 'Froideur des extrémités', 'bool'], ['paleurCutanee', 'Pâleur cutanée', 'bool'],
+      ['trcSup3', 'TRC > 3s', 'bool'], ['frequenceCardiaque', 'Fréquence cardiaque', 'num'],
+      ['pniD', 'PNI D', 'text'], ['pniG', 'PNI G', 'text'], ['pniRef', 'PNI Ref', 'text']]],
+    ['d', 'D — Neurologique', [
+      ['avpu', 'AVPU', 'enum', [['ALERT', 'Alert'], ['VERBAL', 'Verbal'], ['PAIN', 'Pain'], ['UNRESPONSIVE', 'Unresponsive']]],
+      ['pci', 'PCI', 'bool'], ['convulsion', 'Convulsion', 'bool'],
+      ['pupilleDroite', 'Pupille droite', 'enum', PUPILLE], ['pupilleGauche', 'Pupille gauche', 'enum', PUPILLE],
+      ['pupillesReactives', 'Pupilles réactives', 'bool'], ['troubleSensitif', 'Trouble sensitif', 'bool'],
+      ['troubleMoteur', 'Trouble moteur', 'bool'], ['resucrage', 'Resucrage', 'bool']]],
+    ['e', 'E — Exposition', [
+      ['chuteSup2m', 'Chute > 2m', 'bool'], ['traumatismePenetrant', 'Traumatisme pénétrant', 'bool'],
+      ['sectionMembreTotale', 'Section de membre totale', 'bool'], ['plaieProfonde', 'Plaie profonde', 'bool'],
+      ['brulureSup5pct', 'Brûlure surface > 5%', 'bool'], ['brulureElectrique', 'Brûlure électrique', 'bool'],
+      ['brulureChimique', 'Brûlure chimique', 'bool'], ['localisationBrulureAggravante', 'Localisation brûlure aggravante', 'bool'],
+      ['temperature', 'Température (°C)', 'num']]],
+    ['avp', 'AVP', [
+      ['situation', 'Situation à l\'arrivée', 'enum', [['EJECTEE', 'Éjectée'], ['INCARCEREE', 'Incarcérée'], ['PIEGEE', 'Piégée'], ['SORTIE_VEHICULE', 'Sortie du véhicule']]],
+      ['cinetique', 'Cinétique (km/h)', 'num'],
+      ['position', 'Position dans le véhicule', 'enum', [['CONDUCTEUR', 'Conducteur'], ['PASSAGER_AVANT', 'Passager avant'], ['PASSAGER_ARRIERE', 'Passager arrière']]],
+      ['localisationChoc', 'Localisation du choc', 'enum', [['FRONTAL', 'Frontal'], ['LATERAL_GAUCHE', 'Latéral gauche'], ['LATERAL_DROIT', 'Latéral droit'], ['ARRIERE', 'Arrière'], ['AUTRE', 'Autre']]],
+      ['casquee', 'Casquée', 'bool'], ['ceinturee', 'Ceinturée', 'bool'], ['tonneaux', 'Tonneaux', 'bool']]],
+    ['sample', 'SAMPLE', [
+      ['symptomes', 'S — Symptômes', 'textarea'], ['allergies', 'A — Allergies', 'textarea'],
+      ['medicaments', 'M — Médicaments', 'textarea'], ['dernierRepas', 'L — Dernier repas (heure)', 'text'],
+      ['evenements', 'Événements avant l\'urgence', 'textarea'], ['observations', 'Observations particulières', 'textarea']]],
+  ]
+  function emptySap() { return { x: {}, a: {}, b: {}, c: {}, d: {}, e: {}, avp: {}, sample: {}, lesions: [] } }
+  function intoSap(contenu) {
+    const s = emptySap()
+    if (contenu) for (const k of Object.keys(s)) if (contenu[k] != null) s[k] = k === 'lesions' ? contenu[k] : { ...contenu[k] }
+    return s
+  }
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isDispatcher = $derived($can.dispatch)
@@ -80,8 +136,7 @@
     // MAJ par un autre équipier : rafraîchit les champs de la victime affichée, sauf si une saisie
     // locale est en cours (timer débounce actif) — pour ne pas écraser ce qu'on tape.
     else if (rafraichirSaisie && victimeSel && !sapTimer) {
-      const b = bilanSapDe(victimeSel)
-      sapForm = b && b.contenu ? { ...b.contenu } : {}
+      sapForm = intoSap(bilanSapDe(victimeSel)?.contenu)
     }
   }
 
@@ -90,8 +145,8 @@
 
   function selectVictime(v) {
     victimeSel = v.id
-    const b = bilanSapDe(v.id)
-    sapForm = b && b.contenu ? { ...b.contenu } : {}
+    sapForm = intoSap(bilanSapDe(v.id)?.contenu)
+    sectionIdx = 0
     sapSaved = false
   }
   function onSapChange() {
@@ -103,12 +158,7 @@
     if (!victimeSel) return
     sapTimer = null
     try {
-      const b = await api.put(`/sp/victimes/${victimeSel}/bilan-sap`, {
-        hemorragie: sapForm.hemorragie ?? null,
-        perteEstimee: sapForm.perteEstimee || null,
-        frequenceRespiratoire: sapForm.frequenceRespiratoire !== '' && sapForm.frequenceRespiratoire != null ? Number(sapForm.frequenceRespiratoire) : null,
-        observations: sapForm.observations || null,
-      })
+      const b = await api.put(`/sp/victimes/${victimeSel}/bilan-sap`, sapForm)
       bilans = [...bilans.filter(x => x.id !== b.id), b]
       sapSaved = true
       setTimeout(() => { sapSaved = false }, 2000)
@@ -448,31 +498,41 @@
               {#if inter.enCours}<button class="btn-ghost-sm" onclick={() => openEditVictime(vsel)}>Éditer la victime</button>{/if}
               {#if sapSaved}<span class="saved">✓ Enregistré</span>{/if}
             </div>
-            <div class="sap-form">
-              <div class="sap-row">
-                <span class="sap-lib">Hémorragie</span>
-                <span class="yn">
-                  <button class:on={sapForm.hemorragie === true} onclick={() => { sapForm.hemorragie = true; onSapChange() }}>Oui</button>
-                  <button class:on={sapForm.hemorragie === false} onclick={() => { sapForm.hemorragie = false; onSapChange() }}>Non</button>
-                </span>
-              </div>
-              <div class="sap-row">
-                <span class="sap-lib">Perte estimée</span>
-                <select bind:value={sapForm.perteEstimee} onchange={onSapChange}>
-                  <option value="">—</option>
-                  <option value="FAIBLE">Faible</option>
-                  <option value="IMPORTANTE">Importante</option>
-                </select>
-              </div>
-              <div class="sap-row">
-                <span class="sap-lib">Fréquence respiratoire</span>
-                <input type="number" min="0" bind:value={sapForm.frequenceRespiratoire} oninput={onSapChange} />
-              </div>
-              <label class="sap-obs">Observations
-                <textarea rows="3" bind:value={sapForm.observations} oninput={onSapChange}></textarea>
-              </label>
+            <div class="sap-stepper">
+              {#each SECTIONS as [sk], idx}
+                <button class:on={sectionIdx === idx} onclick={() => sectionIdx = idx}>{sk === 'sample' ? 'SAMPLE' : sk === 'avp' ? 'AVP' : sk.toUpperCase()}</button>
+              {/each}
             </div>
-            <p class="muted small">Aperçu phase 1 (4 champs, enregistrés à chaque saisie). Formulaire XABCDE complet en phase 2.</p>
+            {@const sec = SECTIONS[sectionIdx]}
+            <div class="sap-form">
+              {#each sec[2] as [k, label, type, opts]}
+                <div class="sap-row" class:full={type === 'textarea'}>
+                  <span class="sap-lib">{label}</span>
+                  {#if type === 'bool'}
+                    <span class="yn">
+                      <button class:on={sapForm[sec[0]][k] === true} onclick={() => { sapForm[sec[0]][k] = true; onSapChange() }}>Oui</button>
+                      <button class:on={sapForm[sec[0]][k] === false} onclick={() => { sapForm[sec[0]][k] = false; onSapChange() }}>Non</button>
+                    </span>
+                  {:else if type === 'enum'}
+                    <select bind:value={sapForm[sec[0]][k]} onchange={onSapChange}>
+                      <option value={null}>—</option>
+                      {#each opts as [v, l]}<option value={v}>{l}</option>{/each}
+                    </select>
+                  {:else if type === 'num'}
+                    <input type="number" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
+                  {:else if type === 'textarea'}
+                    <textarea rows="2" bind:value={sapForm[sec[0]][k]} oninput={onSapChange}></textarea>
+                  {:else}
+                    <input type="text" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <div class="sap-nav">
+              <button class="btn-ghost-sm" disabled={sectionIdx === 0} onclick={() => sectionIdx--}>← Précédent</button>
+              <span class="sap-progress">{sectionIdx + 1} / {SECTIONS.length}</span>
+              <button class="btn-ghost-sm" disabled={sectionIdx === SECTIONS.length - 1} onclick={() => sectionIdx++}>Suivant →</button>
+            </div>
           {:else}
             <p class="muted small">Aucune victime. Ajoute-en une pour saisir un bilan SAP.</p>
           {/if}
@@ -598,8 +658,13 @@
   .yn { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
   .yn button { background: var(--color-surface); border: none; color: var(--color-muted); font-size: 12px; padding: 4px 14px; cursor: pointer; }
   .yn button.on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight: 600; }
-  .sap-obs { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .4px; }
-  .sap-obs textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; text-transform: none; letter-spacing: 0; }
+  .sap-stepper { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sap-stepper button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 12px; min-width: 34px; padding: 5px 8px; cursor: pointer; }
+  .sap-stepper button.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
+  .sap-row.full { flex-direction: column; align-items: stretch; gap: 5px; }
+  .sap-row textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; width: 100%; }
+  .sap-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .sap-progress { font-size: 12px; color: var(--color-muted); }
   .vic-form { display: flex; flex-direction: column; gap: 10px; }
   .vic-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
   .vic-form input, .vic-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
