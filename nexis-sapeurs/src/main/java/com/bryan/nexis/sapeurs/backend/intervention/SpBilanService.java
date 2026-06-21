@@ -2,6 +2,7 @@ package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.bilan.BilanSapContenu;
+import com.bryan.nexis.sapeurs.backend.bilan.BilanSrContenu;
 import com.bryan.nexis.sapeurs.backend.dto.SpBilanDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVictimeDto;
 import com.bryan.nexis.sapeurs.datamodel.FamilleBilan;
@@ -103,6 +104,22 @@ public class SpBilanService {
         assertPeutSaisir(inter);
         var bilan = bilanRepo.findByVictimeId(victimeId)
                 .orElseGet(() -> new SpBilan(inter, FamilleBilan.SAP, victime));
+        bilan.setContenu(ecrire(contenu));
+        bilan.setAuteur(actor());
+        bilan.setMajLe(Instant.now());
+        var dto = toDto(bilanRepo.save(bilan));
+        notifierMaj(inter);
+        return dto;
+    }
+
+    /** Enregistre (crée ou écrase) le bilan SR (scène + véhicules) de l'intervention. */
+    @Transactional
+    public SpBilanDto enregistrerBilanSr(UUID interventionId, BilanSrContenu contenu) {
+        var inter = interventionRepo.findById(interventionId)
+                .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + interventionId));
+        assertPeutSaisir(inter);
+        var bilan = bilanRepo.findByInterventionAndFamille(interventionId, FamilleBilan.SR)
+                .orElseGet(() -> new SpBilan(inter, FamilleBilan.SR, null));
         bilan.setContenu(ecrire(contenu));
         bilan.setAuteur(actor());
         bilan.setMajLe(Instant.now());

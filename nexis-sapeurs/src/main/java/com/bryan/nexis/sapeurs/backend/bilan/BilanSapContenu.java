@@ -20,7 +20,9 @@ public record BilanSapContenu(
         @Nullable Exposition e,
         @Nullable Avp avp,
         @Nullable List<Lesion> lesions,
-        @Nullable Sample sample
+        @Nullable Sample sample,
+        /** Id du véhicule SR (BilanSrContenu.VehiculeSr.id) dans lequel se trouve la victime. */
+        @Nullable String vehiculeSrId
 ) {
     /** X — Hémorragie. */
     @Serdeable

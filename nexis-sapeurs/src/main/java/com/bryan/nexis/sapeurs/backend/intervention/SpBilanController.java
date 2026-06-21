@@ -1,6 +1,7 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.sapeurs.backend.bilan.BilanSapContenu;
+import com.bryan.nexis.sapeurs.backend.bilan.BilanSrContenu;
 import com.bryan.nexis.sapeurs.backend.dto.CreateVictimeRequest;
 import com.bryan.nexis.sapeurs.backend.dto.SpBilanDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVictimeDto;
@@ -54,5 +55,11 @@ public class SpBilanController {
     @Put("/victimes/{victimeId}/bilan-sap")
     SpBilanDto enregistrerBilanSap(UUID victimeId, @Body BilanSapContenu contenu) {
         return service.enregistrerBilanSap(victimeId, contenu);
+    }
+
+    /** Enregistre le bilan SR (scène + véhicules) de l'intervention. */
+    @Put("/interventions/{interventionId}/bilan-sr")
+    SpBilanDto enregistrerBilanSr(UUID interventionId, @Body BilanSrContenu contenu) {
+        return service.enregistrerBilanSr(interventionId, contenu);
     }
 }
