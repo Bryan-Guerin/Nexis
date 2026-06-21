@@ -5,7 +5,7 @@
   // vectoriel (geojson : forêts, routes, bâtiments-repères, noms). Réutilisable.
   let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null, onveh = null,
         drawPolygon = false, polygon = $bindable(null), onpolygon = null, center = null, centerZoom = 1,
-        windowRadius = 0, markers = null, onmarker = null, oncenterready = null } = $props()
+        windowRadius = 0, markers = null, onmarker = null, oncenterready = null, arrows = null } = $props()
 
   const TILE = 2560, NTILE = 4
   const IMG = TILE * NTILE   // 10240 = worldSize, 1 px = 1 m
@@ -92,6 +92,7 @@
   let el, map, satGroup, vectorGroup, detailGroup, layer, interLayer, baseGroup, clockTimer, vectorBuilt = false
   let drawGroup, polyLayer, vtxMarkers = []   // tracé polygone (zone brûlée) : sommets déplaçables
   let markerGroup, mkMarkers = []             // marqueurs engins déplaçables (carto FDF)
+  let arrowsGroup                              // flèches vent/propagation (carto FDF)
   // Vecteur par défaut (mémorisé ensuite via localStorage).
   let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('nexis.mapMode') === 'sat') ? 'sat' : 'vecteur')
   let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
@@ -101,20 +102,26 @@
     const L = window.L
     if (!L) return
     map = L.map(el, { crs: L.CRS.Simple, minZoom: -5, maxZoom: 3, attributionControl: false, zoomSnap: 0.25, preferCanvas: true })
-    // Fenêtre restreinte (perf) : on cadre + verrouille autour de l'intervention → seules les
-    // tuiles de cette section se chargent. Sinon, carte entière.
+    // Fenêtre restreinte (perf) : on cadre autour de l'intervention. windowRadius n'enferme PAS le
+    // user — il peut dézoomer pour voir le contexte (mode vecteur autour, sat seul dans la fenêtre).
     const win = windowLatLngBounds()
-    if (win) { map.fitBounds(win); map.setMaxBounds(L.latLngBounds(win).pad(0.25)) }
+    if (win) map.fitBounds(win)
     else map.fitBounds([[0, 0], [IMG, IMG]])
 
-    // Fond satellite (mosaïque sat/{x}/{y}.png) — dans tilePane (toujours sous les vecteurs).
-    // Toujours présent : pleine opacité en mode sat, atténué en fond du mode vecteur (eau + sol).
+    // Pane satellite prioritaire (au-dessus du vecteur) quand windowRadius : sat reste visible
+    // par-dessus le vecteur dans la fenêtre → minimap locale + contexte vecteur dézoomé.
+    const satPane = win ? 'satTop' : 'tilePane'
+    if (win) { map.createPane(satPane); map.getPane(satPane).style.zIndex = 410 }
+
+    // Fond satellite (mosaïque sat/{x}/{y}.png). Toujours présent : pleine opacité en mode sat,
+    // atténué en fond du mode vecteur (eau + sol). Si windowRadius : seules les tuiles intersectant
+    // la fenêtre sont chargées (perf).
     satGroup = L.layerGroup()
     for (let x = 0; x < NTILE; x++)
       for (let y = 0; y < NTILE; y++) {
         const tb = [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]]
         if (win && !bboxIntersect(tb, win)) continue   // hors fenêtre → tuile non chargée
-        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, tb, { pane: 'tilePane' }).addTo(satGroup)
+        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, tb, { pane: satPane }).addTo(satGroup)
       }
 
     vectorGroup = L.layerGroup()   // construit à la demande (1er passage en vecteur)
@@ -174,8 +181,10 @@
     mode = m
     try { localStorage.setItem('nexis.mapMode', m) } catch { /* indispo */ }
     if (m === 'vecteur' && !vectorBuilt) { buildVector(); vectorBuilt = true }   // lazy-load (C)
-    // Le sat reste toujours affiché (tilePane) ; on baisse juste son opacité en vecteur.
-    satGroup.eachLayer(l => l.setOpacity(m === 'vecteur' ? SAT_DIM : 1))
+    // Le sat reste toujours affiché ; on baisse juste son opacité en vecteur (sauf en minimap
+    // locale : windowRadius = sat plein dans la fenêtre, vecteur autour).
+    const dimInVec = windowRadius ? 1 : SAT_DIM
+    satGroup.eachLayer(l => l.setOpacity(m === 'vecteur' ? dimInVec : 1))
     if (m === 'vecteur') { vectorGroup.addTo(map); heavyGroup.addTo(map) }
     else { map.removeLayer(vectorGroup); map.removeLayer(heavyGroup); if (detailGroup) map.removeLayer(detailGroup) }
     updateHeavy()
@@ -357,6 +366,29 @@
   }
   $effect(() => { markers; if (map) renderMarkers() })
 
+  // ── Flèches (vent / propagation, etc.) ───────────────────────────────────────
+  // arrows = [{ lat0, lng0, lat1, lng1, color, label }]
+  function renderArrows() {
+    if (!map || !window.L) return
+    if (!arrowsGroup) arrowsGroup = window.L.layerGroup().addTo(map)
+    arrowsGroup.clearLayers()
+    for (const a of (arrows ?? [])) {
+      if (a.lat0 == null || a.lng0 == null || a.lat1 == null || a.lng1 == null) continue
+      window.L.polyline([[a.lat0, a.lng0], [a.lat1, a.lng1]], { color: a.color || '#fff', weight: 3, opacity: 0.9 }).addTo(arrowsGroup)
+      // CRS.Simple : lat = nord ; angle 0 = nord, sens horaire. Rotation SVG : 0 = haut (=nord).
+      const dy = a.lat1 - a.lat0, dx = a.lng1 - a.lng0
+      const angle = Math.atan2(dx, dy) * 180 / Math.PI
+      const head = window.L.divIcon({ className: 'arr-head', html: `<div class="arr-rot" style="--ang:${angle}deg;--c:${a.color || '#fff'}"><svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,0 2,16 9,12 16,16" /></svg></div>`, iconSize: [18, 18], iconAnchor: [9, 9] })
+      window.L.marker([a.lat1, a.lng1], { icon: head, interactive: false }).addTo(arrowsGroup)
+      if (a.label) {
+        const mid = [a.lat0 + (a.lat1 - a.lat0) / 2, a.lng0 + (a.lng1 - a.lng0) / 2]
+        const lab = window.L.divIcon({ className: 'arr-lab', html: `<span style="--c:${a.color || '#fff'}">${a.label}</span>`, iconSize: [80, 14], iconAnchor: [40, -6] })
+        window.L.marker(mid, { icon: lab, interactive: false }).addTo(arrowsGroup)
+      }
+    }
+  }
+  $effect(() => { arrows; if (map) renderArrows() })
+
   $effect(() => { transits; tick; render() })                 // engins animés (chaque seconde)
   // Pins d'intervention : re-rendus seulement si la liste change RÉELLEMENT (code/position/icône).
   // Un simple changement de statut véhicule recharge la liste des interventions à l'identique →
@@ -426,6 +458,11 @@
   :global(.engin-mk) { background: none; border: none; display: flex; align-items: center; gap: 3px; cursor: grab; white-space: nowrap; }
   :global(.engin-mk .em-veh) { font-size: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
   :global(.engin-mk .em-lib) { font-size: 10px; font-weight: 700; color: #fff; background: rgba(0,0,0,.6); border-radius: 4px; padding: 0 4px; }
+  :global(.arr-head) { background: none; border: none; }
+  :global(.arr-head .arr-rot) { width: 18px; height: 18px; transform: rotate(var(--ang)); filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+  :global(.arr-head .arr-rot svg polygon) { fill: var(--c); }
+  :global(.arr-lab) { background: none; border: none; }
+  :global(.arr-lab span) { font-size: 10px; font-weight: 700; color: var(--c); background: rgba(0,0,0,.65); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
   .map-legend { position: absolute; bottom: 8px; left: 8px; z-index: 500; font-size: 11px; }
   .lg-toggle { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 3px 8px; cursor: pointer; font-size: 11px; }
   .map-legend ul { list-style: none; margin: 4px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 94%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 3px; max-height: 60vh; overflow-y: auto; }

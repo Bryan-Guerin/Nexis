@@ -24,6 +24,9 @@ import jakarta.transaction.Transactional;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -129,7 +132,10 @@ public class SpBilanService {
         return dto;
     }
 
-    /** Enregistre (crée ou écrase) le bilan INC (feu de forêt) de l'intervention. */
+    /** Enregistre (crée ou écrase) le bilan INC (feu de forêt) de l'intervention.
+     *  Sur transition d'état du feu (EN_COURS/MAITRISE/ETEINT/SOUS_SURVEILLANCE), tamponne automatiquement
+     *  l'heure correspondante dans le contenu et publie une note de main courante.
+     */
     @Transactional
     public SpBilanDto enregistrerBilanInc(UUID interventionId, BilanIncContenu contenu) {
         var inter = interventionRepo.findById(interventionId)
@@ -137,12 +143,55 @@ public class SpBilanService {
         assertPeutSaisir(inter);
         var bilan = bilanRepo.findByInterventionAndFamille(interventionId, FamilleBilan.INC)
                 .orElseGet(() -> new SpBilan(inter, FamilleBilan.INC, null));
-        bilan.setContenu(ecrire(contenu));
+        var ancien = lireInc(bilan.getContenu());
+        var contenuFinal = appliquerTransitionEtat(inter, ancien, contenu);
+        bilan.setContenu(ecrire(contenuFinal));
         bilan.setAuteur(actor());
         bilan.setMajLe(Instant.now());
         var dto = toDto(bilanRepo.save(bilan));
         notifierMaj(inter);
         return dto;
+    }
+
+    private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("HH:mm");
+    private static final ZoneId TZ_PARIS = ZoneId.of("Europe/Paris");
+
+    private BilanIncContenu appliquerTransitionEtat(SpIntervention inter, BilanIncContenu ancien, BilanIncContenu nouveau) {
+        if (nouveau == null || nouveau.sinistre() == null || nouveau.sinistre().etat() == null) return nouveau;
+        var ancienEtat = ancien != null && ancien.sinistre() != null ? ancien.sinistre().etat() : null;
+        var nouveauEtat = nouveau.sinistre().etat();
+        if (nouveauEtat == ancienEtat) return nouveau;
+        var maintenant = LocalTime.now(TZ_PARIS).format(HHMM);
+        var s = nouveau.sinistre();
+        String hd = s.heureDebut(), hm = s.heureMaitrise(), he = s.heureExtinction(), note = null;
+        switch (nouveauEtat) {
+            case EN_COURS:
+                if (hd == null || hd.isBlank()) hd = maintenant;
+                note = "Feu en cours (" + maintenant + ")"; break;
+            case MAITRISE:
+                if (hm == null || hm.isBlank()) hm = maintenant;
+                note = "Feu maîtrisé (" + maintenant + ")"; break;
+            case ETEINT:
+                if (he == null || he.isBlank()) he = maintenant;
+                note = "Feu éteint (" + maintenant + ")"; break;
+            case SOUS_SURVEILLANCE:
+                note = "Feu sous surveillance (" + maintenant + ")"; break;
+        }
+        if (note != null) {
+            events.publishEvent(RealtimeEvent.faction(RealtimeEvent.MAIN_COURANTE, "SP", note,
+                    Map.of("interventionId", inter.getId().toString()), actor()).withReference(inter.getCode()));
+        }
+        var s2 = new BilanIncContenu.Sinistre(s.surfaceBrulee(), s.surfaceBruleeSource(), s.surfaceMenacee(),
+                s.couvert(), s.etat(), hd, hm, he);
+        return new BilanIncContenu(nouveau.typeFeu(), s2, nouveau.propagation(), nouveau.enjeux(),
+                nouveau.hydraulique(), nouveau.aeriens(), nouveau.technique(),
+                nouveau.polygone(), nouveau.enginsPositions());
+    }
+
+    private BilanIncContenu lireInc(String contenu) {
+        if (contenu == null || contenu.isBlank()) return null;
+        try { return json.readValue(contenu, Argument.of(BilanIncContenu.class)); }
+        catch (IOException e) { return null; }
     }
 
     private void appliquerIdentite(SpVictime v, String libelle, String nom, String prenom, String sexe) {

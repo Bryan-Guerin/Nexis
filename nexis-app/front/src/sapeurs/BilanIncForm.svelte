@@ -1,16 +1,17 @@
 <script>
   import MapView from '../shared/MapView.svelte'
 
-  // Bilan INC — feu de forêt. Reçoit le contenu + les engins de l'intervention (pour les lances)
-  // + la coordonnée (centrage carte). Émet le contenu (autosave) via onsave.
+  // Bilan INC — feu de forêt (catégorie MAISON à venir). Reçoit le contenu + engins de l'intervention
+  // (pour les lances + position carto) + la coordonnée (centrage carte). Émet le contenu (autosave) via onsave.
   let { contenu = null, engins = [], coord = null, onsave } = $props()
 
   function emptyInc() {
-    return { sinistre: { couvert: [] }, propagation: {}, enjeux: {}, hydraulique: { lances: [], pointsEau: [] }, aeriens: {}, technique: null, polygone: [], enginsPositions: [] }
+    return { typeFeu: 'FORET', sinistre: { couvert: [] }, propagation: {}, enjeux: {}, hydraulique: { lances: [], pointsEau: [] }, aeriens: {}, technique: null, polygone: [], enginsPositions: [] }
   }
   function intoInc(c) {
     if (!c) return emptyInc()
     return {
+      typeFeu:     c.typeFeu ?? 'FORET',
       sinistre:    { couvert: [], ...(c.sinistre ?? {}) },
       propagation: { ...(c.propagation ?? {}) },
       enjeux:      { ...(c.enjeux ?? {}) },
@@ -39,8 +40,10 @@
   const TOPOS      = [['PLAT', 'À plat'], ['MONTANT', 'Montant'], ['DESCENDANT', 'Descendant']]
   const TYPES_LANCE = [['LDV', 'LDV'], ['LDT', 'LDT'], ['AUTRE', 'Autre']]
   const TYPES_PE   = [['PEI', 'PEI'], ['CITERNE', 'Citerne'], ['NATUREL', 'Point naturel']]
-  const UNITES     = [['L', 'L'], ['M3', 'm³']]
   const TECHNIQUES = [['DIRECTE', 'Attaque directe'], ['INDIRECTE', 'Attaque indirecte'], ['FEU_TACTIQUE', 'Feu tactique'], ['NOYAGE', 'Noyage']]
+  // Direction → vecteur (dlat=nord, dlng=est). Convention monde : lat = mètres depuis le sud.
+  const DIR_VEC = { N: [1, 0], NE: [0.707, 0.707], E: [0, 1], SE: [-0.707, 0.707], S: [-1, 0], SO: [-0.707, -0.707], O: [0, -1], NO: [0.707, -0.707] }
+  const ARROW_LEN = 300   // m
 
   // Aire du polygone (sommets [lat,lng] = mètres monde) par la formule du lacet → m².
   function aireM2(poly) {
@@ -84,11 +87,28 @@
   function retirerEnginPos(id) { form.enginsPositions = (form.enginsPositions ?? []).filter(p => p.vehiculeId !== id); change() }
   function onMarker(updated) { form.enginsPositions = updated.map(m => ({ vehiculeId: m.id, lat: m.lat, lng: m.lng })); change() }
 
+  // Flèches vent / propagation centrées sur le centroïde de la zone (ou centre fenêtre).
+  let arrows = $derived.by(() => {
+    const arr = []
+    const [la, ln] = centroideOuCentre()
+    const vDir = form.propagation?.ventDirection, pDir = form.propagation?.direction
+    if (vDir && DIR_VEC[vDir]) {
+      const [dy, dx] = DIR_VEC[vDir]
+      arr.push({ lat0: la, lng0: ln, lat1: la + dy * ARROW_LEN, lng1: ln + dx * ARROW_LEN, color: '#5ab8ff', label: '🪁 Vent' })
+    }
+    if (pDir && DIR_VEC[pDir]) {
+      const [dy, dx] = DIR_VEC[pDir]
+      arr.push({ lat0: la, lng0: ln, lat1: la + dy * ARROW_LEN, lng1: ln + dx * ARROW_LEN, color: '#ff6b35', label: '🔥 Propagation' })
+    }
+    return arr
+  })
+
   function toggleCouvert(v) {
     const s = new Set(form.sinistre.couvert ?? [])
     s.has(v) ? s.delete(v) : s.add(v)
     form.sinistre.couvert = [...s]; change()
   }
+  function setTypeFeu(t) { form.typeFeu = t; change() }
   function addLance() { form.hydraulique.lances = [...form.hydraulique.lances, { type: 'LDV', enginVehiculeId: null, debit: null }]; change() }
   function delLance(i) { form.hydraulique.lances = form.hydraulique.lances.filter((_, k) => k !== i); change() }
   function addPE() { form.hydraulique.pointsEau = [...form.hydraulique.pointsEau, { type: 'PEI', ref: '' }]; change() }
@@ -98,10 +118,20 @@
 <div class="inc">
   {#if saved}<span class="saved">✓ Enregistré</span>{/if}
 
+  <div class="inc-typefeu">
+    <button class:on={form.typeFeu === 'FORET'} onclick={() => setTypeFeu('FORET')}>🌲 Feu de forêt</button>
+    <button class:on={form.typeFeu === 'MAISON'} onclick={() => setTypeFeu('MAISON')}>🏠 Feu de maison</button>
+  </div>
+
+  {#if form.typeFeu === 'MAISON'}
+    <div class="inc-vide">
+      <p>🚧 <b>Feu de maison</b> — formulaire à venir.</p>
+    </div>
+  {:else}
   <div class="inc-sec">
     <h4>Cartographie — zone brûlée</h4>
     <MapView height="320px" center={coord} windowRadius={1500} drawPolygon bind:polygon={form.polygone} onpolygon={onPoly}
-             markers={incMarkers} onmarker={onMarker} oncenterready={ll => centerLL = ll}
+             markers={incMarkers} onmarker={onMarker} oncenterready={ll => centerLL = ll} {arrows}
              interventions={coord && coord.length === 6 ? [{ coordonnees: coord, motif: 'Feu de forêt', nature: { code: '🔥' } }] : []} />
     <div class="inc-carto-bar">
       <span>Aire tracée : <b>{Math.round(aire).toLocaleString('fr-FR')} m²</b> ({ha(aire)} ha)</span>
@@ -120,7 +150,7 @@
         {/each}
       </div>
     {/if}
-    <p class="muted small">Clique sur la carte pour tracer la zone (sommets déplaçables). Place les engins ci-dessus puis glisse-les. L'aire pré-remplit la surface brûlée.</p>
+    <p class="muted small">Clique sur la carte pour tracer la zone (sommets déplaçables). Place les engins ci-dessus puis glisse-les. Les flèches vent / propagation apparaissent quand les directions sont saisies. L'aire pré-remplit la surface brûlée.</p>
   </div>
 
   <div class="inc-sec">
@@ -129,10 +159,11 @@
       <label>Surface brûlée (m²)<input type="number" min="0" bind:value={form.sinistre.surfaceBrulee} oninput={onSurfaceManuelle} /></label>
       <label>Surface menacée (m²)<input type="number" min="0" bind:value={form.sinistre.surfaceMenacee} oninput={change} /></label>
       <label>État<select bind:value={form.sinistre.etat} onchange={change}><option value={null}>—</option>{#each ETATS as [v, l]}<option value={v}>{l}</option>{/each}</select></label>
-      <label>Début<input type="text" bind:value={form.sinistre.heureDebut} oninput={change} placeholder="hh:mm" /></label>
-      <label>Maîtrise<input type="text" bind:value={form.sinistre.heureMaitrise} oninput={change} placeholder="hh:mm" /></label>
-      <label>Extinction<input type="text" bind:value={form.sinistre.heureExtinction} oninput={change} placeholder="hh:mm" /></label>
     </div>
+    <p class="muted small inc-heures">
+      ⏱ Heures tamponnées automatiquement au changement d'état (et notées en main courante) ·
+      Début : <b>{form.sinistre.heureDebut ?? '—'}</b> · Maîtrise : <b>{form.sinistre.heureMaitrise ?? '—'}</b> · Extinction : <b>{form.sinistre.heureExtinction ?? '—'}</b>
+    </p>
     <div class="inc-multi">
       <span class="inc-lib">Couvert</span>
       {#each COUVERTS as [v, l]}<button class:on={(form.sinistre.couvert ?? []).includes(v)} onclick={() => toggleCouvert(v)}>{l}</button>{/each}
@@ -143,7 +174,7 @@
   <div class="inc-sec">
     <h4>Propagation</h4>
     <div class="inc-grid">
-      <label>Direction<select bind:value={form.propagation.direction} onchange={change}><option value={null}>—</option>{#each DIRS as [v, l]}<option value={v}>{l}</option>{/each}</select></label>
+      <label>Direction (propagation)<select bind:value={form.propagation.direction} onchange={change}><option value={null}>—</option>{#each DIRS as [v, l]}<option value={v}>{l}</option>{/each}</select></label>
       <label>Vitesse du front (m/min)<input type="number" bind:value={form.propagation.vitesse} oninput={change} /></label>
       <label>Longueur du front (m)<input type="number" bind:value={form.propagation.longueurFront} oninput={change} /></label>
       <label>Vent — direction<select bind:value={form.propagation.ventDirection} onchange={change}><option value={null}>—</option>{#each DIRS as [v, l]}<option value={v}>{l}</option>{/each}</select></label>
@@ -181,8 +212,7 @@
       {/each}
     </div>
     <div class="inc-grid">
-      <label>Eau consommée<input type="number" bind:value={form.hydraulique.eauConsommee} oninput={change} /></label>
-      <label>Unité<select bind:value={form.hydraulique.eauUnite} onchange={change}><option value={null}>—</option>{#each UNITES as [v, l]}<option value={v}>{l}</option>{/each}</select></label>
+      <label>Eau consommée (L)<input type="number" min="0" bind:value={form.hydraulique.eauConsommee} oninput={change} /></label>
     </div>
     <div class="inc-list">
       <div class="inc-list-head"><span>Points d'eau</span><button class="btn-ghost-sm" onclick={addPE}>+ Point d'eau</button></div>
@@ -208,16 +238,24 @@
     <h4>Technique</h4>
     <select bind:value={form.technique} onchange={change}><option value={null}>—</option>{#each TECHNIQUES as [v, l]}<option value={v}>{l}</option>{/each}</select>
   </div>
+  {/if}
 </div>
 
 <style>
   .inc { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
-  .saved { font-size: 11px; color: var(--color-success); font-weight: 600; align-self: flex-start; }
+  /* Toast fixé : ne décale plus le contenu (donc plus la carte pendant le tracé). */
+  .saved { position: fixed; bottom: 16px; right: 16px; z-index: 9999; background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface)); border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent); color: var(--color-success); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: var(--radius); box-shadow: 0 2px 8px rgba(0,0,0,.3); pointer-events: none; }
+  .inc-typefeu { display: flex; gap: 6px; }
+  .inc-typefeu button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 14px; cursor: pointer; }
+  .inc-typefeu button.on { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); font-weight: 600; }
+  .inc-vide { padding: 24px; border: 1px dashed var(--color-border); border-radius: var(--radius); color: var(--color-muted); text-align: center; }
   .inc-sec { display: flex; flex-direction: column; gap: 10px; }
   .inc-sec h4 { margin: 0; font-size: 14px; font-weight: 600; }
   .inc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 14px; }
   .inc-grid label, .inc-full { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
   .inc-grid input, .inc-grid select, .inc-full input { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
+  .inc-heures { font-size: 11px; color: var(--color-muted); }
+  .inc-heures b { color: var(--color-text); font-weight: 600; }
   .inc-multi { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .inc-lib { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--color-muted); }
   .inc-multi button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 10px; cursor: pointer; }

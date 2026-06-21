@@ -431,7 +431,7 @@
     if (p.ventDirection || p.ventForce) L.push(['Vent', [p.ventDirection, p.ventForce].filter(Boolean).join(' ')])
     if (c.technique) L.push(['Technique', TECH[c.technique] ?? c.technique])
     if ((h.lances ?? []).length) L.push(['Lances établies', String(h.lances.length)])
-    if (h.eauConsommee) L.push(['Eau consommée', h.eauConsommee + ' ' + (h.eauUnite === 'M3' ? 'm³' : 'L')])
+    if (h.eauConsommee) L.push(['Eau consommée', h.eauConsommee + ' L'])
     if (c.aeriens?.engages) L.push(['Moyens aériens', (c.aeriens.nbLargages ?? 0) + ' largage(s)'])
     return L
   }

@@ -13,6 +13,7 @@ import java.util.List;
  */
 @Serdeable
 public record BilanIncContenu(
+        @Nullable TypeFeu typeFeu,           // feu de forêt / feu de maison (maison = à définir)
         @Nullable Sinistre sinistre,
         @Nullable Propagation propagation,
         @Nullable Enjeux enjeux,
@@ -45,12 +46,14 @@ public record BilanIncContenu(
     @Serdeable
     public record PointEau(TypePointEau type, String ref) {}
 
+    /** Eau exprimée en litres (unité unique). */
     @Serdeable
-    public record MoyensHydrauliques(List<Lance> lances, Double eauConsommee, UniteEau eauUnite, List<PointEau> pointsEau) {}
+    public record MoyensHydrauliques(List<Lance> lances, Double eauConsommee, List<PointEau> pointsEau) {}
 
     @Serdeable
     public record MoyensAeriens(Boolean engages, Integer nbLargages) {}
 
+    public enum TypeFeu       { FORET, MAISON }
     public enum SurfaceSource { TRACE, MANUEL }
     public enum Couvert       { HERBE, BROUSSAILLES, RESINEUX, FEUILLUS, CULTURES }
     public enum EtatFeu       { EN_COURS, MAITRISE, ETEINT, SOUS_SURVEILLANCE }
@@ -58,6 +61,5 @@ public record BilanIncContenu(
     public enum Topographie   { PLAT, MONTANT, DESCENDANT }
     public enum TypeLance     { LDV, LDT, AUTRE }
     public enum TypePointEau  { PEI, CITERNE, NATUREL }
-    public enum UniteEau      { L, M3 }
     public enum Technique     { DIRECTE, INDIRECTE, FEU_TACTIQUE, NOYAGE }
 }
