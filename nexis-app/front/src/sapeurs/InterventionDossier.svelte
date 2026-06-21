@@ -85,11 +85,11 @@
       ['position', 'Position dans le véhicule', 'enum', [['CONDUCTEUR', 'Conducteur'], ['PASSAGER_AVANT', 'Passager avant'], ['PASSAGER_ARRIERE', 'Passager arrière']]],
       ['localisationChoc', 'Localisation du choc', 'enum', [['FRONTAL', 'Frontal'], ['LATERAL_GAUCHE', 'Latéral gauche'], ['LATERAL_DROIT', 'Latéral droit'], ['ARRIERE', 'Arrière'], ['AUTRE', 'Autre']]],
       ['casquee', 'Casquée', 'bool'], ['ceinturee', 'Ceinturée', 'bool'], ['tonneaux', 'Tonneaux', 'bool']]],
-    ['schema', 'Schéma corporel', []],
     ['sample', 'SAMPLE', [
       ['symptomes', 'S — Symptômes', 'textarea'], ['allergies', 'A — Allergies', 'textarea'],
       ['medicaments', 'M — Médicaments', 'textarea'], ['dernierRepas', 'L — Dernier repas (heure)', 'text'],
       ['evenements', 'Événements avant l\'urgence', 'textarea'], ['observations', 'Observations particulières', 'textarea']]],
+    ['schema', 'Schéma corporel', []],
   ]
   function emptySap() { return { x: {}, a: {}, b: {}, c: {}, d: {}, e: {}, avp: {}, sample: {}, lesions: [] } }
   function intoSap(contenu) {
@@ -121,6 +121,13 @@
     sapForm.lesions = (sapForm.lesions ?? []).filter((_, idx) => idx !== i)
     onSapChange()
   }
+
+  // Grand écran : schéma figé à gauche + questions à droite (schéma hors stepper). Petit écran :
+  // schéma redevient une section du stepper. (schema est en dernier → simple slice.)
+  let wide = $state(false)
+  const navSections = $derived(wide ? SECTIONS.filter(s => s[0] !== 'schema') : SECTIONS)
+  $effect(() => { if (sectionIdx >= navSections.length) sectionIdx = navSections.length - 1 })
+  const currentSec = $derived(navSections[sectionIdx] ?? navSections[0])
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
   let isDispatcher = $derived($can.dispatch)
@@ -218,6 +225,10 @@
 
   onMount(() => {
     load()
+    const mq = window.matchMedia('(min-width: 900px)')
+    wide = mq.matches
+    const onMq = e => wide = e.matches
+    mq.addEventListener('change', onMq)
     const unsub = realtime.on(ev => {
       if (ev.faction === 'SP' && (ev.type?.startsWith('INTERVENTION_') || ev.type === 'ETAT_VEHICULE'
           || ev.type === 'AFFECTATION' || ev.type === 'DESAFFECTATION' || ev.type === 'MAIN_COURANTE')) {
@@ -230,7 +241,7 @@
         loadBilansVictimes(true)
       }
     })
-    return () => { unsub(); clearTimeout(reloadTimer) }
+    return () => { unsub(); clearTimeout(reloadTimer); mq.removeEventListener('change', onMq) }
   })
 
   function startEdit() {
@@ -518,25 +529,14 @@
 
           {#if victimeSel}
             {@const vsel = victimes.find(v => v.id === victimeSel)}
-            <div class="sap-head">
-              <span class="sap-titre">Bilan SAP — {victimeNom(vsel)}</span>
-              {#if inter.enCours}<button class="btn-ghost-sm" onclick={() => openEditVictime(vsel)}>Éditer la victime</button>{/if}
-              {#if sapSaved}<span class="saved">✓ Enregistré</span>{/if}
-            </div>
-            <div class="sap-stepper">
-              {#each SECTIONS as [sk], idx}
-                <button class:on={sectionIdx === idx} onclick={() => sectionIdx = idx}>{sk === 'sample' ? 'SAMPLE' : sk === 'avp' ? 'AVP' : sk.toUpperCase()}</button>
-              {/each}
-            </div>
-            {@const sec = SECTIONS[sectionIdx]}
-            {#if sec[0] === 'schema'}
+            {#snippet schemaView()}
               <div class="schema">
                 <div class="lesion-palette">
                   {#each LESION_TYPES as [v, l]}
                     <button class:on={lesionType === v} style="--lc:{COULEUR_LESION[v]}" onclick={() => lesionType = v}>{l}</button>
                   {/each}
                 </div>
-                <p class="muted small">Clic sur la silhouette = poser une lésion. Clic sur un point = le retirer. (Silhouette générique pour l'instant — variante H/F à venir.)</p>
+                <p class="muted small">Clic sur la silhouette = poser une lésion. Clic sur un point = le retirer.</p>
                 <svg bind:this={svgEl} class="silhouette" viewBox="0 0 120 260" onclick={ajouterLesion} role="img" aria-label="Schéma corporel">
                   <g class="body">
                     <circle cx="60" cy="26" r="18" />
@@ -555,36 +555,54 @@
                 </svg>
                 <span class="muted small">{(sapForm.lesions ?? []).length} lésion(s) marquée(s).</span>
               </div>
+            {/snippet}
+            <div class="sap-head">
+              <span class="sap-titre">Bilan SAP — {victimeNom(vsel)}</span>
+              {#if inter.enCours}<button class="btn-ghost-sm" onclick={() => openEditVictime(vsel)}>Éditer la victime</button>{/if}
+              {#if sapSaved}<span class="saved">✓ Enregistré</span>{/if}
+            </div>
+            <div class="sap-2col" class:wide>
+              {#if wide}<div class="sap-left">{@render schemaView()}</div>{/if}
+              <div class="sap-right">
+                <div class="sap-stepper">
+                  {#each navSections as [sk], idx}
+                    <button class:on={sectionIdx === idx} onclick={() => sectionIdx = idx}>{sk === 'sample' ? 'SAMPLE' : sk === 'avp' ? 'AVP' : sk === 'schema' ? 'Schéma' : sk.toUpperCase()}</button>
+                  {/each}
+                </div>
+                {#if currentSec[0] === 'schema'}
+              {@render schemaView()}
             {:else}
               <div class="sap-form">
-                {#each sec[2] as [k, label, type, opts]}
+                {#each currentSec[2] as [k, label, type, opts]}
                   <div class="sap-row" class:full={type === 'textarea'}>
                     <span class="sap-lib">{label}</span>
                     {#if type === 'bool'}
                       <span class="yn">
-                        <button class:on={sapForm[sec[0]][k] === true} onclick={() => { sapForm[sec[0]][k] = true; onSapChange() }}>Oui</button>
-                        <button class:on={sapForm[sec[0]][k] === false} onclick={() => { sapForm[sec[0]][k] = false; onSapChange() }}>Non</button>
+                        <button class:on={sapForm[currentSec[0]][k] === true} onclick={() => { sapForm[currentSec[0]][k] = true; onSapChange() }}>Oui</button>
+                        <button class:on={sapForm[currentSec[0]][k] === false} onclick={() => { sapForm[currentSec[0]][k] = false; onSapChange() }}>Non</button>
                       </span>
                     {:else if type === 'enum'}
-                      <select bind:value={sapForm[sec[0]][k]} onchange={onSapChange}>
+                      <select bind:value={sapForm[currentSec[0]][k]} onchange={onSapChange}>
                         <option value={null}>—</option>
                         {#each opts as [v, l]}<option value={v}>{l}</option>{/each}
                       </select>
                     {:else if type === 'num'}
-                      <input type="number" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
+                      <input type="number" bind:value={sapForm[currentSec[0]][k]} oninput={onSapChange} />
                     {:else if type === 'textarea'}
-                      <textarea rows="2" bind:value={sapForm[sec[0]][k]} oninput={onSapChange}></textarea>
+                      <textarea rows="2" bind:value={sapForm[currentSec[0]][k]} oninput={onSapChange}></textarea>
                     {:else}
-                      <input type="text" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
+                      <input type="text" bind:value={sapForm[currentSec[0]][k]} oninput={onSapChange} />
                     {/if}
                   </div>
                 {/each}
               </div>
             {/if}
-            <div class="sap-nav">
-              <button class="btn-ghost-sm" disabled={sectionIdx === 0} onclick={() => sectionIdx--}>← Précédent</button>
-              <span class="sap-progress">{sectionIdx + 1} / {SECTIONS.length}</span>
-              <button class="btn-ghost-sm" disabled={sectionIdx === SECTIONS.length - 1} onclick={() => sectionIdx++}>Suivant →</button>
+                <div class="sap-nav">
+                  <button class="btn-ghost-sm" disabled={sectionIdx === 0} onclick={() => sectionIdx--}>← Précédent</button>
+                  <span class="sap-progress">{sectionIdx + 1} / {navSections.length}</span>
+                  <button class="btn-ghost-sm" disabled={sectionIdx === navSections.length - 1} onclick={() => sectionIdx++}>Suivant →</button>
+                </div>
+              </div>
             </div>
           {:else}
             <p class="muted small">Aucune victime. Ajoute-en une pour saisir un bilan SAP.</p>
@@ -693,7 +711,11 @@
   .renfort-row select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 8px; }
 
   /* Bilans */
-  .bilans { display: flex; flex-direction: column; gap: 12px; max-width: 700px; }
+  .bilans { display: flex; flex-direction: column; gap: 12px; max-width: 960px; }
+  .sap-2col { display: grid; gap: 18px; }
+  .sap-2col.wide { grid-template-columns: max-content minmax(0, 1fr); align-items: start; }
+  .sap-left { position: sticky; top: 8px; }
+  .sap-right { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .famille-chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .famille-chips button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; }
   .famille-chips button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
