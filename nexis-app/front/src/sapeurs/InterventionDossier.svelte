@@ -85,6 +85,7 @@
       ['position', 'Position dans le véhicule', 'enum', [['CONDUCTEUR', 'Conducteur'], ['PASSAGER_AVANT', 'Passager avant'], ['PASSAGER_ARRIERE', 'Passager arrière']]],
       ['localisationChoc', 'Localisation du choc', 'enum', [['FRONTAL', 'Frontal'], ['LATERAL_GAUCHE', 'Latéral gauche'], ['LATERAL_DROIT', 'Latéral droit'], ['ARRIERE', 'Arrière'], ['AUTRE', 'Autre']]],
       ['casquee', 'Casquée', 'bool'], ['ceinturee', 'Ceinturée', 'bool'], ['tonneaux', 'Tonneaux', 'bool']]],
+    ['schema', 'Schéma corporel', []],
     ['sample', 'SAMPLE', [
       ['symptomes', 'S — Symptômes', 'textarea'], ['allergies', 'A — Allergies', 'textarea'],
       ['medicaments', 'M — Médicaments', 'textarea'], ['dernierRepas', 'L — Dernier repas (heure)', 'text'],
@@ -95,6 +96,30 @@
     const s = emptySap()
     if (contenu) for (const k of Object.keys(s)) if (contenu[k] != null) s[k] = k === 'lesions' ? contenu[k] : { ...contenu[k] }
     return s
+  }
+
+  // Schéma corporel : on marque des points de lésion (x,y normalisés 0..1) sur une silhouette.
+  const LESION_TYPES = [
+    ['DEFORMATION', 'Déformation'], ['CONTUSION', 'Contusion'], ['ABRASION', 'Abrasion'],
+    ['HEMORRAGIE', 'Hémorragie'], ['PLAIE', 'Plaie'], ['BRULURE', 'Brûlure'],
+    ['TUMEFACTION', 'Tuméfaction'], ['LACERATION', 'Lacération'], ['DOULEUR', 'Sensibilité / douleur'],
+  ]
+  const COULEUR_LESION = {
+    DEFORMATION: '#a259e2', CONTUSION: '#378add', ABRASION: '#1d9e75', HEMORRAGIE: '#e24b4a',
+    PLAIE: '#d8492f', BRULURE: '#ef9f27', TUMEFACTION: '#d4537e', LACERATION: '#b07a17', DOULEUR: '#888888',
+  }
+  let lesionType = $state('PLAIE')
+  let svgEl
+  function ajouterLesion(e) {
+    const r = svgEl.getBoundingClientRect()
+    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
+    const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
+    sapForm.lesions = [...(sapForm.lesions ?? []), { x, y, type: lesionType }]
+    onSapChange()
+  }
+  function retirerLesion(i) {
+    sapForm.lesions = (sapForm.lesions ?? []).filter((_, idx) => idx !== i)
+    onSapChange()
   }
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
@@ -504,30 +529,58 @@
               {/each}
             </div>
             {@const sec = SECTIONS[sectionIdx]}
-            <div class="sap-form">
-              {#each sec[2] as [k, label, type, opts]}
-                <div class="sap-row" class:full={type === 'textarea'}>
-                  <span class="sap-lib">{label}</span>
-                  {#if type === 'bool'}
-                    <span class="yn">
-                      <button class:on={sapForm[sec[0]][k] === true} onclick={() => { sapForm[sec[0]][k] = true; onSapChange() }}>Oui</button>
-                      <button class:on={sapForm[sec[0]][k] === false} onclick={() => { sapForm[sec[0]][k] = false; onSapChange() }}>Non</button>
-                    </span>
-                  {:else if type === 'enum'}
-                    <select bind:value={sapForm[sec[0]][k]} onchange={onSapChange}>
-                      <option value={null}>—</option>
-                      {#each opts as [v, l]}<option value={v}>{l}</option>{/each}
-                    </select>
-                  {:else if type === 'num'}
-                    <input type="number" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
-                  {:else if type === 'textarea'}
-                    <textarea rows="2" bind:value={sapForm[sec[0]][k]} oninput={onSapChange}></textarea>
-                  {:else}
-                    <input type="text" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
-                  {/if}
+            {#if sec[0] === 'schema'}
+              <div class="schema">
+                <div class="lesion-palette">
+                  {#each LESION_TYPES as [v, l]}
+                    <button class:on={lesionType === v} style="--lc:{COULEUR_LESION[v]}" onclick={() => lesionType = v}>{l}</button>
+                  {/each}
                 </div>
-              {/each}
-            </div>
+                <p class="muted small">Clic sur la silhouette = poser une lésion. Clic sur un point = le retirer. (Silhouette générique pour l'instant — variante H/F à venir.)</p>
+                <svg bind:this={svgEl} class="silhouette" viewBox="0 0 120 260" onclick={ajouterLesion} role="img" aria-label="Schéma corporel">
+                  <g class="body">
+                    <circle cx="60" cy="26" r="18" />
+                    <rect x="53" y="42" width="14" height="9" rx="3" />
+                    <path d="M38 51 h44 a10 10 0 0 1 10 10 v48 a8 8 0 0 1 -8 8 h-48 a8 8 0 0 1 -8 -8 v-48 a10 10 0 0 1 10 -10 z" />
+                    <rect x="20" y="55" width="12" height="62" rx="6" />
+                    <rect x="88" y="55" width="12" height="62" rx="6" />
+                    <rect x="45" y="116" width="13" height="84" rx="6" />
+                    <rect x="62" y="116" width="13" height="84" rx="6" />
+                  </g>
+                  {#each (sapForm.lesions ?? []) as les, i}
+                    <circle class="lesion-pt" cx={les.x * 120} cy={les.y * 260} r="5"
+                            fill={COULEUR_LESION[les.type] ?? '#e24b4a'}
+                            onclick={(e) => { e.stopPropagation(); retirerLesion(i) }} />
+                  {/each}
+                </svg>
+                <span class="muted small">{(sapForm.lesions ?? []).length} lésion(s) marquée(s).</span>
+              </div>
+            {:else}
+              <div class="sap-form">
+                {#each sec[2] as [k, label, type, opts]}
+                  <div class="sap-row" class:full={type === 'textarea'}>
+                    <span class="sap-lib">{label}</span>
+                    {#if type === 'bool'}
+                      <span class="yn">
+                        <button class:on={sapForm[sec[0]][k] === true} onclick={() => { sapForm[sec[0]][k] = true; onSapChange() }}>Oui</button>
+                        <button class:on={sapForm[sec[0]][k] === false} onclick={() => { sapForm[sec[0]][k] = false; onSapChange() }}>Non</button>
+                      </span>
+                    {:else if type === 'enum'}
+                      <select bind:value={sapForm[sec[0]][k]} onchange={onSapChange}>
+                        <option value={null}>—</option>
+                        {#each opts as [v, l]}<option value={v}>{l}</option>{/each}
+                      </select>
+                    {:else if type === 'num'}
+                      <input type="number" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
+                    {:else if type === 'textarea'}
+                      <textarea rows="2" bind:value={sapForm[sec[0]][k]} oninput={onSapChange}></textarea>
+                    {:else}
+                      <input type="text" bind:value={sapForm[sec[0]][k]} oninput={onSapChange} />
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
             <div class="sap-nav">
               <button class="btn-ghost-sm" disabled={sectionIdx === 0} onclick={() => sectionIdx--}>← Précédent</button>
               <span class="sap-progress">{sectionIdx + 1} / {SECTIONS.length}</span>
@@ -665,6 +718,14 @@
   .sap-row textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; width: 100%; }
   .sap-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .sap-progress { font-size: 12px; color: var(--color-muted); }
+
+  .schema { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .lesion-palette { display: flex; gap: 6px; flex-wrap: wrap; }
+  .lesion-palette button { background: var(--color-surface); border: 1px solid var(--color-border); border-left: 4px solid var(--lc); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 10px; cursor: pointer; }
+  .lesion-palette button.on { background: color-mix(in srgb, var(--lc) 18%, transparent); font-weight: 600; }
+  .silhouette { width: 170px; height: 368px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); cursor: crosshair; }
+  .silhouette .body { fill: var(--color-surface); stroke: var(--color-border); stroke-width: 1.5; }
+  .lesion-pt { cursor: pointer; stroke: #fff; stroke-width: 1; }
   .vic-form { display: flex; flex-direction: column; gap: 10px; }
   .vic-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
   .vic-form input, .vic-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
