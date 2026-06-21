@@ -9,6 +9,7 @@
   import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
   import {exportInterventionPdf} from './interventionsPdf.js'
   import Modal from '../shared/Modal.svelte'
+  import BilanIncForm from './BilanIncForm.svelte'
 
   // Dossier d'intervention plein-cadre (route /sp/interventions/:id). Onglet Synthèse = l'ancien
   // panneau détail ; onglet Bilans à venir (Front B). Charge l'intervention par son id.
@@ -262,6 +263,11 @@
       .filter(Boolean)
   }
   function bilanSrDe() { return bilans.find(b => b.famille === 'SR') }
+  function bilanIncDe() { return bilans.find(b => b.famille === 'INC') }
+  async function saveInc(contenu) {
+    try { const b = await api.put(`/sp/interventions/${params.id}/bilan-inc`, contenu); bilans = [...bilans.filter(x => x.id !== b.id), b] }
+    catch { /* toast par api.js */ }
+  }
   function intoSr(c) { return { routeType: c?.routeType ?? 'AUTOROUTE_3V', vehicules: (c?.vehicules ?? []).map(v => ({ ...v })) } }
   function vehSel() { return srForm.vehicules.find(v => v.id === srVehSel) }
   function onSrChange() { srSaved = false; clearTimeout(srTimer); srTimer = setTimeout(saveSr, 600) }
@@ -828,7 +834,7 @@
             </div>
           </div>
         {:else}
-          <p class="muted small">Bilan {famille} — incendie : à venir (façade 2D).</p>
+          <BilanIncForm contenu={bilanIncDe()?.contenu} engins={inter.engins} coord={inter.coordonnees} onsave={saveInc} />
         {/if}
       </div>
     {/if}

@@ -3,7 +3,8 @@
 
   // Carte (Leaflet, CRS.Simple sur le terrain UnRealLife). Fond satellite (mosaïque) ou
   // vectoriel (geojson : forêts, routes, bâtiments-repères, noms). Réutilisable.
-  let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null, onveh = null } = $props()
+  let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null, onveh = null,
+        drawPolygon = false, polygon = $bindable(null), onpolygon = null, center = null, centerZoom = 1 } = $props()
 
   const TILE = 2560, NTILE = 4
   const IMG = TILE * NTILE   // 10240 = worldSize, 1 px = 1 m
@@ -79,6 +80,7 @@
   const DETAIL_MIN = -2   // zoom à partir duquel les repères ponctuels apparaissent (= bâtiments)
 
   let el, map, satGroup, vectorGroup, detailGroup, layer, interLayer, baseGroup, clockTimer, vectorBuilt = false
+  let drawGroup, polyLayer, vtxMarkers = []   // tracé polygone (zone brûlée) : sommets déplaçables
   // Vecteur par défaut (mémorisé ensuite via localStorage).
   let mode = $state((typeof localStorage !== 'undefined' && localStorage.getItem('nexis.mapMode') === 'sat') ? 'sat' : 'vecteur')
   let tick = $state(0)       // horloge (1 s) pilotant l'animation des véhicules
@@ -105,7 +107,8 @@
     heavyGroup = L.layerGroup()             // house/tree tuilés (vecteur, à la demande)
     interLayer = L.layerGroup().addTo(map)  // pins d'intervention (ne bougent pas → rendus à part)
     layer = L.layerGroup().addTo(map)       // engins/transits animés (re-rendus chaque seconde)
-    if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
+    if (drawPolygon) map.on('click', e => addVertex(e.latlng))
+    else if (oncoordpick) map.on('click', e => oncoordpick(latLngToGrid(e.latlng)))
     for (const h of HEAVY_LAYERS)
       fetch(`/map/unreallife/tiles/${h.file}/index.json`).then(r => r.json())
         .then(keys => { heavyIndex[h.file] = new Set(keys); updateHeavy() }).catch(() => {})
@@ -113,6 +116,8 @@
     renderBase()
     renderInterventions()
     render()
+    renderPolygon()
+    if (center) { const ll = llOf(center); if (ll) map.setView(ll, centerZoom) }
     if (mode === 'vecteur') setMode('vecteur')   // applique le choix mémorisé (G)
     clockTimer = setInterval(() => tick++, 1000)
   })
@@ -285,6 +290,33 @@
     }
   }
 
+  // ── Tracé polygone (zone brûlée) ─────────────────────────────────────────────
+  const POLY_STYLE = { color: '#ef9f27', weight: 2, fillColor: '#ef9f27', fillOpacity: 0.22 }
+  function vtxIcon() { return window.L.divIcon({ className: 'poly-vtx', html: '', iconSize: [12, 12], iconAnchor: [6, 6] }) }
+  function addVertex(latlng) {
+    polygon = [...(polygon ?? []), [Math.round(latlng.lat), Math.round(latlng.lng)]]
+    onpolygon?.(polygon)
+  }
+  function commitVertices() {
+    polygon = vtxMarkers.map(m => { const ll = m.getLatLng(); return [Math.round(ll.lat), Math.round(ll.lng)] })
+    onpolygon?.(polygon)
+  }
+  function renderPolygon() {
+    if (!map || !window.L) return
+    if (!drawGroup) drawGroup = window.L.layerGroup().addTo(map)
+    drawGroup.clearLayers(); vtxMarkers = []
+    const pts = (polygon ?? []).map(p => [p[0], p[1]])
+    polyLayer = pts.length >= 2 ? window.L.polygon(pts, POLY_STYLE).addTo(drawGroup) : null
+    if (!drawPolygon) return
+    for (const p of pts) {
+      const m = window.L.marker(p, { draggable: true, icon: vtxIcon() }).addTo(drawGroup)
+      m.on('drag', () => { if (polyLayer) polyLayer.setLatLngs(vtxMarkers.map(x => x.getLatLng())) })
+      m.on('dragend', commitVertices)
+      vtxMarkers.push(m)
+    }
+  }
+  $effect(() => { polygon; if (map) renderPolygon() })        // re-rendu du tracé (ajout/effacement parent)
+
   $effect(() => { transits; tick; render() })                 // engins animés (chaque seconde)
   // Pins d'intervention : re-rendus seulement si la liste change RÉELLEMENT (code/position/icône).
   // Un simple changement de statut véhicule recharge la liste des interventions à l'identique →
@@ -350,6 +382,7 @@
   :global(.poi.caserne) { background: rgba(79,110,247,.28); border: 1px solid #4f6ef7; }
   :global(.poi.hopital) { background: rgba(224,92,92,.28); border: 1px solid #e05c5c; }
   :global(.poi-pt) { background: none; border: none; font-size: 12px; line-height: 16px; text-align: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+  :global(.poly-vtx) { background: #ef9f27; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.6); cursor: grab; }
   .map-legend { position: absolute; bottom: 8px; left: 8px; z-index: 500; font-size: 11px; }
   .lg-toggle { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 3px 8px; cursor: pointer; font-size: 11px; }
   .map-legend ul { list-style: none; margin: 4px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 94%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 3px; max-height: 60vh; overflow-y: auto; }
