@@ -15,7 +15,7 @@ public interface SpInterventionRepository extends JpaRepository<SpIntervention, 
 
     boolean existsByNatureId(UUID natureId);
 
-    Optional<SpIntervention> findByCode(String code);
+    Optional<SpIntervention> findByNumero(int numero);
 
     @Query("SELECT COALESCE(MAX(i.numero), 0) FROM SpIntervention i")
     int findMaxNumero();

@@ -100,12 +100,24 @@ public class SpInterventionService {
         return projeter(List.of(inter)).get(0);
     }
 
-    /** Détail d'une intervention via son code (ex. INT-0035) — pour partage d'URL. */
+    /** Détail d'une intervention via son code (ex. INT-0035) — pour partage d'URL.
+     *  Le « code » est dérivé du numéro (formaté INT-%04d), pas stocké : on parse → numéro → findByNumero. */
     @Transactional
     public SpInterventionDto getByCode(String code) {
-        var inter = interventionRepo.findByCode(code)
+        int numero = parseNumeroDepuisCode(code);
+        var inter = interventionRepo.findByNumero(numero)
                 .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + code));
         return projeter(List.of(inter)).get(0);
+    }
+
+    private static int parseNumeroDepuisCode(String code) {
+        if (code == null || code.isBlank()) throw new IllegalArgumentException("Code intervention vide.");
+        String s = code.trim().toUpperCase();
+        if (s.startsWith("INT-")) s = s.substring(4);
+        try { return Integer.parseInt(s); }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Code intervention invalide : " + code);
+        }
     }
 
     @Transactional
