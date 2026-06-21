@@ -58,9 +58,10 @@
     const off = realtime.on(ev => {
       if (ev.type === 'BIP') declenchePager(ev)
       if (ev.type === 'COMPTE_DESACTIVE') { logout(); window.location.assign('/') }
-      if (ev.type === 'INTERVENTION_CLOTUREE') refreshCriCount()
+      // Soumission/validation d'un CRI ou clôture intervention → recompter le badge.
+      if (ev.type === 'CRI_MAJ' || ev.type === 'INTERVENTION_CLOTUREE') refreshCriCount()
     })
-    const pollCri = setInterval(refreshCriCount, 30000)   // poll régulier (pas d'event dédié)
+    const pollCri = setInterval(refreshCriCount, 120000)   // filet de sécurité si WS down
     // Sur mobile, refermer le menu overlay après une navigation
     const closeOnNav = () => { if (window.innerWidth <= 768) navOpen = false }
     window.addEventListener('hashchange', closeOnNav)

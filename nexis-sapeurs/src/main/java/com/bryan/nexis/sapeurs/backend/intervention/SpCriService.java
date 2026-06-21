@@ -1,15 +1,19 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
 
 import com.bryan.nexis.core.datarepository.RefUserRepository;
+import com.bryan.nexis.core.realtime.RealtimeEvent;
 import com.bryan.nexis.sapeurs.backend.dto.SpCriDto;
 import com.bryan.nexis.sapeurs.datamodel.SpCri;
 import com.bryan.nexis.sapeurs.datarepository.SpCriRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpMembreRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeAffectationRepository;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.security.utils.SecurityService;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
+
+import java.util.Map;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -26,16 +30,19 @@ public class SpCriService {
     private final SpMembreRepository               membreRepo;
     private final RefUserRepository                userRepo;
     private final SecurityService                  securityService;
+    private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpCriService(SpCriRepository criRepo, SpInterventionRepository interventionRepo,
                         SpVehiculeAffectationRepository affectationRepo, SpMembreRepository membreRepo,
-                        RefUserRepository userRepo, SecurityService securityService) {
+                        RefUserRepository userRepo, SecurityService securityService,
+                        ApplicationEventPublisher<RealtimeEvent> events) {
         this.criRepo          = criRepo;
         this.interventionRepo = interventionRepo;
         this.affectationRepo  = affectationRepo;
         this.membreRepo       = membreRepo;
         this.userRepo         = userRepo;
         this.securityService  = securityService;
+        this.events           = events;
     }
 
     private String actor() { return securityService.username().orElse(null); }
@@ -76,7 +83,9 @@ public class SpCriService {
         cri.setStatut(SpCri.SOUMIS);
         cri.setSoumisPar(actor());
         cri.setSoumisLe(Instant.now());
-        return SpCriDto.from(criRepo.update(cri));
+        var dto = SpCriDto.from(criRepo.update(cri));
+        notifierMaj(cri);
+        return dto;
     }
 
     /** Validation : admin SP, ou porteur d'un grade configuré comme « peut valider CRI » (sergent et +). */
@@ -93,7 +102,17 @@ public class SpCriService {
         cri.setStatut(SpCri.VALIDE);
         cri.setValidePar(actor());
         cri.setValideLe(Instant.now());
-        return SpCriDto.from(criRepo.update(cri));
+        var dto = SpCriDto.from(criRepo.update(cri));
+        notifierMaj(cri);
+        return dto;
+    }
+
+    /** Broadcast SP éphémère : un CRI a changé de statut → front recompte le badge "à valider". */
+    private void notifierMaj(SpCri cri) {
+        events.publishEvent(RealtimeEvent.faction(RealtimeEvent.CRI_MAJ, "SP", "CRI mis à jour",
+                Map.of("interventionId", cri.getIntervention().getId().toString(),
+                       "statut", cri.getStatut()),
+                actor()).ephemere());
     }
 
     /** L'utilisateur courant peut-il valider des CRI ? (admin SP, ou grade autorisé). */

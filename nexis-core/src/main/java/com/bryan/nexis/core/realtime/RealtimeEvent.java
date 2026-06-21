@@ -24,6 +24,7 @@ public class RealtimeEvent {
     public static final String INTERVENTION_OUVERTE  = "INTERVENTION_OUVERTE";
     public static final String INTERVENTION_RENFORT  = "INTERVENTION_RENFORT";
     public static final String INTERVENTION_CLOTUREE = "INTERVENTION_CLOTUREE";
+    public static final String CRI_MAJ               = "CRI_MAJ";
 
     private final String type;
     private final String faction;            // "GN" / "SP" / null

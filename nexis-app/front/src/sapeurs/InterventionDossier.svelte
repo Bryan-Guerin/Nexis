@@ -4,7 +4,7 @@
   import {api} from '../shared/api.js'
   import {confirm} from '../shared/confirm.js'
   import {realtime} from '../shared/realtime.js'
-  import {currentUser} from '../shared/stores.js'
+  import {currentUser, criAValiderCount} from '../shared/stores.js'
   import {can} from '../shared/roles.js'
   import {refNatures, refStatutsVeh, refMe} from '../shared/referentials.js'
   import {exportInterventionPdf} from './interventionsPdf.js'
@@ -190,7 +190,12 @@
         refNatures().catch(() => []),
       ])
       myMembreId = me?.id ?? null
-      try { peutValiderCri = (await api.get('/sp/cri/a-valider/count')).peutValider } catch { peutValiderCri = false }
+      // Resync du badge "à valider" à l'ouverture du dossier (filet de sécurité au-dessus du WS).
+      try {
+        const r = await api.get('/sp/cri/a-valider/count')
+        peutValiderCri = r.peutValider
+        criAValiderCount.set(r.peutValider ? r.count : 0)
+      } catch { peutValiderCri = false }
       await loadBilansVictimes()
     } catch { /* toast par api.js */ }
     finally { loading = false }
@@ -357,6 +362,10 @@
     const unsub = realtime.on(ev => {
       if (ev.faction === 'SP' && (ev.type?.startsWith('INTERVENTION_') || ev.type === 'ETAT_VEHICULE'
           || ev.type === 'AFFECTATION' || ev.type === 'DESAFFECTATION' || ev.type === 'MAIN_COURANTE')) {
+        clearTimeout(reloadTimer); reloadTimer = setTimeout(refresh, 300)
+      }
+      // CRI soumis / validé sur CETTE intervention → recharge les CRIs locaux (le badge nav est géré par Layout).
+      if (ev.faction === 'SP' && ev.type === 'CRI_MAJ' && ev.payload?.interventionId === interventionId) {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(refresh, 300)
       }
       // Bilan modifié par un AUTRE équipier → recharge + rafraîchit les champs affichés.
