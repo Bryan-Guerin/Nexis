@@ -110,8 +110,12 @@
 
     // Pane satellite prioritaire (au-dessus du vecteur) quand windowRadius : sat reste visible
     // par-dessus le vecteur dans la fenêtre → minimap locale + contexte vecteur dézoomé.
+    // Et un pane polyTop par-dessus le sat pour le tracé polygone + flèches (sinon le sat les recouvre).
     const satPane = win ? 'satTop' : 'tilePane'
-    if (win) { map.createPane(satPane); map.getPane(satPane).style.zIndex = 410 }
+    if (win) {
+      map.createPane(satPane); map.getPane(satPane).style.zIndex = 410
+      map.createPane('polyTop'); map.getPane('polyTop').style.zIndex = 420
+    }
 
     // Fond satellite (mosaïque sat/{x}/{y}.png). Toujours présent : pleine opacité en mode sat,
     // atténué en fond du mode vecteur (eau + sol). Si windowRadius : seules les tuiles intersectant
@@ -335,7 +339,8 @@
     if (!drawGroup) drawGroup = window.L.layerGroup().addTo(map)
     drawGroup.clearLayers(); vtxMarkers = []
     const pts = (polygon ?? []).map(p => [p[0], p[1]])
-    polyLayer = pts.length >= 2 ? window.L.polygon(pts, POLY_STYLE).addTo(drawGroup) : null
+    const styleP = windowRadius ? { ...POLY_STYLE, pane: 'polyTop' } : POLY_STYLE
+    polyLayer = pts.length >= 2 ? window.L.polygon(pts, styleP).addTo(drawGroup) : null
     if (!drawPolygon) return
     for (const p of pts) {
       const m = window.L.marker(p, { draggable: true, icon: vtxIcon() }).addTo(drawGroup)
@@ -372,9 +377,10 @@
     if (!map || !window.L) return
     if (!arrowsGroup) arrowsGroup = window.L.layerGroup().addTo(map)
     arrowsGroup.clearLayers()
+    const linePane = windowRadius ? { pane: 'polyTop' } : {}
     for (const a of (arrows ?? [])) {
       if (a.lat0 == null || a.lng0 == null || a.lat1 == null || a.lng1 == null) continue
-      window.L.polyline([[a.lat0, a.lng0], [a.lat1, a.lng1]], { color: a.color || '#fff', weight: 3, opacity: 0.9 }).addTo(arrowsGroup)
+      window.L.polyline([[a.lat0, a.lng0], [a.lat1, a.lng1]], { color: a.color || '#fff', weight: 3, opacity: 0.9, ...linePane }).addTo(arrowsGroup)
       // CRS.Simple : lat = nord ; angle 0 = nord, sens horaire. Rotation SVG : 0 = haut (=nord).
       const dy = a.lat1 - a.lat0, dx = a.lng1 - a.lng0
       const angle = Math.atan2(dx, dy) * 180 / Math.PI
