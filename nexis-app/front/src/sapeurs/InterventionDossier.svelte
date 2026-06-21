@@ -29,6 +29,9 @@
   let tab          = $state('synthese')
   let loading      = $state(true)
   let reloadTimer  = null
+  // L'URL porte le code (ex. INT-0035) pour le partage ; l'UUID est l'identifiant interne utilisé
+  // par toutes les API. Résolu au premier load via /by-code.
+  let interventionId = $state(null)
 
   // ── Bilans ──
   let victimes      = $state([])
@@ -173,16 +176,17 @@
 
   async function load() {
     loading = true
-    const id = params.id
     try {
+      // L'URL porte le code (INT-0035). On résout d'abord l'UUID, puis on charge le reste en parallèle.
+      inter = await api.get(`/sp/interventions/by-code/${params.code}`)
+      interventionId = inter.id
       let me
-      ;[inter, journal, statuts, affectations, me, cris, natures] = await Promise.all([
-        api.get(`/sp/interventions/${id}`),
-        api.get(`/sp/interventions/${id}/journal`).catch(() => []),
+      ;[journal, statuts, affectations, me, cris, natures] = await Promise.all([
+        api.get(`/sp/interventions/${interventionId}/journal`).catch(() => []),
         refStatutsVeh().catch(() => []),
         api.get('/sp/affectations').catch(() => []),
         refMe().catch(() => null),
-        api.get(`/sp/interventions/${id}/cri`).catch(() => []),
+        api.get(`/sp/interventions/${interventionId}/cri`).catch(() => []),
         refNatures().catch(() => []),
       ])
       myMembreId = me?.id ?? null
@@ -193,10 +197,10 @@
   }
 
   async function loadBilansVictimes(rafraichirSaisie = false) {
-    const id = params.id
+    if (!interventionId) return
     ;[victimes, bilans] = await Promise.all([
-      api.get(`/sp/interventions/${id}/victimes`).catch(() => []),
-      api.get(`/sp/interventions/${id}/bilans`).catch(() => []),
+      api.get(`/sp/interventions/${interventionId}/victimes`).catch(() => []),
+      api.get(`/sp/interventions/${interventionId}/bilans`).catch(() => []),
     ])
     if (!victimeSel && victimes.length) selectVictime(victimes[0])
     // MAJ par un autre équipier : rafraîchit les champs de la victime affichée, sauf si une saisie
@@ -241,7 +245,7 @@
         const u = await api.put(`/sp/victimes/${editVictimeId}`, payload)
         victimes = victimes.map(v => v.id === u.id ? u : v)
       } else {
-        const c = await api.post(`/sp/interventions/${params.id}/victimes`, payload)
+        const c = await api.post(`/sp/interventions/${interventionId}/victimes`, payload)
         victimes = [...victimes, c]; selectVictime(c)
       }
       showVictime = false
@@ -279,7 +283,7 @@
   function bilanSrDe() { return bilans.find(b => b.famille === 'SR') }
   function bilanIncDe() { return bilans.find(b => b.famille === 'INC') }
   async function saveInc(contenu) {
-    try { const b = await api.put(`/sp/interventions/${params.id}/bilan-inc`, contenu); bilans = [...bilans.filter(x => x.id !== b.id), b] }
+    try { const b = await api.put(`/sp/interventions/${interventionId}/bilan-inc`, contenu); bilans = [...bilans.filter(x => x.id !== b.id), b] }
     catch { /* toast par api.js */ }
   }
   function intoSr(c) { return { routeType: c?.routeType ?? 'AUTOROUTE_3V', vehicules: (c?.vehicules ?? []).map(v => ({ ...v })) } }
@@ -288,7 +292,7 @@
   async function saveSr() {
     srTimer = null
     try {
-      const b = await api.put(`/sp/interventions/${params.id}/bilan-sr`, srForm)
+      const b = await api.put(`/sp/interventions/${interventionId}/bilan-sr`, srForm)
       bilans = [...bilans.filter(x => x.id !== b.id), b]
       srSaved = true; setTimeout(() => { srSaved = false }, 2000)
     } catch { /* toast par api.js */ }
@@ -335,11 +339,11 @@
   }
 
   async function refresh() {
-    const id = params.id
+    if (!interventionId) return
     const [i, j, c] = await Promise.all([
-      api.get(`/sp/interventions/${id}`).catch(() => inter),
-      api.get(`/sp/interventions/${id}/journal`).catch(() => []),
-      api.get(`/sp/interventions/${id}/cri`).catch(() => []),
+      api.get(`/sp/interventions/${interventionId}`).catch(() => inter),
+      api.get(`/sp/interventions/${interventionId}/journal`).catch(() => []),
+      api.get(`/sp/interventions/${interventionId}/cri`).catch(() => []),
     ])
     inter = i; journal = j; cris = c
   }
@@ -357,7 +361,7 @@
       }
       // Bilan modifié par un AUTRE équipier → recharge + rafraîchit les champs affichés.
       // (Mon propre event est ignoré : j'ai déjà l'état à jour, pas de faux « ✓ Enregistré ».)
-      if (ev.faction === 'SP' && ev.type === 'BILAN_MAJ' && ev.payload?.interventionId === params.id
+      if (ev.faction === 'SP' && ev.type === 'BILAN_MAJ' && ev.payload?.interventionId === interventionId
           && ev.actorUsername !== $currentUser?.username) {
         loadBilansVictimes(true)
       }

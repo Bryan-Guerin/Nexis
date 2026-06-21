@@ -37,6 +37,12 @@ public class SpInterventionController {
         return service.getById(id);
     }
 
+    /** Lookup par code (ex. INT-0035) — pour résoudre les URLs partageables. */
+    @Get("/interventions/by-code/{code}")
+    SpInterventionDto getByCode(String code) {
+        return service.getByCode(code);
+    }
+
     @Post("/interventions")
     @Status(HttpStatus.CREATED)
     SpInterventionDto create(@Body CreateSpInterventionRequest req) {

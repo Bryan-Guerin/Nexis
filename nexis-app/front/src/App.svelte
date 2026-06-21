@@ -28,7 +28,7 @@
     '/sp/dispatch':      wrap({ asyncComponent: () => import('./sapeurs/SpDispatchPage.svelte') }),
     '/sp/feuille-garde': wrap({ asyncComponent: () => import('./sapeurs/SpFeuilleGarde.svelte') }),
     '/sp/interventions': wrap({ asyncComponent: () => import('./sapeurs/SpInterventionsPage.svelte') }),
-    '/sp/interventions/:id': wrap({ asyncComponent: () => import('./sapeurs/InterventionDossier.svelte') }),
+    '/sp/interventions/:code': wrap({ asyncComponent: () => import('./sapeurs/InterventionDossier.svelte') }),
     '/sp/main-courante': wrap({ asyncComponent: () => import('./sapeurs/SpMainCourantePage.svelte') }),
     '/sp/stats':         wrap({ asyncComponent: () => import('./sapeurs/SpStatsPage.svelte') }),
     '/sp/rh':            wrap({ asyncComponent: () => import('./sapeurs/SpRhPage.svelte') }),

@@ -100,6 +100,14 @@ public class SpInterventionService {
         return projeter(List.of(inter)).get(0);
     }
 
+    /** Détail d'une intervention via son code (ex. INT-0035) — pour partage d'URL. */
+    @Transactional
+    public SpInterventionDto getByCode(String code) {
+        var inter = interventionRepo.findByCode(code)
+                .orElseThrow(() -> new NoSuchElementException("Intervention introuvable : " + code));
+        return projeter(List.of(inter)).get(0);
+    }
+
     @Transactional
     public List<SpInterventionDto> listEnCours() {
         return projeter(interventionRepo.findByFinIsNull());

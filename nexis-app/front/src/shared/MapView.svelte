@@ -318,8 +318,10 @@
       const ll = llOf(i.coordonnees); if (!ll) continue
       const html = `<div class="itv-marker"><span class="ic">${iconHtml(i)}</span>${numero(i) ? `<span class="num">${numero(i)}</span>` : ''}</div>`
       const icon = L.divIcon({ className: 'itv-pin', html, iconSize: [34, 38], iconAnchor: [17, 19] })
+      // Popup : tout le contenu est un lien hash vers le dossier intervention (partageable par URL).
+      const code = (i.code ?? '').replace(/[<"]/g, '')
       L.marker(ll, { icon }).addTo(interLayer)
-        .bindPopup(`<b>${i.code ?? ''}</b><br>${(i.motif ?? '').replace(/</g, '&lt;')}`)
+        .bindPopup(`<a class="itv-popup-link" href="#/sp/interventions/${code}"><b>${i.code ?? ''}</b><br>${(i.motif ?? '').replace(/</g, '&lt;')}</a>`)
     }
   }
 
@@ -469,6 +471,9 @@
   :global(.arr-head .arr-rot svg polygon) { fill: var(--c); }
   :global(.arr-lab) { background: none; border: none; }
   :global(.arr-lab span) { font-size: 10px; font-weight: 700; color: var(--c); background: rgba(0,0,0,.65); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+  /* Lien dans le popup d'intervention : pleine surface cliquable → dossier détaillé. */
+  :global(.itv-popup-link) { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+  :global(.itv-popup-link:hover) { text-decoration: underline; }
   .map-legend { position: absolute; bottom: 8px; left: 8px; z-index: 500; font-size: 11px; }
   .lg-toggle { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 3px 8px; cursor: pointer; font-size: 11px; }
   .map-legend ul { list-style: none; margin: 4px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 94%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius); display: flex; flex-direction: column; gap: 3px; max-height: 60vh; overflow-y: auto; }

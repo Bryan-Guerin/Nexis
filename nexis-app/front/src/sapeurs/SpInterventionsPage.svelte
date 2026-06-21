@@ -185,7 +185,7 @@
     <div class="list">
       {#each afficheesPage as i (i.id)}
         <div class="card" class:closed={!i.enCours}>
-          <div class="i-head" ondblclick={() => push(`/sp/interventions/${i.id}`)} role="button" tabindex="0" title="Double-clic pour le détail">
+          <div class="i-head" ondblclick={() => push(`/sp/interventions/${i.code}`)} role="button" tabindex="0" title="Double-clic pour le détail">
             <div class="i-main">
               <span class="badge" class:badge-actif={i.enCours} class:badge-inactif={!i.enCours}>
                 {i.enCours ? 'En cours' : 'Clôturée'}
@@ -252,7 +252,7 @@
           {/if}
 
           <div class="i-actions">
-            <button class="btn-ghost-sm" onclick={() => push(`/sp/interventions/${i.id}`)}>Détail</button>
+            <button class="btn-ghost-sm" onclick={() => push(`/sp/interventions/${i.code}`)}>Détail</button>
             {#if i.enCours}
               {#if renfortFor === i.id}
                 <div class="renfort">
