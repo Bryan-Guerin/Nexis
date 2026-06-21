@@ -25,9 +25,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Bilans d'intervention (SAP / SR / INC) + victimes. Le contenu typé (records par famille) est
@@ -121,15 +119,14 @@ public class SpBilanService {
     }
     private String vide(String s) { return s == null || s.isBlank() ? null : s.trim(); }
 
-    /** Diffuse aux équipiers (temps réel éphémère, non journalisé) qu'un bilan / une victime a changé. */
+    /**
+     * Signale (temps réel éphémère, non journalisé) qu'un bilan / une victime a changé. Diffusé à
+     * toute la faction SP : le front filtre par interventionId → tout SP affichant ce dossier se
+     * rafraîchit (pas restreint à l'équipage : un dispatcher peut suivre un dossier sans y être affecté).
+     */
     private void notifierMaj(SpIntervention inter) {
-        Set<String> equipage = inter.getEngins().stream()
-                .flatMap(e -> affectationRepo.findByVehiculeIdAndFinIsNull(e.getId()).stream())
-                .map(a -> a.getMembre().getUser().getUsername())
-                .collect(Collectors.toSet());
-        if (equipage.isEmpty()) return;
-        events.publishEvent(RealtimeEvent.users(BILAN_MAJ, "SP", equipage, "Bilan mis à jour",
-                Map.of("interventionId", inter.getId().toString()), actor()).ephemere().withReference(inter.getCode()));
+        events.publishEvent(RealtimeEvent.faction(BILAN_MAJ, "SP", "Bilan mis à jour",
+                Map.of("interventionId", inter.getId().toString()), actor()).ephemere());
     }
 
     private SpBilanDto toDto(SpBilan b) {
