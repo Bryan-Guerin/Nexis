@@ -19,8 +19,13 @@ public record BilanIncContenu(
         @Nullable MoyensHydrauliques hydraulique,
         @Nullable MoyensAeriens aeriens,
         @Nullable Technique technique,
-        @Nullable List<List<Double>> polygone   // sommets [lat, lng] (coords monde, mètres)
+        @Nullable List<List<Double>> polygone,        // sommets [lat, lng] (coords monde, mètres)
+        @Nullable List<EnginPosition> enginsPositions  // engins engagés positionnés sur la carte
 ) {
+    /** Position historisée d'un engin engagé sur la carte (réf vehiculeId, coords monde). */
+    @Serdeable
+    public record EnginPosition(String vehiculeId, Double lat, Double lng) {}
+
     @Serdeable
     public record Sinistre(Double surfaceBrulee, SurfaceSource surfaceBruleeSource, Double surfaceMenacee,
                            List<Couvert> couvert, EtatFeu etat,

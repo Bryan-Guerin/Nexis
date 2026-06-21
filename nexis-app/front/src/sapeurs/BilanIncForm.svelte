@@ -6,7 +6,7 @@
   let { contenu = null, engins = [], coord = null, onsave } = $props()
 
   function emptyInc() {
-    return { sinistre: { couvert: [] }, propagation: {}, enjeux: {}, hydraulique: { lances: [], pointsEau: [] }, aeriens: {}, technique: null, polygone: [] }
+    return { sinistre: { couvert: [] }, propagation: {}, enjeux: {}, hydraulique: { lances: [], pointsEau: [] }, aeriens: {}, technique: null, polygone: [], enginsPositions: [] }
   }
   function intoInc(c) {
     if (!c) return emptyInc()
@@ -18,6 +18,7 @@
       aeriens:     { ...(c.aeriens ?? {}) },
       technique:   c.technique ?? null,
       polygone:    Array.isArray(c.polygone) ? c.polygone.map(p => [...p]) : [],
+      enginsPositions: Array.isArray(c.enginsPositions) ? c.enginsPositions.map(p => ({ ...p })) : [],
     }
   }
   let form    = $state(intoInc(contenu))
@@ -65,6 +66,24 @@
   function effacerDernier() { form.polygone = form.polygone.slice(0, -1); onPoly() }
   function effacerTout() { form.polygone = []; onPoly() }
 
+  // Engins engagés positionnés sur la carte (historisés). Marqueurs déplaçables.
+  let centerLL = $state(null)
+  let incMarkers = $derived((form.enginsPositions ?? []).map(p => ({ id: p.vehiculeId, label: enginLabel(p.vehiculeId), lat: p.lat, lng: p.lng })))
+  function enginLabel(id) { return engins.find(e => e.vehiculeId === id)?.libelle ?? '?' }
+  function estPlace(id) { return (form.enginsPositions ?? []).some(p => p.vehiculeId === id) }
+  function centroideOuCentre() {
+    const poly = form.polygone ?? []
+    if (poly.length) { let la = 0, ln = 0; for (const [a, b] of poly) { la += a; ln += b } return [Math.round(la / poly.length), Math.round(ln / poly.length)] }
+    return centerLL ?? [5000, 5000]
+  }
+  function placerEngin(id) {
+    const c = centroideOuCentre()
+    form.enginsPositions = [...(form.enginsPositions ?? []), { vehiculeId: id, lat: c[0], lng: c[1] }]
+    change()
+  }
+  function retirerEnginPos(id) { form.enginsPositions = (form.enginsPositions ?? []).filter(p => p.vehiculeId !== id); change() }
+  function onMarker(updated) { form.enginsPositions = updated.map(m => ({ vehiculeId: m.id, lat: m.lat, lng: m.lng })); change() }
+
   function toggleCouvert(v) {
     const s = new Set(form.sinistre.couvert ?? [])
     s.has(v) ? s.delete(v) : s.add(v)
@@ -82,13 +101,26 @@
   <div class="inc-sec">
     <h4>Cartographie — zone brûlée</h4>
     <MapView height="320px" center={coord} windowRadius={1500} drawPolygon bind:polygon={form.polygone} onpolygon={onPoly}
+             markers={incMarkers} onmarker={onMarker} oncenterready={ll => centerLL = ll}
              interventions={coord && coord.length === 6 ? [{ coordonnees: coord, motif: 'Feu de forêt', nature: { code: '🔥' } }] : []} />
     <div class="inc-carto-bar">
       <span>Aire tracée : <b>{Math.round(aire).toLocaleString('fr-FR')} m²</b> ({ha(aire)} ha)</span>
       <button class="btn-ghost-sm" disabled={!form.polygone.length} onclick={effacerDernier}>Effacer le dernier</button>
       <button class="btn-ghost-sm" disabled={!form.polygone.length} onclick={effacerTout}>Tout effacer</button>
     </div>
-    <p class="muted small">Clique sur la carte pour ajouter des sommets (déplaçables). L'aire pré-remplit la surface brûlée.</p>
+    {#if engins.length}
+      <div class="inc-engins">
+        <span class="muted small">Engins sur la carte :</span>
+        {#each engins as e (e.vehiculeId)}
+          {#if estPlace(e.vehiculeId)}
+            <button class="on" onclick={() => retirerEnginPos(e.vehiculeId)} title="Retirer de la carte">{e.libelle} ✓</button>
+          {:else}
+            <button onclick={() => placerEngin(e.vehiculeId)}>+ {e.libelle}</button>
+          {/if}
+        {/each}
+      </div>
+    {/if}
+    <p class="muted small">Clique sur la carte pour tracer la zone (sommets déplaçables). Place les engins ci-dessus puis glisse-les. L'aire pré-remplit la surface brûlée.</p>
   </div>
 
   <div class="inc-sec">
@@ -193,6 +225,9 @@
   .inc-checks { display: flex; gap: 16px; flex-wrap: wrap; }
   .inc-checks label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   .inc-carto-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+  .inc-engins { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .inc-engins button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 10px; cursor: pointer; }
+  .inc-engins button.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
   .inc-list { display: flex; flex-direction: column; gap: 6px; }
   .inc-list-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--color-muted); }
   .inc-row { display: flex; gap: 6px; align-items: center; }
