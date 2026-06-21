@@ -1,5 +1,6 @@
 package com.bryan.nexis.sapeurs.backend.intervention;
 
+import com.bryan.nexis.sapeurs.backend.bilan.BilanIncContenu;
 import com.bryan.nexis.sapeurs.backend.bilan.BilanSapContenu;
 import com.bryan.nexis.sapeurs.backend.bilan.BilanSrContenu;
 import com.bryan.nexis.sapeurs.backend.dto.CreateVictimeRequest;
@@ -61,5 +62,11 @@ public class SpBilanController {
     @Put("/interventions/{interventionId}/bilan-sr")
     SpBilanDto enregistrerBilanSr(UUID interventionId, @Body BilanSrContenu contenu) {
         return service.enregistrerBilanSr(interventionId, contenu);
+    }
+
+    /** Enregistre le bilan INC (feu de forêt) de l'intervention. */
+    @Put("/interventions/{interventionId}/bilan-inc")
+    SpBilanDto enregistrerBilanInc(UUID interventionId, @Body BilanIncContenu contenu) {
+        return service.enregistrerBilanInc(interventionId, contenu);
     }
 }
