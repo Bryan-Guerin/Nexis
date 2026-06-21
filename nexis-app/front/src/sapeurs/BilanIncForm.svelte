@@ -81,7 +81,7 @@
 
   <div class="inc-sec">
     <h4>Cartographie — zone brûlée</h4>
-    <MapView height="320px" center={coord} centerZoom={2} drawPolygon bind:polygon={form.polygone} onpolygon={onPoly}
+    <MapView height="320px" center={coord} windowRadius={1500} drawPolygon bind:polygon={form.polygone} onpolygon={onPoly}
              interventions={coord && coord.length === 6 ? [{ coordonnees: coord, motif: 'Feu de forêt', nature: { code: '🔥' } }] : []} />
     <div class="inc-carto-bar">
       <span>Aire tracée : <b>{Math.round(aire).toLocaleString('fr-FR')} m²</b> ({ha(aire)} ha)</span>

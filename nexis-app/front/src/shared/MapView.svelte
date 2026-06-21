@@ -4,7 +4,8 @@
   // Carte (Leaflet, CRS.Simple sur le terrain UnRealLife). Fond satellite (mosaïque) ou
   // vectoriel (geojson : forêts, routes, bâtiments-repères, noms). Réutilisable.
   let { interventions = [], transits = [], centres = [], hopitaux = [], height = '380px', oncoordpick = null, onveh = null,
-        drawPolygon = false, polygon = $bindable(null), onpolygon = null, center = null, centerZoom = 1 } = $props()
+        drawPolygon = false, polygon = $bindable(null), onpolygon = null, center = null, centerZoom = 1,
+        windowRadius = 0 } = $props()
 
   const TILE = 2560, NTILE = 4
   const IMG = TILE * NTILE   // 10240 = worldSize, 1 px = 1 m
@@ -30,6 +31,15 @@
   }
   // coords geojson (mètres monde [x,y]) → latlng CRS.Simple
   function geoToLatLng(c) { return window.L.latLng(c[1], c[0]) }
+
+  // Fenêtre (perf) : bbox latlng autour de l'intervention (rayon en mètres) ; null = carte entière.
+  function bboxIntersect(a, b) { return a[0][0] <= b[1][0] && a[1][0] >= b[0][0] && a[0][1] <= b[1][1] && a[1][1] >= b[0][1] }
+  function windowLatLngBounds() {
+    if (!center || !windowRadius) return null
+    const ll = llOf(center); if (!ll) return null
+    const r = windowRadius
+    return [[Math.max(0, ll[0] - r), Math.max(0, ll[1] - r)], [Math.min(IMG, ll[0] + r), Math.min(IMG, ll[1] + r)]]
+  }
 
   // Couches vectorielles (geojson). style = lignes/polygones ; emoji/color = points.
   // detail:true = repère ponctuel affiché seulement zoomé (avec les bâtiments), sinon clutter.
@@ -90,14 +100,21 @@
     const L = window.L
     if (!L) return
     map = L.map(el, { crs: L.CRS.Simple, minZoom: -5, maxZoom: 3, attributionControl: false, zoomSnap: 0.25, preferCanvas: true })
-    map.fitBounds([[0, 0], [IMG, IMG]])
+    // Fenêtre restreinte (perf) : on cadre + verrouille autour de l'intervention → seules les
+    // tuiles de cette section se chargent. Sinon, carte entière.
+    const win = windowLatLngBounds()
+    if (win) { map.fitBounds(win); map.setMaxBounds(L.latLngBounds(win).pad(0.25)) }
+    else map.fitBounds([[0, 0], [IMG, IMG]])
 
     // Fond satellite (mosaïque sat/{x}/{y}.png) — dans tilePane (toujours sous les vecteurs).
     // Toujours présent : pleine opacité en mode sat, atténué en fond du mode vecteur (eau + sol).
     satGroup = L.layerGroup()
     for (let x = 0; x < NTILE; x++)
-      for (let y = 0; y < NTILE; y++)
-        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]], { pane: 'tilePane' }).addTo(satGroup)
+      for (let y = 0; y < NTILE; y++) {
+        const tb = [[IMG - (y + 1) * TILE, x * TILE], [IMG - y * TILE, (x + 1) * TILE]]
+        if (win && !bboxIntersect(tb, win)) continue   // hors fenêtre → tuile non chargée
+        L.imageOverlay(`/map/unreallife/sat/${x}/${y}.png`, tb, { pane: 'tilePane' }).addTo(satGroup)
+      }
 
     vectorGroup = L.layerGroup()   // construit à la demande (1er passage en vecteur)
     detailGroup = L.layerGroup()   // repères ponctuels, affichés seulement zoomé
@@ -117,7 +134,7 @@
     renderInterventions()
     render()
     renderPolygon()
-    if (center) { const ll = llOf(center); if (ll) map.setView(ll, centerZoom) }
+    if (center && !win) { const ll = llOf(center); if (ll) map.setView(ll, centerZoom) }
     if (mode === 'vecteur') setMode('vecteur')   // applique le choix mémorisé (G)
     clockTimer = setInterval(() => tick++, 1000)
   })

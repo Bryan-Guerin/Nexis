@@ -410,20 +410,63 @@
     catch { /* toast par api.js */ }
   }
   function exportPdf() { exportInterventionPdf(inter, journal, cris) }
+  function fmtVal(val, type, opts) {
+    if (type === 'bool') return val ? 'Oui' : 'Non'
+    if (type === 'enum') return opts?.find(o => o[0] === val)?.[1] ?? val
+    return String(val)
+  }
+  function srPlaque(id) { const v = srForm.vehicules.find(x => x.id === id); return v ? (v.plaque || v.modele || v.type) : '?' }
+  function incPdfLignes(c) {
+    const L = [], s = c.sinistre ?? {}, p = c.propagation ?? {}, h = c.hydraulique ?? {}
+    const ETAT = { EN_COURS: 'En cours', MAITRISE: 'Maîtrisé', ETEINT: 'Éteint', SOUS_SURVEILLANCE: 'Sous surveillance' }
+    const TECH = { DIRECTE: 'Attaque directe', INDIRECTE: 'Attaque indirecte', FEU_TACTIQUE: 'Feu tactique', NOYAGE: 'Noyage' }
+    if (s.surfaceBrulee) L.push(['Surface brûlée', (s.surfaceBrulee / 10000).toFixed(2) + ' ha'])
+    if (s.surfaceMenacee) L.push(['Surface menacée', (s.surfaceMenacee / 10000).toFixed(2) + ' ha'])
+    if (s.etat) L.push(['État', ETAT[s.etat] ?? s.etat])
+    if ((s.couvert ?? []).length) L.push(['Couvert', s.couvert.join(', ').toLowerCase()])
+    for (const [k, lab] of [['heureDebut', 'Début'], ['heureMaitrise', 'Maîtrise'], ['heureExtinction', 'Extinction']]) if (s[k]) L.push([lab, s[k]])
+    if (p.direction) L.push(['Propagation', p.direction])
+    if (p.vitesse) L.push(['Vitesse front', p.vitesse + ' m/min'])
+    if (p.longueurFront) L.push(['Longueur front', p.longueurFront + ' m'])
+    if (p.ventDirection || p.ventForce) L.push(['Vent', [p.ventDirection, p.ventForce].filter(Boolean).join(' ')])
+    if (c.technique) L.push(['Technique', TECH[c.technique] ?? c.technique])
+    if ((h.lances ?? []).length) L.push(['Lances établies', String(h.lances.length)])
+    if (h.eauConsommee) L.push(['Eau consommée', h.eauConsommee + ' ' + (h.eauUnite === 'M3' ? 'm³' : 'L')])
+    if (c.aeriens?.engages) L.push(['Moyens aériens', (c.aeriens.nbLargages ?? 0) + ' largage(s)'])
+    return L
+  }
+  // PDF détaillé : n'inclut que les bilans/sections réellement remplis (pas de blocs vides).
   function exportPdfDetaille() {
-    const detail = victimes.map(v => {
-      const c = bilanSapDe(v.id)?.contenu ?? {}
-      return {
-        titre: victimeNom(v) + (v.sexe ? ` (${v.sexe})` : ''),
-        lignes: [
-          ['Hémorragie', c.hemorragie == null ? '—' : (c.hemorragie ? 'Oui' : 'Non')],
-          ['Perte estimée', c.perteEstimee || '—'],
-          ['Fréquence respiratoire', c.frequenceRespiratoire ?? '—'],
-          ['Observations', c.observations || '—'],
-        ],
+    const bilansPdf = []
+    for (const vic of victimes) {
+      const c = bilanSapDe(vic.id)?.contenu
+      if (!c) continue
+      const lignes = []
+      if (c.triage) lignes.push(['Triage', TRIAGES.find(t => t[0] === c.triage)?.[1] ?? c.triage])
+      for (const [sk, , champs] of SECTIONS) {
+        if (sk === 'schema') continue
+        for (const [k, label, type, opts] of champs) {
+          const val = c[sk]?.[k]
+          if (val === undefined || val === null || val === '' || val === false) continue
+          lignes.push([label, fmtVal(val, type, opts)])
+        }
       }
-    })
-    exportInterventionPdf(inter, journal, cris, detail)
+      if ((c.lesions ?? []).length) lignes.push(['Lésions marquées', String(c.lesions.length)])
+      if (c.vehiculeSrId) lignes.push(['Véhicule (SR)', srPlaque(c.vehiculeSrId)])
+      if (lignes.length) bilansPdf.push({ titre: 'SAP — ' + victimeNom(vic) + (vic.sexe ? ` (${vic.sexe})` : ''), lignes })
+    }
+    if (srForm.vehicules.length) {
+      const lignes = srForm.vehicules.map(v => {
+        const det = [TYPES_SR.find(t => t[0] === v.type)?.[1], v.modele, v.carburation,
+          v.choc && ('choc ' + (CHOCS_SR.find(x => x[0] === v.choc)?.[1])),
+          v.incendie && 'incendié', v.desincarcere && 'désincarcéré', v.stabilise && 'stabilisé'].filter(Boolean).join(' · ')
+        return [v.plaque || v.modele || 'Véhicule', det]
+      })
+      bilansPdf.push({ titre: 'Secours routier — ' + srForm.vehicules.length + ' véhicule(s)', lignes })
+    }
+    const inc = bilanIncDe()?.contenu
+    if (inc) { const l = incPdfLignes(inc); if (l.length) bilansPdf.push({ titre: 'Feu de forêt', lignes: l }) }
+    exportInterventionPdf(inter, journal, cris, bilansPdf)
   }
 </script>
 
