@@ -126,6 +126,7 @@
 .badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
 .badge-actif   { background: rgba(76, 175, 130, .15); color: var(--color-success); }
 .badge-inactif { background: var(--color-border);     color: var(--color-muted); }
+.badge-attente { background: rgba(224, 162, 60, .18); color: #e0a23c; }
 .statut-garde     { background: rgba(79, 110, 247, .15); color: var(--color-primary); }
 .statut-astreinte { background: rgba(232, 162, 58, .15); color: #e8a23a; }
 .statut-formation { background: rgba(76, 175, 130, .15); color: var(--color-success); }

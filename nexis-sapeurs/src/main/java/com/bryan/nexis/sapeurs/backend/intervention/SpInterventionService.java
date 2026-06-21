@@ -47,6 +47,7 @@ public class SpInterventionService {
     private final SpEngagementService            engagement;       // engager / postes / occupation
     private final SpAffectationAutoService       affectationAutoService;  // armement auto à la création
     private final SpCriService                   criService;       // créer CRI manquants à la clôture
+    private final com.bryan.nexis.sapeurs.datarepository.SpCriRepository criRepo;   // statuts CRI pour le statut de clôture dérivé
 
     public SpInterventionService(SpInterventionRepository interventionRepo, SpVehiculeRepository vehiculeRepo,
                                  SpNatureInterventionRepository natureRepo, SpVehiculeAffectationService affectationService,
@@ -58,7 +59,8 @@ public class SpInterventionService {
                                  com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService,
                                  SpHistorisationService historisation, SpEngagementService engagement,
                                  SpAffectationAutoService affectationAutoService,
-                                 SpCriService criService) {
+                                 SpCriService criService,
+                                 com.bryan.nexis.sapeurs.datarepository.SpCriRepository criRepo) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
         this.natureRepo         = natureRepo;
@@ -75,6 +77,7 @@ public class SpInterventionService {
         this.engagement         = engagement;
         this.affectationAutoService = affectationAutoService;
         this.criService             = criService;
+        this.criRepo                = criRepo;
     }
 
     private String actor() { return securityService.username().orElse(null); }
@@ -134,12 +137,33 @@ public class SpInterventionService {
         var codes = interventions.stream().map(SpIntervention::getCode).toList();
         var journauxParCode = journalService.byReferences(codes);   // 1 requête
         var noms = nommage.noms();                                   // 1 requête
+        // Statuts CRI en lot pour les interventions closes : 1 requête au lieu de N.
+        var idsClos = interventions.stream().filter(i -> i.getFin() != null).map(SpIntervention::getId).toList();
+        var crisParInter = idsClos.isEmpty()
+                ? java.util.Map.<UUID, List<com.bryan.nexis.sapeurs.datamodel.SpCri>>of()
+                : criRepo.findByInterventionIdIn(idsClos).stream()
+                        .collect(java.util.stream.Collectors.groupingBy(c -> c.getIntervention().getId()));
         return interventions.stream().map(i -> {
             var all = journauxParCode.getOrDefault(i.getCode(), List.of());
             int n = all.size();
             var dern = n <= DERNIERES_MC ? all : all.subList(n - DERNIERES_MC, n);
-            return SpInterventionDto.from(i, nommage.appliquer(dern, noms));
+            return SpInterventionDto.from(i, nommage.appliquer(dern, noms),
+                    statutCloture(i, crisParInter.getOrDefault(i.getId(), List.of())));
         }).toList();
+    }
+
+    /** Calcule le statut de clôture dérivé de fin + statuts des CRI.
+     *  EN_COURS = ouvert | ATTENTE_CRI = >=1 CRI non SOUMIS/VALIDE | ATTENTE_VALIDATION = tous SOUMIS, >=1 non VALIDE | CLOSE = tous VALIDE. */
+    private static String statutCloture(SpIntervention i, List<com.bryan.nexis.sapeurs.datamodel.SpCri> cris) {
+        if (i.getFin() == null) return "EN_COURS";
+        if (cris.isEmpty()) return "CLOSE";
+        boolean enAttenteCri = cris.stream().anyMatch(c ->
+                !com.bryan.nexis.sapeurs.datamodel.SpCri.SOUMIS.equals(c.getStatut())
+                && !com.bryan.nexis.sapeurs.datamodel.SpCri.VALIDE.equals(c.getStatut()));
+        if (enAttenteCri) return "ATTENTE_CRI";
+        boolean enAttenteValidation = cris.stream().anyMatch(c ->
+                com.bryan.nexis.sapeurs.datamodel.SpCri.SOUMIS.equals(c.getStatut()));
+        return enAttenteValidation ? "ATTENTE_VALIDATION" : "CLOSE";
     }
 
     /** Main courante d'une intervention (journal relié à son code). */

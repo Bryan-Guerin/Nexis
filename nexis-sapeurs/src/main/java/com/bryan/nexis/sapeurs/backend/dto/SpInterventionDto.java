@@ -31,7 +31,9 @@ public record SpInterventionDto(
         String renfortVinci,
         List<SpEnginDto> engins,
         List<EnginHistoDto> enginsHisto,
-        List<JournalEntryDto> dernieresLignes
+        List<JournalEntryDto> dernieresLignes,
+        /** EN_COURS | ATTENTE_CRI | ATTENTE_VALIDATION | CLOSE (derive de fin + statuts CRI). */
+        String statutCloture
 ) {
     /** Engin historisé (texte) + son équipage figé, pour les interventions clôturées. */
     @Serdeable
@@ -48,10 +50,14 @@ public record SpInterventionDto(
     public record EquipierDto(String matricule, String nom, String grade, String poste) {}
 
     public static SpInterventionDto from(SpIntervention i) {
-        return from(i, List.of());
+        return from(i, List.of(), null);
     }
 
     public static SpInterventionDto from(SpIntervention i, List<JournalEntryDto> dernieresLignes) {
+        return from(i, dernieresLignes, null);
+    }
+
+    public static SpInterventionDto from(SpIntervention i, List<JournalEntryDto> dernieresLignes, String statutCloture) {
         return new SpInterventionDto(
                 i.getId(),
                 i.getCode(),
@@ -73,7 +79,8 @@ public record SpInterventionDto(
                 i.getRenfortVinci(),
                 i.getEngins().stream().map(SpEnginDto::from).toList(),
                 i.getEnginsHisto().stream().map(EnginHistoDto::from).toList(),
-                dernieresLignes
+                dernieresLignes,
+                statutCloture
         );
     }
 }

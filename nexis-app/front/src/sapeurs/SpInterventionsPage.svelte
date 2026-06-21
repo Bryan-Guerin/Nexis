@@ -40,21 +40,28 @@
     a.enCours === b.enCours ? (new Date(b.debut) - new Date(a.debut)) : (a.enCours ? -1 : 1)
   ))
 
-  // Recherche / archive — par défaut, on n'affiche que les interventions en cours
-  let filtreStatut = $state('EN_COURS')   // TOUTES | EN_COURS | CLOTUREES
+  // Recherche / archive — par défaut, on n'affiche que les interventions en cours.
+  // Filtres : TOUTES | EN_COURS | ATTENTE_CRI | ATTENTE_VALIDATION | CLOSE | CLOTUREES (les 3 dernières regroupées).
+  let filtreStatut = $state('EN_COURS')
   let filtreNature = $state('')
   let recherche    = $state('')
   let intPage      = $state(1)
   let intPageSize  = $state(25)
   let affichees = $derived(sorted.filter(i => {
-    if (filtreStatut === 'EN_COURS' && !i.enCours) return false
-    if (filtreStatut === 'CLOTUREES' && i.enCours) return false
+    const sc = i.statutCloture ?? (i.enCours ? 'EN_COURS' : 'CLOSE')
+    if (filtreStatut === 'EN_COURS' && sc !== 'EN_COURS') return false
+    if (filtreStatut === 'ATTENTE_CRI' && sc !== 'ATTENTE_CRI') return false
+    if (filtreStatut === 'ATTENTE_VALIDATION' && sc !== 'ATTENTE_VALIDATION') return false
+    if (filtreStatut === 'CLOSE' && sc !== 'CLOSE') return false
+    if (filtreStatut === 'CLOTUREES' && sc === 'EN_COURS') return false
     if (filtreNature && i.nature?.id !== filtreNature) return false
     const q = recherche.trim().toLowerCase()
     if (!q) return true
     return [i.code, i.motif, i.nature?.code, i.nature?.label, i.commune]
       .filter(Boolean).some(s => s.toLowerCase().includes(q))
   }))
+
+  const STATUT_CLOTURE_LABEL = { EN_COURS: 'En cours', ATTENTE_CRI: 'En attente CRI', ATTENTE_VALIDATION: 'En attente validation', CLOSE: 'Close' }
   let afficheesPage = $derived(affichees.slice((intPage - 1) * intPageSize, intPage * intPageSize))
 
   // Horloge pour le chrono des interventions en cours (rafraîchi chaque minute).
@@ -174,7 +181,10 @@
       <div class="seg">
         <button class="seg-btn" class:on={filtreStatut === 'TOUTES'} onclick={() => filtreStatut = 'TOUTES'}>Toutes</button>
         <button class="seg-btn" class:on={filtreStatut === 'EN_COURS'} onclick={() => filtreStatut = 'EN_COURS'}>En cours</button>
-        <button class="seg-btn" class:on={filtreStatut === 'CLOTUREES'} onclick={() => filtreStatut = 'CLOTUREES'}>Clôturées</button>
+        <button class="seg-btn" class:on={filtreStatut === 'ATTENTE_CRI'} onclick={() => filtreStatut = 'ATTENTE_CRI'}>En attente CRI</button>
+        <button class="seg-btn" class:on={filtreStatut === 'ATTENTE_VALIDATION'} onclick={() => filtreStatut = 'ATTENTE_VALIDATION'}>À valider</button>
+        <button class="seg-btn" class:on={filtreStatut === 'CLOSE'} onclick={() => filtreStatut = 'CLOSE'}>Closes</button>
+        <button class="seg-btn" class:on={filtreStatut === 'CLOTUREES'} onclick={() => filtreStatut = 'CLOTUREES'}>Clôturées (toutes)</button>
       </div>
       <select class="search nature-filtre" bind:value={filtreNature} title="Filtrer par nature">
         <option value="">Toutes natures</option>
@@ -187,8 +197,9 @@
         <div class="card" class:closed={!i.enCours}>
           <div class="i-head" ondblclick={() => push(`/sp/interventions/${i.code}`)} role="button" tabindex="0" title="Double-clic pour le détail">
             <div class="i-main">
-              <span class="badge" class:badge-actif={i.enCours} class:badge-inactif={!i.enCours}>
-                {i.enCours ? 'En cours' : 'Clôturée'}
+              <span class="badge" class:badge-actif={i.enCours} class:badge-inactif={!i.enCours}
+                    class:badge-attente={i.statutCloture === 'ATTENTE_CRI' || i.statutCloture === 'ATTENTE_VALIDATION'}>
+                {STATUT_CLOTURE_LABEL[i.statutCloture] ?? (i.enCours ? 'En cours' : 'Clôturée')}
               </span>
               {#if i.enCours}<span class="i-chrono" title="Durée depuis l'ouverture">⏱ {chrono(i.debut)}</span>{/if}
               <span class="i-code">{i.code}</span>
