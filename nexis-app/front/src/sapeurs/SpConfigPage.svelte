@@ -111,6 +111,13 @@
     } catch { /* toast par api.js */ }
   }
 
+  async function setGradePeutValiderCri(it, peutValider) {
+    try {
+      const u = await api.put(`/sp/grades/${it.id}/valider-cri?peutValider=${peutValider}`)
+      items = items.map(x => x.id === u.id ? u : x)
+    } catch { /* toast par api.js */ }
+  }
+
   // Icône d'une nature (carte) : emoji + image. Lue depuis l'item (lié par IconePicker).
   async function setNatureIcone(it) {
     try {
@@ -281,6 +288,13 @@
                         onchange={e => setFonctionType(it, e.target.value)}>
                   {#each TYPES_FONCTION as [v, l]}<option value={v}>{l}</option>{/each}
                 </select>
+              {/if}
+              {#if cat.key === 'grades'}
+                <label class="cri-toggle" title="Autoriser ce grade à valider les CRI (sergent et +)">
+                  <input type="checkbox" checked={it.peutValiderCri}
+                         onchange={e => setGradePeutValiderCri(it, e.currentTarget.checked)} />
+                  Valide CRI
+                </label>
               {/if}
               {#if cat.key === 'centres'}
                 <input class="coord-input" type="text" inputmode="numeric" maxlength="6" placeholder="coord. 6 ch."
@@ -482,6 +496,8 @@
   .defaut-btn { background: none; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-muted); font-size: 10px; padding: 1px 6px; cursor: pointer; }
   .defaut-btn.on { border-color: var(--accent); color: var(--accent); }
   .type-fonction-sel { font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; cursor: pointer; }
+  .cri-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-muted); cursor: pointer; user-select: none; }
+  .cri-toggle input { cursor: pointer; }
   .coord-input { width: 90px; font-size: 11px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); padding: 2px 6px; }
 
   .add-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }

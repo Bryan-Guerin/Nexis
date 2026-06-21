@@ -150,6 +150,19 @@
   const currentSec = $derived(navSections[sectionIdx] ?? navSections[0])
 
   let isAdmin      = $derived($currentUser?.roles?.includes('ROLE_ADMIN_SP') ?? false)
+  let peutValiderCri = $state(false)   // admin OU grade autorisé (sergent et +) — fetché au load
+
+  // Statut clôture dérivé : EN_COURS → ATTENTE_CRI → ATTENTE_VALIDATION → CLOSE.
+  let statutCloture = $derived.by(() => {
+    if (!inter) return { label: '—', titre: '' }
+    if (inter.enCours) return { label: 'En cours', titre: 'Intervention en cours' }
+    const liste = cris ?? []
+    if (liste.some(c => c.statut !== 'SOUMIS' && c.statut !== 'VALIDE'))
+      return { label: 'En attente CRI', titre: 'Au moins un CRI reste à soumettre par son équipage' }
+    if (liste.some(c => c.statut === 'SOUMIS'))
+      return { label: 'En attente validation', titre: 'Tous les CRI soumis — en attente de validation par un grade autorisé' }
+    return { label: 'Close', titre: 'Tous les CRI ont été validés' }
+  })
   let isDispatcher = $derived($can.dispatch)
 
   const RENFORT_OPTS = [['NON_PREVENU', 'Non prévenu'], ['PREVENU', 'Prévenu'], ['SUR_PLACE', 'Sur place']]
@@ -173,6 +186,7 @@
         refNatures().catch(() => []),
       ])
       myMembreId = me?.id ?? null
+      try { peutValiderCri = (await api.get('/sp/cri/a-valider/count')).peutValider } catch { peutValiderCri = false }
       await loadBilansVictimes()
     } catch { /* toast par api.js */ }
     finally { loading = false }
@@ -239,7 +253,7 @@
   const TYPES_SR  = [['VOITURE', 'Voiture'], ['CAMION', 'Camion'], ['UTILITAIRE', 'Utilitaire'], ['MOTO', 'Moto']]
   const CHOCS_SR  = [['FRONTAL', 'Frontal'], ['LATERAL_GAUCHE', 'Latéral G'], ['LATERAL_DROIT', 'Latéral D'], ['ARRIERE', 'Arrière'], ['AUTRE', 'Autre']]
   const CARBURATIONS = ['Essence', 'Diesel', 'GPL', 'Électrique', 'Hybride']
-  const VEH_DIM   = { VOITURE: [18, 34], CAMION: [22, 56], UTILITAIRE: [20, 44], MOTO: [9, 22] }
+  const VEH_DIM   = { VOITURE: [28, 52], CAMION: [34, 84], UTILITAIRE: [30, 66], MOTO: [14, 34] }
   function chocXY(choc, d) {
     const [w, h] = d
     if (choc === 'FRONTAL') return [0, -h / 2]
@@ -482,7 +496,7 @@
       <div class="topbar-title">
         <span class="i-code">{inter.code}</span>
         <span class="i-motif">{inter.motif}</span>
-        <span class="status-chip" class:closed={!inter.enCours}>{inter.enCours ? 'En cours' : 'Clôturée'}</span>
+        <span class="status-chip" class:closed={!inter.enCours} title={statutCloture.titre}>{statutCloture.label}</span>
       </div>
       <div class="topbar-actions">
         {#if isDispatcher && inter.enCours && !editing}
@@ -638,7 +652,7 @@
                 <div class="cri-head">
                   <span class="eng-name">{cri.vehiculeLibelle}</span>
                   <span class="cri-badge {cri.statut.toLowerCase()}">{CRI_LABEL[cri.statut] ?? cri.statut}</span>
-                  {#if cri.statut === 'SOUMIS' && isAdmin}
+                  {#if cri.statut === 'SOUMIS' && peutValiderCri}
                     <button class="btn-primary cri-validate" onclick={() => criValider(cri)}>Valider</button>
                   {/if}
                   {#if cri.validePar}<span class="muted small">par {cri.validePar}</span>{/if}
@@ -810,8 +824,8 @@
                       {@const sxy = seatXY(occ.position, d)}
                       <g class="seat" transform="translate({sxy[0]},{sxy[1]})">
                         <title>{victimeNom(occ.vic)}{occ.triage ? ' · ' + (TRIAGES.find(t => t[0] === occ.triage)?.[1]) : ''}</title>
-                        <circle r="4.6" fill={COULEUR_TRIAGE[occ.triage] ?? 'var(--accent)'} stroke="#fff" stroke-width="0.7" />
-                        <text text-anchor="middle" dy="2.4" font-size="6" fill="#fff">{occ.vic.numero}</text>
+                        <circle r="7" fill={COULEUR_TRIAGE[occ.triage] ?? 'var(--accent)'} stroke="#fff" stroke-width="0.9" />
+                        <text text-anchor="middle" dy="3" font-size="8.5" font-weight="700" fill="#fff">{occ.vic.numero}</text>
                       </g>
                     {/each}
                   </g>
@@ -991,10 +1005,10 @@
   .famille-chips button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; }
   .famille-chips button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
   .victimes-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .vic { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
-  .vic.on { border-color: var(--accent); color: var(--accent); }
-  .vic-sexe { font-size: 10px; font-weight: 700; color: var(--color-muted); border: 1px solid var(--color-border); border-radius: 6px; padding: 0 4px; }
-  .tri-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .vic { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 15px; padding: 10px 18px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; font-weight: 500; min-height: 40px; }
+  .vic.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--color-bg)); }
+  .vic-sexe { font-size: 11px; font-weight: 700; color: var(--color-muted); border: 1px solid var(--color-border); border-radius: 6px; padding: 1px 5px; }
+  .tri-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.4); }
   .triage { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .triage-lib { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--color-muted); }
   .triage button { background: var(--color-surface); border: 1px solid var(--color-border); border-left: 4px solid var(--tc); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 10px; cursor: pointer; }
@@ -1031,7 +1045,7 @@
   .sr-routes button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; }
   .sr-routes button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
   .sr-body { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-  .sr-scene { width: 200px; height: 360px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); touch-action: none; flex-shrink: 0; }
+  .sr-scene { width: 280px; height: 504px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); touch-action: none; flex-shrink: 0; }
   .veh { cursor: grab; }
   .veh.sel rect:first-child { stroke: var(--accent); stroke-width: 2; }
   .sr-side { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 12px; }

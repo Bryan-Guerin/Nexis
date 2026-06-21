@@ -80,6 +80,11 @@ public class SpConfigController {
         gradeService.reorder(req.ids());
     }
 
+    @Put("/grades/{id}/valider-cri")
+    SpGradeDto setPeutValiderCri(UUID id, @io.micronaut.http.annotation.QueryValue boolean peutValider) {
+        return gradeService.updatePeutValiderCri(id, peutValider);
+    }
+
     @Delete("/grades/{id}")
     io.micronaut.http.HttpResponse<?> deleteGrade(UUID id) {
         try {

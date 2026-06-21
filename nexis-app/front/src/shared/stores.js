@@ -64,3 +64,6 @@ export const theme = createThemeStore()
 // « mon affectation »). Valeurs : 'moi' (filtre sur l'utilisateur courant) ou un tableau
 // de membreId. La Feuille la consomme au montage puis la remet à null.
 export const feuilleFiltreDemande = writable(null)
+
+// Nombre de CRI à valider par l'utilisateur courant (badge nav). Alimenté par Layout (poll + WS).
+export const criAValiderCount = writable(0)

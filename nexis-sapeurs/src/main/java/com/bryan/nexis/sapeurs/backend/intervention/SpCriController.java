@@ -39,9 +39,18 @@ public class SpCriController {
         return service.soumettre(criId);
     }
 
+    /** Validation : ouverte à ROLE_SP, contrôle de grade côté service. */
     @Put("/cri/{criId}/valider")
-    @Secured("ROLE_ADMIN_SP")
     SpCriDto valider(UUID criId) {
         return service.valider(criId);
     }
+
+    /** Nombre de CRI en attente de validation pour l'utilisateur courant (badge nav). */
+    @Get("/cri/a-valider/count")
+    AValiderDto aValider() {
+        return new AValiderDto(service.peutValiderCri(), service.countAValider());
+    }
+
+    @io.micronaut.serde.annotation.Serdeable
+    public record AValiderDto(boolean peutValider, long count) {}
 }

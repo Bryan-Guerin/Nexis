@@ -68,7 +68,8 @@ class SpInterventionServiceTest {
                 mock(com.bryan.nexis.sapeurs.backend.pilotage.SpActeurNommage.class),
                 events, securityService,
                 mock(com.bryan.nexis.sapeurs.backend.effectif.SpRpService.class),
-                mock(SpHistorisationService.class), engagement, mock(SpAffectationAutoService.class));
+                mock(SpHistorisationService.class), engagement, mock(SpAffectationAutoService.class),
+                mock(SpCriService.class));
 
         typeFpt    = type("FPT");
         etatDispo  = etat("DISPONIBLE");

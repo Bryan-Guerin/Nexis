@@ -8,10 +8,10 @@ import java.util.UUID;
 
 @Serdeable
 public record SpGradeDto(UUID id, String code, String label, int position,
-                         BigDecimal tauxHoraire, BigDecimal tauxAstreinte) {
+                         BigDecimal tauxHoraire, BigDecimal tauxAstreinte, boolean peutValiderCri) {
 
     public static SpGradeDto from(SpGrade g) {
         return new SpGradeDto(g.getId(), g.getCode(), g.getLabel(), g.getPosition(),
-                g.getTauxHoraire(), g.getTauxAstreinte());
+                g.getTauxHoraire(), g.getTauxAstreinte(), g.isPeutValiderCri());
     }
 }

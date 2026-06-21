@@ -1,5 +1,5 @@
 <script>
-    import {currentUser} from '../shared/stores.js'
+    import {currentUser, criAValiderCount} from '../shared/stores.js'
 
     // Ordre = du plus utilisé (live) au moins utilisé ; RH / Configuration en bas.
     const nav = [
@@ -82,6 +82,9 @@
           {#if canSee(item.roles)}
             <a href="#{item.path}" class:active={currentHash === `#${item.path}`}>
               <span class="nav-ico">{item.icon}</span>{item.label}
+              {#if item.path === '/sp/interventions' && $criAValiderCount > 0}
+                <span class="nav-badge" title="{$criAValiderCount} CRI à valider">{$criAValiderCount > 9 ? '9+' : $criAValiderCount}</span>
+              {/if}
             </a>
           {/if}
         {/each}
@@ -142,4 +145,6 @@
     color: var(--color-primary);
     font-weight: 500;
   }
+
+  .nav-badge { margin-left: auto; background: var(--color-danger); color: #fff; font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; }
 </style>

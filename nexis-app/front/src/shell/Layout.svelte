@@ -3,7 +3,7 @@
     import Nav from './Nav.svelte'
     import MonAffectation from './MonAffectation.svelte'
     import Modal from '../shared/Modal.svelte'
-    import {authToken, currentUser, theme as themeMode} from '../shared/stores.js'
+    import {authToken, currentUser, theme as themeMode, criAValiderCount} from '../shared/stores.js'
     import {api} from '../shared/api.js'
     import {realtime, startBipLoop, stopBipLoop} from '../shared/realtime.js'
     import {
@@ -42,18 +42,29 @@
   let pagerCountdown = $state(0)
   let pagerTimer     = null
 
+  // CRI à valider (badge nav) : ping initial + refresh sur événement de soumission/validation, + poll lent (fallback).
+  async function refreshCriCount() {
+    try {
+      if (!$currentUser?.roles?.includes('ROLE_SP')) { criAValiderCount.set(0); return }
+      const r = await api.get('/sp/cri/a-valider/count')
+      criAValiderCount.set(r.peutValider ? r.count : 0)
+    } catch { /* silencieux */ }
+  }
+
   onMount(() => {
     loadProfile()
     startNotifications()
+    refreshCriCount()
     const off = realtime.on(ev => {
       if (ev.type === 'BIP') declenchePager(ev)
-      // Compte désactivé (radiation) → déconnexion immédiate.
       if (ev.type === 'COMPTE_DESACTIVE') { logout(); window.location.assign('/') }
+      if (ev.type === 'INTERVENTION_CLOTUREE') refreshCriCount()
     })
+    const pollCri = setInterval(refreshCriCount, 30000)   // poll régulier (pas d'event dédié)
     // Sur mobile, refermer le menu overlay après une navigation
     const closeOnNav = () => { if (window.innerWidth <= 768) navOpen = false }
     window.addEventListener('hashchange', closeOnNav)
-    return () => { off(); stopBipLoop(); clearInterval(pagerTimer); window.removeEventListener('hashchange', closeOnNav) }
+    return () => { off(); stopBipLoop(); clearInterval(pagerTimer); clearInterval(pollCri); window.removeEventListener('hashchange', closeOnNav) }
   })
 
   // Centre de notifications (cloche)

@@ -46,6 +46,7 @@ public class SpInterventionService {
     private final SpHistorisationService         historisation;    // fige engins + équipages
     private final SpEngagementService            engagement;       // engager / postes / occupation
     private final SpAffectationAutoService       affectationAutoService;  // armement auto à la création
+    private final SpCriService                   criService;       // créer CRI manquants à la clôture
 
     public SpInterventionService(SpInterventionRepository interventionRepo, SpVehiculeRepository vehiculeRepo,
                                  SpNatureInterventionRepository natureRepo, SpVehiculeAffectationService affectationService,
@@ -56,7 +57,8 @@ public class SpInterventionService {
                                  ApplicationEventPublisher<RealtimeEvent> events, SecurityService securityService,
                                  com.bryan.nexis.sapeurs.backend.effectif.SpRpService rpService,
                                  SpHistorisationService historisation, SpEngagementService engagement,
-                                 SpAffectationAutoService affectationAutoService) {
+                                 SpAffectationAutoService affectationAutoService,
+                                 SpCriService criService) {
         this.interventionRepo   = interventionRepo;
         this.vehiculeRepo       = vehiculeRepo;
         this.natureRepo         = natureRepo;
@@ -72,6 +74,7 @@ public class SpInterventionService {
         this.historisation      = historisation;
         this.engagement         = engagement;
         this.affectationAutoService = affectationAutoService;
+        this.criService             = criService;
     }
 
     private String actor() { return securityService.username().orElse(null); }
@@ -331,14 +334,17 @@ public class SpInterventionService {
             inter.setFin(Instant.now());
             // Snapshot des engins + équipages AVANT de libérer (les affectations sont encore actives).
             historisation.snapshotEngins(inter);
+            // Crée les CRI manquants AVANT de détacher les engins : sinon les équipages ne peuvent
+            // plus saisir leur CRI une fois l'intervention en attente CRI (engins vidés).
+            criService.creerCrisManquants(inter);
             events.publishEvent(RealtimeEvent.faction(RealtimeEvent.INTERVENTION_CLOTUREE, "SP",
-                    "Intervention clôturée : " + inter.getMotif(),
+                    "Intervention en attente CRI : " + inter.getMotif(),
                     Map.of("interventionId", id.toString()), actor()).withReference(inter.getCode()));
             libererEngins(inter);
             // Retire la FK véhicule : l'archive vit désormais dans le snapshot historisé.
             inter.getEngins().clear();
             inter = interventionRepo.update(inter);
-            log.info("Intervention {} clôturée par {}", inter.getCode(), actor());
+            log.info("Intervention {} passée en attente CRI par {}", inter.getCode(), actor());
             // Auto-éval badges : interventions/temps/nature peuvent franchir un seuil.
             // Coût acceptable pour le volume RP ; sinon ciblerait les seuls porteurs.
             try { rpService.evalAll(); }

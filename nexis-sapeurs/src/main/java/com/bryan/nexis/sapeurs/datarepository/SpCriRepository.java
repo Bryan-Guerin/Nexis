@@ -12,4 +12,5 @@ public interface SpCriRepository extends JpaRepository<SpCri, UUID> {
     List<SpCri> findByInterventionId(UUID interventionId);
     boolean existsByInterventionIdAndVehiculeId(UUID interventionId, UUID vehiculeId);
     boolean existsByVehiculeId(UUID vehiculeId);
+    long countByStatut(String statut);
 }

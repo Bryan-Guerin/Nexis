@@ -48,6 +48,15 @@ public class SpGradeService {
         return SpGradeDto.from(repo.update(grade));
     }
 
+    /** Active / désactive le droit de valider les CRI pour ce grade. */
+    @Transactional
+    public SpGradeDto updatePeutValiderCri(UUID id, boolean peutValider) {
+        var grade = repo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Grade SP introuvable : " + id));
+        grade.setPeutValiderCri(peutValider);
+        return SpGradeDto.from(repo.update(grade));
+    }
+
     /**
      * Supprime un grade. Bloqué si au moins un effectif porte ce grade — le message liste
      * les effectifs concernés (matricule + nom).
