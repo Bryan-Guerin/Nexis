@@ -22,7 +22,9 @@ public record BilanSapContenu(
         @Nullable List<Lesion> lesions,
         @Nullable Sample sample,
         /** Id du véhicule SR (BilanSrContenu.VehiculeSr.id) dans lequel se trouve la victime. */
-        @Nullable String vehiculeSrId
+        @Nullable String vehiculeSrId,
+        /** Catégorie de triage (urgence) — code couleur pour le récap chef d'agrès. */
+        @Nullable Triage triage
 ) {
     /** X — Hémorragie. */
     @Serdeable
@@ -74,6 +76,8 @@ public record BilanSapContenu(
     public record Sample(String symptomes, String allergies, String medicaments,
                          String dernierRepas, String evenements, String observations) {}
 
+    /** Triage / urgence : indemne (vert) → urgence relative (jaune) → absolue (rouge) → décédé (noir). */
+    public enum Triage           { INDEMNE, UR, UA, DECEDE }
     public enum PerteEstimee     { FAIBLE, IMPORTANTE }
     public enum Avpu             { ALERT, VERBAL, PAIN, UNRESPONSIVE }
     public enum EtatPupille      { MYDRIASE, NORMALE, MYOSIS }

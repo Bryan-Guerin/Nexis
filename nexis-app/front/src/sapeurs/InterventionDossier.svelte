@@ -101,13 +101,14 @@
       ['evenements', 'Événements avant l\'urgence', 'textarea'], ['observations', 'Observations particulières', 'textarea']]],
     ['schema', 'Schéma corporel', []],
   ]
-  function emptySap() { return { x: {}, a: {}, b: {}, c: {}, d: {}, e: {}, avp: {}, sample: {}, lesions: [], vehiculeSrId: null } }
+  function emptySap() { return { x: {}, a: {}, b: {}, c: {}, d: {}, e: {}, avp: {}, sample: {}, lesions: [], vehiculeSrId: null, triage: null } }
   function intoSap(contenu) {
     const s = emptySap()
     if (contenu) {
       for (const k of ['x', 'a', 'b', 'c', 'd', 'e', 'avp', 'sample']) if (contenu[k]) s[k] = { ...contenu[k] }
       if (Array.isArray(contenu.lesions)) s.lesions = contenu.lesions.map(l => ({ ...l }))
       if (contenu.vehiculeSrId != null) s.vehiculeSrId = contenu.vehiculeSrId
+      if (contenu.triage != null) s.triage = contenu.triage
     }
     return s
   }
@@ -122,6 +123,10 @@
     DEFORMATION: '#a259e2', CONTUSION: '#378add', ABRASION: '#1d9e75', HEMORRAGIE: '#e24b4a',
     PLAIE: '#d8492f', BRULURE: '#ef9f27', TUMEFACTION: '#d4537e', LACERATION: '#b07a17', DOULEUR: '#888888',
   }
+  // Triage (urgence) : vert → jaune → rouge → noir. Pastille de victime colorée pour le récap.
+  const TRIAGES = [['INDEMNE', 'Indemne'], ['UR', 'Urgence relative'], ['UA', 'Urgence absolue'], ['DECEDE', 'Décédé']]
+  const COULEUR_TRIAGE = { INDEMNE: '#1d9e75', UR: '#e0a23c', UA: '#e24b4a', DECEDE: '#1e1e1e' }
+  function triageDe(victimeId) { return bilanSapDe(victimeId)?.contenu?.triage ?? null }
   let lesionType = $state('PLAIE')
   let svgEl
   function ajouterLesion(e) {
@@ -253,7 +258,7 @@
   // Victimes (SAP) reliées à ce véhicule + leur position (avp.position).
   function victimesDuVehicule(vehId) {
     return victimes
-      .map(vic => { const c = bilanSapDe(vic.id)?.contenu; return c?.vehiculeSrId === vehId ? { vic, position: c?.avp?.position ?? null } : null })
+      .map(vic => { const c = bilanSapDe(vic.id)?.contenu; return c?.vehiculeSrId === vehId ? { vic, position: c?.avp?.position ?? null, triage: c?.triage ?? null } : null })
       .filter(Boolean)
   }
   function bilanSrDe() { return bilans.find(b => b.famille === 'SR') }
@@ -617,6 +622,7 @@
           <div class="victimes-bar">
             {#each victimes as v (v.id)}
               <button class="vic" class:on={victimeSel === v.id} onclick={() => selectVictime(v)}>
+                {#if triageDe(v.id)}<span class="tri-dot" style="background:{COULEUR_TRIAGE[triageDe(v.id)]}"></span>{/if}
                 {victimeNom(v)}{#if v.sexe}<span class="vic-sexe">{v.sexe}</span>{/if}
               </button>
             {/each}
@@ -656,6 +662,12 @@
               <span class="sap-titre">Bilan SAP — {victimeNom(vsel)}</span>
               {#if inter.enCours}<button class="btn-ghost-sm" onclick={() => openEditVictime(vsel)}>Éditer la victime</button>{/if}
               {#if sapSaved}<span class="saved">✓ Enregistré</span>{/if}
+            </div>
+            <div class="triage">
+              <span class="triage-lib">Triage</span>
+              {#each TRIAGES as [tv, tl]}
+                <button class:on={sapForm.triage === tv} style="--tc:{COULEUR_TRIAGE[tv]}" onclick={() => { sapForm.triage = tv; onSapChange() }}>{tl}</button>
+              {/each}
             </div>
             <div class="sap-stepper">
               {#each navSections as [sk], idx}
@@ -748,8 +760,8 @@
                     {#each victimesDuVehicule(v.id) as occ}
                       {@const sxy = seatXY(occ.position, d)}
                       <g class="seat" transform="translate({sxy[0]},{sxy[1]})">
-                        <title>{victimeNom(occ.vic)}</title>
-                        <circle r="4.6" fill="var(--accent)" stroke="#fff" stroke-width="0.7" />
+                        <title>{victimeNom(occ.vic)}{occ.triage ? ' · ' + (TRIAGES.find(t => t[0] === occ.triage)?.[1]) : ''}</title>
+                        <circle r="4.6" fill={COULEUR_TRIAGE[occ.triage] ?? 'var(--accent)'} stroke="#fff" stroke-width="0.7" />
                         <text text-anchor="middle" dy="2.4" font-size="6" fill="#fff">{occ.vic.numero}</text>
                       </g>
                     {/each}
@@ -933,6 +945,11 @@
   .vic { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
   .vic.on { border-color: var(--accent); color: var(--accent); }
   .vic-sexe { font-size: 10px; font-weight: 700; color: var(--color-muted); border: 1px solid var(--color-border); border-radius: 6px; padding: 0 4px; }
+  .tri-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .triage { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .triage-lib { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--color-muted); }
+  .triage button { background: var(--color-surface); border: 1px solid var(--color-border); border-left: 4px solid var(--tc); border-radius: var(--radius); color: var(--color-text); font-size: 12px; padding: 4px 10px; cursor: pointer; }
+  .triage button.on { background: color-mix(in srgb, var(--tc) 22%, transparent); font-weight: 600; }
   .sap-head { display: flex; align-items: center; gap: 12px; }
   .sap-titre { font-weight: 600; font-size: 14px; }
   .saved { font-size: 11px; color: var(--color-success); font-weight: 600; }

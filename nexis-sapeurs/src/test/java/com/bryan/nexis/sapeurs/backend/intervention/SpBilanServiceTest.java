@@ -61,7 +61,7 @@ class SpBilanServiceTest {
         var saisi = new BilanSapContenu(
                 new BilanSapContenu.Hemorragie(true, true, BilanSapContenu.PerteEstimee.IMPORTANTE, false, false, true, false),
                 null, null, null, null, null, null, null,
-                new BilanSapContenu.Sample("douleur thoracique", null, null, null, null, "RAS"), null);
+                new BilanSapContenu.Sample("douleur thoracique", null, null, null, null, "RAS"), null, null);
         var dto = service.enregistrerBilanSap(victime.getId(), saisi);
 
         assertEquals("SAP", dto.famille());
