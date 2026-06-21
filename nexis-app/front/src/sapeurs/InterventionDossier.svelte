@@ -42,6 +42,14 @@
   let editVictimeId = $state(null)
   let sectionIdx    = $state(0)
 
+  // ── Bilan SR (scène + véhicules vue de haut) ──
+  let srForm   = $state({ routeType: 'AUTOROUTE_3V', vehicules: [] })
+  let srVehSel = $state(null)
+  let srSaved  = $state(false)
+  let srTimer  = null
+  let dragId   = null
+  let srSvgEl
+
   // Méthode XABCDE — config de rendu (le modèle reste typé côté back ; ceci n'est que l'UI).
   // [clé, label, type, options?] ; type = bool | enum | num | text | textarea.
   const PERTE = [['FAIBLE', 'Faible'], ['IMPORTANTE', 'Importante']]
@@ -91,10 +99,14 @@
       ['evenements', 'Événements avant l\'urgence', 'textarea'], ['observations', 'Observations particulières', 'textarea']]],
     ['schema', 'Schéma corporel', []],
   ]
-  function emptySap() { return { x: {}, a: {}, b: {}, c: {}, d: {}, e: {}, avp: {}, sample: {}, lesions: [] } }
+  function emptySap() { return { x: {}, a: {}, b: {}, c: {}, d: {}, e: {}, avp: {}, sample: {}, lesions: [], vehiculeSrId: null } }
   function intoSap(contenu) {
     const s = emptySap()
-    if (contenu) for (const k of Object.keys(s)) if (contenu[k] != null) s[k] = k === 'lesions' ? contenu[k] : { ...contenu[k] }
+    if (contenu) {
+      for (const k of ['x', 'a', 'b', 'c', 'd', 'e', 'avp', 'sample']) if (contenu[k]) s[k] = { ...contenu[k] }
+      if (Array.isArray(contenu.lesions)) s.lesions = contenu.lesions.map(l => ({ ...l }))
+      if (contenu.vehiculeSrId != null) s.vehiculeSrId = contenu.vehiculeSrId
+    }
     return s
   }
 
@@ -170,6 +182,7 @@
     else if (rafraichirSaisie && victimeSel && !sapTimer) {
       sapForm = intoSap(bilanSapDe(victimeSel)?.contenu)
     }
+    if (!srTimer) srForm = intoSr(bilanSrDe()?.contenu)   // SR : pas écrasé si saisie en cours
   }
 
   function bilanSapDe(victimeId) { return bilans.find(b => b.famille === 'SAP' && b.victimeId === victimeId) }
@@ -211,6 +224,56 @@
       }
       showVictime = false
     } catch { /* toast par api.js */ }
+  }
+
+  // ── Bilan SR ──
+  const ROUTES_SR = [['AUTOROUTE_3V', 'Autoroute (3 voies)'], ['BIDIRECTIONNEL_2V', 'Bidirectionnel (2 voies)']]
+  const TYPES_SR  = [['VOITURE', 'Voiture'], ['CAMION', 'Camion'], ['UTILITAIRE', 'Utilitaire'], ['MOTO', 'Moto']]
+  const CHOCS_SR  = [['FRONTAL', 'Frontal'], ['LATERAL_GAUCHE', 'Latéral G'], ['LATERAL_DROIT', 'Latéral D'], ['ARRIERE', 'Arrière'], ['AUTRE', 'Autre']]
+  const VEH_DIM   = { VOITURE: [18, 34], CAMION: [22, 56], UTILITAIRE: [20, 44], MOTO: [9, 22] }
+  function bilanSrDe() { return bilans.find(b => b.famille === 'SR') }
+  function intoSr(c) { return { routeType: c?.routeType ?? 'AUTOROUTE_3V', vehicules: (c?.vehicules ?? []).map(v => ({ ...v })) } }
+  function vehSel() { return srForm.vehicules.find(v => v.id === srVehSel) }
+  function onSrChange() { srSaved = false; clearTimeout(srTimer); srTimer = setTimeout(saveSr, 600) }
+  async function saveSr() {
+    srTimer = null
+    try {
+      const b = await api.put(`/sp/interventions/${params.id}/bilan-sr`, srForm)
+      bilans = [...bilans.filter(x => x.id !== b.id), b]
+      srSaved = true; setTimeout(() => { srSaved = false }, 2000)
+    } catch { /* toast par api.js */ }
+  }
+  function addVehicule(type) {
+    const v = { id: crypto.randomUUID(), type, modele: '', plaque: '', carburation: '', choc: null,
+                incendie: false, desincarcere: false, stabilise: false, x: 0.5, y: 0.5 }
+    srForm.vehicules = [...srForm.vehicules, v]; srVehSel = v.id; onSrChange()
+  }
+  function deleteVeh(id) {
+    srForm.vehicules = srForm.vehicules.filter(v => v.id !== id)
+    if (srVehSel === id) srVehSel = null
+    onSrChange()
+  }
+  function vehPointerDown(e, id) {
+    e.stopPropagation(); dragId = id; srVehSel = id
+    window.addEventListener('pointermove', vehPointerMove); window.addEventListener('pointerup', vehPointerUp)
+  }
+  function vehPointerMove(e) {
+    if (!dragId || !srSvgEl) return
+    const r = srSvgEl.getBoundingClientRect()
+    const v = srForm.vehicules.find(x => x.id === dragId)
+    if (v) { v.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); v.y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }
+  }
+  function vehPointerUp() {
+    window.removeEventListener('pointermove', vehPointerMove); window.removeEventListener('pointerup', vehPointerUp)
+    if (dragId) { dragId = null; onSrChange() }
+  }
+  function plaqueVeh(id) { return srForm.vehicules.find(v => v.id === id)?.plaque || srForm.vehicules.find(v => v.id === id)?.modele || 'Véhicule' }
+  // Création inline d'un véhicule SR depuis le bilan SAP : l'ajoute à la scène SR + relie la victime.
+  function creerVehiculeDepuisSap() {
+    const v = { id: crypto.randomUUID(), type: 'VOITURE', modele: '', plaque: '', carburation: '', choc: null,
+                incendie: false, desincarcere: false, stabilise: false, x: 0.5, y: 0.5 }
+    srForm.vehicules = [...srForm.vehicules, v]; srVehSel = v.id; onSrChange()
+    sapForm.vehiculeSrId = v.id; onSapChange()
   }
 
   async function refresh() {
@@ -573,6 +636,18 @@
               {@render schemaView()}
             {:else}
               <div class="sap-form">
+                {#if currentSec[0] === 'avp'}
+                  <div class="sap-row">
+                    <span class="sap-lib">Véhicule (SR)</span>
+                    <span class="sap-veh-pick">
+                      <select bind:value={sapForm.vehiculeSrId} onchange={onSapChange}>
+                        <option value={null}>—</option>
+                        {#each srForm.vehicules as v (v.id)}<option value={v.id}>{v.plaque || v.modele || (TYPES_SR.find(t => t[0] === v.type)?.[1])}</option>{/each}
+                      </select>
+                      <button type="button" class="btn-ghost-sm" onclick={creerVehiculeDepuisSap}>+ créer</button>
+                    </span>
+                  </div>
+                {/if}
                 {#each currentSec[2] as [k, label, type, opts]}
                   <div class="sap-row" class:full={type === 'textarea'}>
                     <span class="sap-lib">{label}</span>
@@ -607,8 +682,68 @@
           {:else}
             <p class="muted small">Aucune victime. Ajoute-en une pour saisir un bilan SAP.</p>
           {/if}
+        {:else if famille === 'SR'}
+          <div class="sr">
+            <div class="sr-routes">
+              {#each ROUTES_SR as [v, l]}
+                <button class:on={srForm.routeType === v} onclick={() => { srForm.routeType = v; onSrChange() }}>{l}</button>
+              {/each}
+              {#if srSaved}<span class="saved">✓ Enregistré</span>{/if}
+            </div>
+            <div class="sr-body">
+              <svg bind:this={srSvgEl} class="sr-scene" viewBox="0 0 200 360" role="img" aria-label="Scène secours routier">
+                <rect x="40" y="0" width="120" height="360" fill="var(--color-surface)" />
+                {#if srForm.routeType === 'AUTOROUTE_3V'}
+                  <line x1="80" y1="0" x2="80" y2="360" stroke="var(--color-muted)" stroke-width="1" stroke-dasharray="10 10" />
+                  <line x1="120" y1="0" x2="120" y2="360" stroke="var(--color-muted)" stroke-width="1" stroke-dasharray="10 10" />
+                {:else}
+                  <line x1="100" y1="0" x2="100" y2="360" stroke="#e0a23c" stroke-width="2" />
+                {/if}
+                <line x1="40" y1="0" x2="40" y2="360" stroke="var(--color-border)" stroke-width="2" />
+                <line x1="160" y1="0" x2="160" y2="360" stroke="var(--color-border)" stroke-width="2" />
+                {#each srForm.vehicules as v (v.id)}
+                  {@const d = VEH_DIM[v.type] ?? VEH_DIM.VOITURE}
+                  <g class="veh" class:sel={srVehSel === v.id} transform="translate({v.x * 200},{v.y * 360})"
+                     onpointerdown={e => vehPointerDown(e, v.id)} role="button" tabindex="0" aria-label={v.plaque || v.type}>
+                    <rect x={-d[0] / 2} y={-d[1] / 2} width={d[0]} height={d[1]} rx="3"
+                          fill={v.incendie ? '#e24b4a' : '#378add'} stroke="#fff" stroke-width="1" />
+                    <rect x={-d[0] / 2 + 2} y={-d[1] / 2 + 3} width={d[0] - 4} height={Math.max(3, d[1] / 4)} rx="1" fill="rgba(255,255,255,0.55)" />
+                  </g>
+                {/each}
+              </svg>
+              <div class="sr-side">
+                <div class="sr-add">
+                  <span class="muted small">Ajouter :</span>
+                  {#each TYPES_SR as [v, l]}<button class="btn-ghost-sm" onclick={() => addVehicule(v)}>+ {l}</button>{/each}
+                </div>
+                {#if vehSel()}
+                  {@const v = vehSel()}
+                  <div class="sr-edit">
+                    <div class="sr-edit-head">
+                      <span>{TYPES_SR.find(t => t[0] === v.type)?.[1]}</span>
+                      <button class="rm-btn" onclick={() => deleteVeh(v.id)} title="Supprimer le véhicule">×</button>
+                    </div>
+                    <label>Modèle<input type="text" bind:value={v.modele} oninput={onSrChange} /></label>
+                    <label>Plaque<input type="text" bind:value={v.plaque} oninput={onSrChange} /></label>
+                    <label>Carburation<input type="text" bind:value={v.carburation} oninput={onSrChange} placeholder="essence / diesel / GPL / électrique" /></label>
+                    <label>Position du choc
+                      <select bind:value={v.choc} onchange={onSrChange}>
+                        <option value={null}>—</option>
+                        {#each CHOCS_SR as [cv, cl]}<option value={cv}>{cl}</option>{/each}
+                      </select>
+                    </label>
+                    <label class="sr-flag"><input type="checkbox" bind:checked={v.incendie} onchange={onSrChange} /> Incendié</label>
+                    <label class="sr-flag"><input type="checkbox" bind:checked={v.desincarcere} onchange={onSrChange} /> Désincarcéré</label>
+                    <label class="sr-flag"><input type="checkbox" bind:checked={v.stabilise} onchange={onSrChange} /> Stabilisé</label>
+                  </div>
+                {:else}
+                  <p class="muted small">Ajoute un véhicule puis place-le (glisser) sur la scène. Clic = éditer.</p>
+                {/if}
+              </div>
+            </div>
+          </div>
         {:else}
-          <p class="muted small">Bilan {famille} — structure à définir (coquille).</p>
+          <p class="muted small">Bilan {famille} — incendie : à venir (façade 2D).</p>
         {/if}
       </div>
     {/if}
@@ -740,6 +875,7 @@
   .sap-row textarea { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; resize: vertical; width: 100%; }
   .sap-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .sap-progress { font-size: 12px; color: var(--color-muted); }
+  .sap-veh-pick { display: flex; gap: 6px; align-items: center; }
 
   .schema { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
   .lesion-palette { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -748,6 +884,22 @@
   .silhouette { width: 170px; height: 368px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); cursor: crosshair; }
   .silhouette .body { fill: var(--color-surface); stroke: var(--color-border); stroke-width: 1.5; }
   .lesion-pt { cursor: pointer; stroke: #fff; stroke-width: 1; }
+
+  .sr { display: flex; flex-direction: column; gap: 12px; }
+  .sr-routes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sr-routes button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; }
+  .sr-routes button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
+  .sr-body { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .sr-scene { width: 200px; height: 360px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); touch-action: none; flex-shrink: 0; }
+  .veh { cursor: grab; }
+  .veh.sel rect:first-child { stroke: var(--accent); stroke-width: 2; }
+  .sr-side { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 12px; }
+  .sr-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .sr-edit { display: flex; flex-direction: column; gap: 8px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px; }
+  .sr-edit-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 14px; }
+  .sr-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
+  .sr-edit input, .sr-edit select { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
+  .sr-flag { flex-direction: row !important; align-items: center; gap: 8px; font-size: 13px !important; color: var(--color-text) !important; }
   .vic-form { display: flex; flex-direction: column; gap: 10px; }
   .vic-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
   .vic-form input, .vic-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
