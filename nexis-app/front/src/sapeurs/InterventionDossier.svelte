@@ -70,13 +70,19 @@
     finally { loading = false }
   }
 
-  async function loadBilansVictimes() {
+  async function loadBilansVictimes(rafraichirSaisie = false) {
     const id = params.id
     ;[victimes, bilans] = await Promise.all([
       api.get(`/sp/interventions/${id}/victimes`).catch(() => []),
       api.get(`/sp/interventions/${id}/bilans`).catch(() => []),
     ])
     if (!victimeSel && victimes.length) selectVictime(victimes[0])
+    // MAJ par un autre équipier : rafraîchit les champs de la victime affichée, sauf si une saisie
+    // locale est en cours (timer débounce actif) — pour ne pas écraser ce qu'on tape.
+    else if (rafraichirSaisie && victimeSel && !sapTimer) {
+      const b = bilanSapDe(victimeSel)
+      sapForm = b && b.contenu ? { ...b.contenu } : {}
+    }
   }
 
   function bilanSapDe(victimeId) { return bilans.find(b => b.famille === 'SAP' && b.victimeId === victimeId) }
@@ -95,6 +101,7 @@
   }
   async function saveSap() {
     if (!victimeSel) return
+    sapTimer = null
     try {
       const b = await api.put(`/sp/victimes/${victimeSel}/bilan-sap`, {
         hemorragie: sapForm.hemorragie ?? null,
@@ -104,6 +111,7 @@
       })
       bilans = [...bilans.filter(x => x.id !== b.id), b]
       sapSaved = true
+      setTimeout(() => { sapSaved = false }, 2000)
     } catch { /* toast par api.js */ }
   }
 
@@ -140,9 +148,11 @@
           || ev.type === 'AFFECTATION' || ev.type === 'DESAFFECTATION' || ev.type === 'MAIN_COURANTE')) {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(refresh, 300)
       }
-      // Bilan modifié par un autre équipier → recharge victimes/bilans (sans écraser la saisie en cours).
-      if (ev.faction === 'SP' && ev.type === 'BILAN_MAJ' && ev.payload?.interventionId === params.id) {
-        loadBilansVictimes()
+      // Bilan modifié par un AUTRE équipier → recharge + rafraîchit les champs affichés.
+      // (Mon propre event est ignoré : j'ai déjà l'état à jour, pas de faux « ✓ Enregistré ».)
+      if (ev.faction === 'SP' && ev.type === 'BILAN_MAJ' && ev.payload?.interventionId === params.id
+          && ev.actorUsername !== $currentUser?.username) {
+        loadBilansVictimes(true)
       }
     })
     return () => { unsub(); clearTimeout(reloadTimer) }
