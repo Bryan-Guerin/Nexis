@@ -43,11 +43,13 @@
   let sectionIdx    = $state(0)
 
   // ── Bilan SR (scène + véhicules vue de haut) ──
-  let srForm   = $state({ routeType: 'AUTOROUTE_3V', vehicules: [] })
-  let srVehSel = $state(null)
-  let srSaved  = $state(false)
-  let srTimer  = null
-  let dragId   = null
+  let srForm     = $state({ routeType: 'AUTOROUTE_3V', vehicules: [] })
+  let srVehSel   = $state(null)
+  let srSaved    = $state(false)
+  let srDraft    = $state(null)   // véhicule en cours de création (validé → posé sur la scène)
+  let srDraftLink = null          // id victime à relier après création (depuis le SAP)
+  let srTimer    = null
+  let dragId     = null
   let srSvgEl
 
   // Méthode XABCDE — config de rendu (le modèle reste typé côté back ; ceci n'est que l'UI).
@@ -230,7 +232,17 @@
   const ROUTES_SR = [['AUTOROUTE_3V', 'Autoroute (3 voies)'], ['BIDIRECTIONNEL_2V', 'Bidirectionnel (2 voies)']]
   const TYPES_SR  = [['VOITURE', 'Voiture'], ['CAMION', 'Camion'], ['UTILITAIRE', 'Utilitaire'], ['MOTO', 'Moto']]
   const CHOCS_SR  = [['FRONTAL', 'Frontal'], ['LATERAL_GAUCHE', 'Latéral G'], ['LATERAL_DROIT', 'Latéral D'], ['ARRIERE', 'Arrière'], ['AUTRE', 'Autre']]
+  const CARBURATIONS = ['Essence', 'Diesel', 'GPL', 'Électrique', 'Hybride']
   const VEH_DIM   = { VOITURE: [18, 34], CAMION: [22, 56], UTILITAIRE: [20, 44], MOTO: [9, 22] }
+  function chocXY(choc, d) {
+    const [w, h] = d
+    if (choc === 'FRONTAL') return [0, -h / 2]
+    if (choc === 'ARRIERE') return [0, h / 2]
+    if (choc === 'LATERAL_GAUCHE') return [-w / 2, 0]
+    if (choc === 'LATERAL_DROIT') return [w / 2, 0]
+    if (choc === 'AUTRE') return [0, 0]
+    return null
+  }
   function bilanSrDe() { return bilans.find(b => b.famille === 'SR') }
   function intoSr(c) { return { routeType: c?.routeType ?? 'AUTOROUTE_3V', vehicules: (c?.vehicules ?? []).map(v => ({ ...v })) } }
   function vehSel() { return srForm.vehicules.find(v => v.id === srVehSel) }
@@ -243,11 +255,20 @@
       srSaved = true; setTimeout(() => { srSaved = false }, 2000)
     } catch { /* toast par api.js */ }
   }
-  function addVehicule(type) {
-    const v = { id: crypto.randomUUID(), type, modele: '', plaque: '', carburation: '', choc: null,
-                incendie: false, desincarcere: false, stabilise: false, x: 0.5, y: 0.5 }
-    srForm.vehicules = [...srForm.vehicules, v]; srVehSel = v.id; onSrChange()
+  function ouvrirCreation(type) {
+    srVehSel = null
+    srDraft = { type, modele: '', plaque: '', carburation: '', choc: null, incendie: false, desincarcere: false, stabilise: false }
   }
+  function validerCreation() {
+    if (!srDraft.modele?.trim() || !srDraft.carburation) return
+    const v = { ...srDraft, id: crypto.randomUUID(), x: 0.5, y: 0.5 }
+    srForm.vehicules = [...srForm.vehicules, v]; srVehSel = v.id; onSrChange()
+    if (srDraftLink) { sapForm.vehiculeSrId = v.id; onSapChange() }
+    const link = srDraftLink
+    srDraft = null; srDraftLink = null
+    if (link) famille = 'SAP'   // créé depuis le SAP : on revient à la victime
+  }
+  function annulerCreation() { srDraft = null; srDraftLink = null }
   function deleteVeh(id) {
     srForm.vehicules = srForm.vehicules.filter(v => v.id !== id)
     if (srVehSel === id) srVehSel = null
@@ -268,12 +289,11 @@
     if (dragId) { dragId = null; onSrChange() }
   }
   function plaqueVeh(id) { return srForm.vehicules.find(v => v.id === id)?.plaque || srForm.vehicules.find(v => v.id === id)?.modele || 'Véhicule' }
-  // Création inline d'un véhicule SR depuis le bilan SAP : l'ajoute à la scène SR + relie la victime.
+  // Création depuis le bilan SAP : bascule sur SR, ouvre le formulaire ; au Valider, relie la victime.
   function creerVehiculeDepuisSap() {
-    const v = { id: crypto.randomUUID(), type: 'VOITURE', modele: '', plaque: '', carburation: '', choc: null,
-                incendie: false, desincarcere: false, stabilise: false, x: 0.5, y: 0.5 }
-    srForm.vehicules = [...srForm.vehicules, v]; srVehSel = v.id; onSrChange()
-    sapForm.vehiculeSrId = v.id; onSapChange()
+    srDraftLink = victimeSel
+    famille = 'SR'
+    ouvrirCreation('VOITURE')
   }
 
   async function refresh() {
@@ -624,14 +644,14 @@
               {#if inter.enCours}<button class="btn-ghost-sm" onclick={() => openEditVictime(vsel)}>Éditer la victime</button>{/if}
               {#if sapSaved}<span class="saved">✓ Enregistré</span>{/if}
             </div>
+            <div class="sap-stepper">
+              {#each navSections as [sk], idx}
+                <button class:on={sectionIdx === idx} onclick={() => sectionIdx = idx}>{sk === 'sample' ? 'SAMPLE' : sk === 'avp' ? 'AVP' : sk === 'schema' ? 'Schéma' : sk.toUpperCase()}</button>
+              {/each}
+            </div>
             <div class="sap-2col" class:wide>
               {#if wide}<div class="sap-left">{@render schemaView()}</div>{/if}
               <div class="sap-right">
-                <div class="sap-stepper">
-                  {#each navSections as [sk], idx}
-                    <button class:on={sectionIdx === idx} onclick={() => sectionIdx = idx}>{sk === 'sample' ? 'SAMPLE' : sk === 'avp' ? 'AVP' : sk === 'schema' ? 'Schéma' : sk.toUpperCase()}</button>
-                  {/each}
-                </div>
                 {#if currentSec[0] === 'schema'}
               {@render schemaView()}
             {:else}
@@ -708,24 +728,55 @@
                     <rect x={-d[0] / 2} y={-d[1] / 2} width={d[0]} height={d[1]} rx="3"
                           fill={v.incendie ? '#e24b4a' : '#378add'} stroke="#fff" stroke-width="1" />
                     <rect x={-d[0] / 2 + 2} y={-d[1] / 2 + 3} width={d[0] - 4} height={Math.max(3, d[1] / 4)} rx="1" fill="rgba(255,255,255,0.55)" />
+                    {#if v.choc}
+                      {@const cp = chocXY(v.choc, d)}
+                      {#if cp}<polygon points="0,-7 1.8,-2.2 7,-2 2.6,1.2 4.2,7 0,3.2 -4.2,7 -2.6,1.2 -7,-2 -1.8,-2.2" transform="translate({cp[0]},{cp[1]})" fill="#ef9f27" stroke="#7a3e00" stroke-width="0.5" />{/if}
+                    {/if}
                   </g>
                 {/each}
               </svg>
               <div class="sr-side">
                 <div class="sr-add">
                   <span class="muted small">Ajouter :</span>
-                  {#each TYPES_SR as [v, l]}<button class="btn-ghost-sm" onclick={() => addVehicule(v)}>+ {l}</button>{/each}
+                  {#each TYPES_SR as [v, l]}<button class="btn-ghost-sm" onclick={() => ouvrirCreation(v)}>+ {l}</button>{/each}
                 </div>
-                {#if vehSel()}
+                {#if srDraft}
+                  <div class="sr-edit">
+                    <div class="sr-edit-head"><span>Nouveau {TYPES_SR.find(t => t[0] === srDraft.type)?.[1]}</span></div>
+                    <label>Modèle *<input type="text" bind:value={srDraft.modele} /></label>
+                    <label>Carburation *
+                      <select bind:value={srDraft.carburation}>
+                        <option value="">—</option>
+                        {#each CARBURATIONS as c}<option value={c}>{c}</option>{/each}
+                      </select>
+                    </label>
+                    <label>Plaque (optionnel)<input type="text" bind:value={srDraft.plaque} /></label>
+                    <label>Position du choc
+                      <select bind:value={srDraft.choc}>
+                        <option value={null}>—</option>
+                        {#each CHOCS_SR as [cv, cl]}<option value={cv}>{cl}</option>{/each}
+                      </select>
+                    </label>
+                    <label class="sr-flag"><input type="checkbox" bind:checked={srDraft.incendie} /> Incendié</label>
+                    <label class="sr-flag"><input type="checkbox" bind:checked={srDraft.desincarcere} /> Désincarcéré</label>
+                    <label class="sr-flag"><input type="checkbox" bind:checked={srDraft.stabilise} /> Stabilisé</label>
+                    <div class="sr-actions">
+                      <button class="btn-ghost-sm" onclick={annulerCreation}>Annuler</button>
+                      <button class="btn-primary" disabled={!srDraft.modele?.trim() || !srDraft.carburation} onclick={validerCreation}>Valider</button>
+                    </div>
+                  </div>
+                {:else if vehSel()}
                   {@const v = vehSel()}
                   <div class="sr-edit">
-                    <div class="sr-edit-head">
-                      <span>{TYPES_SR.find(t => t[0] === v.type)?.[1]}</span>
-                      <button class="rm-btn" onclick={() => deleteVeh(v.id)} title="Supprimer le véhicule">×</button>
-                    </div>
+                    <div class="sr-edit-head"><span>{TYPES_SR.find(t => t[0] === v.type)?.[1]} — {v.plaque || v.modele}</span></div>
                     <label>Modèle<input type="text" bind:value={v.modele} oninput={onSrChange} /></label>
+                    <label>Carburation
+                      <select bind:value={v.carburation} onchange={onSrChange}>
+                        <option value="">—</option>
+                        {#each CARBURATIONS as c}<option value={c}>{c}</option>{/each}
+                      </select>
+                    </label>
                     <label>Plaque<input type="text" bind:value={v.plaque} oninput={onSrChange} /></label>
-                    <label>Carburation<input type="text" bind:value={v.carburation} oninput={onSrChange} placeholder="essence / diesel / GPL / électrique" /></label>
                     <label>Position du choc
                       <select bind:value={v.choc} onchange={onSrChange}>
                         <option value={null}>—</option>
@@ -735,9 +786,10 @@
                     <label class="sr-flag"><input type="checkbox" bind:checked={v.incendie} onchange={onSrChange} /> Incendié</label>
                     <label class="sr-flag"><input type="checkbox" bind:checked={v.desincarcere} onchange={onSrChange} /> Désincarcéré</label>
                     <label class="sr-flag"><input type="checkbox" bind:checked={v.stabilise} onchange={onSrChange} /> Stabilisé</label>
+                    <button class="btn-ghost-sm sr-del" onclick={() => deleteVeh(v.id)}>🗑 Supprimer le véhicule</button>
                   </div>
                 {:else}
-                  <p class="muted small">Ajoute un véhicule puis place-le (glisser) sur la scène. Clic = éditer.</p>
+                  <p class="muted small">« Ajouter » un véhicule (modèle + carburation requis) puis glisse-le sur la scène. Clic = éditer.</p>
                 {/if}
               </div>
             </div>
@@ -848,9 +900,11 @@
   /* Bilans */
   .bilans { display: flex; flex-direction: column; gap: 12px; max-width: 960px; }
   .sap-2col { display: grid; gap: 18px; }
-  .sap-2col.wide { grid-template-columns: max-content minmax(0, 1fr); align-items: start; }
-  .sap-left { position: sticky; top: 8px; }
+  .sap-2col.wide { grid-template-columns: 230px minmax(0, 1fr); align-items: start; }
+  .sap-left { position: sticky; top: 8px; width: 230px; }
   .sap-right { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .sap-2col.wide .sap-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 18px; }
+  .sap-2col.wide .sap-form .sap-row.full { grid-column: 1 / -1; }
   .famille-chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .famille-chips button { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-muted); font-size: 13px; padding: 6px 12px; cursor: pointer; }
   .famille-chips button.on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 600; }
@@ -900,6 +954,8 @@
   .sr-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
   .sr-edit input, .sr-edit select { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
   .sr-flag { flex-direction: row !important; align-items: center; gap: 8px; font-size: 13px !important; color: var(--color-text) !important; }
+  .sr-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .sr-del { color: var(--color-danger); align-self: flex-start; }
   .vic-form { display: flex; flex-direction: column; gap: 10px; }
   .vic-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--color-muted); }
   .vic-form input, .vic-form select { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font-size: 13px; padding: 6px 9px; }
