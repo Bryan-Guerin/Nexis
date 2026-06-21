@@ -53,7 +53,6 @@
     if (filtreStatut === 'ATTENTE_CRI' && sc !== 'ATTENTE_CRI') return false
     if (filtreStatut === 'ATTENTE_VALIDATION' && sc !== 'ATTENTE_VALIDATION') return false
     if (filtreStatut === 'CLOSE' && sc !== 'CLOSE') return false
-    if (filtreStatut === 'CLOTUREES' && sc === 'EN_COURS') return false
     if (filtreNature && i.nature?.id !== filtreNature) return false
     const q = recherche.trim().toLowerCase()
     if (!q) return true
@@ -184,7 +183,6 @@
         <button class="seg-btn" class:on={filtreStatut === 'ATTENTE_CRI'} onclick={() => filtreStatut = 'ATTENTE_CRI'}>En attente CRI</button>
         <button class="seg-btn" class:on={filtreStatut === 'ATTENTE_VALIDATION'} onclick={() => filtreStatut = 'ATTENTE_VALIDATION'}>À valider</button>
         <button class="seg-btn" class:on={filtreStatut === 'CLOSE'} onclick={() => filtreStatut = 'CLOSE'}>Closes</button>
-        <button class="seg-btn" class:on={filtreStatut === 'CLOTUREES'} onclick={() => filtreStatut = 'CLOTUREES'}>Clôturées (toutes)</button>
       </div>
       <select class="search nature-filtre" bind:value={filtreNature} title="Filtrer par nature">
         <option value="">Toutes natures</option>
@@ -195,7 +193,7 @@
     <div class="list">
       {#each afficheesPage as i (i.id)}
         <div class="card" class:closed={!i.enCours}>
-          <div class="i-head" ondblclick={() => push(`/sp/interventions/${i.code}`)} role="button" tabindex="0" title="Double-clic pour le détail">
+          <div class="i-head" onclick={() => push(`/sp/interventions/${i.code}`)} role="button" tabindex="0" title="Voir le détail">
             <div class="i-main">
               <span class="badge" class:badge-actif={i.enCours} class:badge-inactif={!i.enCours}
                     class:badge-attente={i.statutCloture === 'ATTENTE_CRI' || i.statutCloture === 'ATTENTE_VALIDATION'}>
