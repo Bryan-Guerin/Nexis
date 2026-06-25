@@ -36,8 +36,9 @@ public class SpAffectationController {
 
     @Post("/affectations")
     @Status(HttpStatus.CREATED)
-    SpVehiculeAffectationDto affecter(@Body SpAffecterRequest req) {
-        return affectationService.affecter(req.vehiculeId(), req.membreId(), req.posteId(), req.debut());
+    SpVehiculeAffectationDto affecter(@Body SpAffecterRequest req,
+                                      @QueryValue(defaultValue = "false") boolean forcer) {
+        return affectationService.affecter(req.vehiculeId(), req.membreId(), req.posteId(), req.debut(), forcer);
     }
 
     @Put("/affectations/{id}/cloture")

@@ -180,20 +180,37 @@
 
   function membreById(id) { return membres.find(m => m.id === id) }
   function occupants(posteId) { return activeAff.filter(a => a.vehiculeId === engageVeh.id && a.posteId === posteId) }
+  // Forçage par poste : si on a coché "inclure non-qualifiés", la liste s'élargit (dispatch only côté backend).
+  let forcerPoste = $state({})   // posteId → bool
   function eligibles(poste) {
-    return membres.filter(m => m.actif && enServiceSet.has(m.id)
-        && (m.qualifications ?? []).some(q => q.fonctionId === poste.fonctionId) && !busyMembreIds.has(m.id))
+    return membres.filter(m => m.actif && enServiceSet.has(m.id) && !busyMembreIds.has(m.id)
+        && (forcerPoste[poste.id]
+            || (m.qualifications ?? []).some(q => q.fonctionId === poste.fonctionId)))
+  }
+  function estQualifiePour(membre, poste) {
+    return (membre?.qualifications ?? []).some(q => q.fonctionId === poste.fonctionId)
   }
 
   async function affecterPoste(poste) {
     const membreId = addSel[poste.id]
     if (!membreId) return
+    const m = membreById(membreId)
+    const forcer = !estQualifiePour(m, poste)
+    if (forcer) {
+      const ok = await confirm({
+        title: `Forcer l'affectation ?`,
+        message: `${m?.nomComplet || m?.username} n'est pas qualifié pour ${poste.fonctionCode}. L'action sera tracée en main courante.`,
+        confirmLabel: 'Forcer', danger: true,
+      })
+      if (!ok) return
+    }
     engageError = ''
     try {
-      await api.post('/sp/affectations', {
+      await api.post(`/sp/affectations${forcer ? '?forcer=true' : ''}`, {
         vehiculeId: engageVeh.id, membreId, posteId: poste.id, debut: new Date().toISOString(),
       })
       addSel = { ...addSel, [poste.id]: '' }
+      forcerPoste = { ...forcerPoste, [poste.id]: false }
       await Promise.all([loadEngageData(), load()])
     } catch (e) { engageError = e.message }
   }
@@ -412,6 +429,7 @@
                 <li>
                   <span class="crew-grade">{membreById(a.membreId)?.gradeCode ?? ''}</span>
                   <span class="crew-name">{membreById(a.membreId)?.nomComplet || membreById(a.membreId)?.username || '—'}</span>
+                  {#if a.forcee}<span class="forcee-badge" title={`Affectation forcée par ${a.forcePar ?? '?'} — non qualifié pour ${p.fonctionCode}`}>⚠ forcée</span>{/if}
                   <button class="rm-btn" title="Retirer" onclick={() => retirer(a)}>×</button>
                 </li>
               {/each}
@@ -422,11 +440,16 @@
             <div class="poste-add">
               <select bind:value={addSel[p.id]}>
                 <option value="">— ajouter un effectif —</option>
-                {#each elig as m (m.id)}<option value={m.id}>{m.gradeCode} {m.nomComplet || m.username}</option>{/each}
+                {#each elig as m (m.id)}
+                  <option value={m.id}>{m.gradeCode} {m.nomComplet || m.username}{forcerPoste[p.id] && !estQualifiePour(m, p) ? ' ⚠ non qualifié' : ''}</option>
+                {/each}
               </select>
               <button class="btn-primary" disabled={!addSel[p.id]} onclick={() => affecterPoste(p)}>Affecter</button>
             </div>
-            {#if elig.length === 0}<span class="muted small">Aucun effectif qualifié <strong>de garde</strong> disponible</span>{/if}
+            <label class="forcer-toggle" title="Permet de sélectionner un effectif non qualifié (dispatch / admin SP). L'affectation sera tracée.">
+              <input type="checkbox" bind:checked={forcerPoste[p.id]} /> Inclure non-qualifiés (forcer)
+            </label>
+            {#if elig.length === 0}<span class="muted small">Aucun effectif {forcerPoste[p.id] ? '' : 'qualifié '}<strong>de garde</strong> disponible</span>{/if}
           {/if}
         </div>
       {/each}
@@ -473,6 +496,8 @@
   .poste-crew .crew-name { flex: 1; }
   .poste-add { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
   .poste-add select { flex: 1; }
+  .forcer-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-muted); margin-top: 2px; cursor: pointer; user-select: none; }
+  .forcee-badge { font-size: 10px; font-weight: 700; color: #e0a23c; background: rgba(224, 162, 60, .18); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
   .rm-btn { background: none; border: none; color: var(--color-muted); font-size: 16px; line-height: 1; padding: 0 4px; cursor: pointer; }
   .rm-btn:hover { color: var(--color-danger); }
   .hopital-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }

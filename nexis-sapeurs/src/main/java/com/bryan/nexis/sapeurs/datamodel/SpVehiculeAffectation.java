@@ -32,6 +32,13 @@ public class SpVehiculeAffectation {
     @Column
     private Instant fin;
 
+    /** Vrai si l'affectation a bypassé le check de qualification (dispatch / admin). */
+    @Column(nullable = false)
+    private boolean forcee = false;
+
+    @Column(name = "force_par") private String  forcePar;
+    @Column(name = "force_le")  private Instant forceLe;
+
     protected SpVehiculeAffectation() {}
 
     public SpVehiculeAffectation(SpVehicule vehicule, SpMembre membre, SpVehiculeTypePoste poste, Instant debut) {
@@ -47,7 +54,11 @@ public class SpVehiculeAffectation {
     public SpVehiculeTypePoste getPoste()    { return poste; }
     public Instant getDebut()                { return debut; }
     public Instant getFin()                  { return fin; }
+    public boolean isForcee()                { return forcee; }
+    public String getForcePar()              { return forcePar; }
+    public Instant getForceLe()              { return forceLe; }
 
     public void setDebut(Instant debut) { this.debut = debut; }
     public void setFin(Instant fin)     { this.fin = fin; }
+    public void marquerForcee(String par, Instant le) { this.forcee = true; this.forcePar = par; this.forceLe = le; }
 }

@@ -34,6 +34,7 @@ class SpVehiculeAffectationServiceTest {
     private SpInterventionRepository interventionRepo;
     private SpPlanningService planningService;
     private ApplicationEventPublisher<RealtimeEvent> events;
+    private SecurityService securityService;
 
     private SpVehiculeAffectationService service;
 
@@ -54,8 +55,8 @@ class SpVehiculeAffectationServiceTest {
         interventionRepo = mock(SpInterventionRepository.class);
         planningService  = mock(SpPlanningService.class);
         events           = mock(ApplicationEventPublisher.class);
-        SecurityService securityService = mock(SecurityService.class);
-        when(securityService.username()).thenReturn(Optional.of("dispatcher"));
+        securityService = mock(SecurityService.class);
+        when(securityService.username()).thenReturn(Optional.of("codis"));
 
         service = new SpVehiculeAffectationService(affectationRepo, vehiculeRepo, membreRepo,
                 posteRepo, interventionRepo, planningService, events, securityService);
@@ -143,6 +144,43 @@ class SpVehiculeAffectationServiceTest {
         assertThatThrownBy(() -> service.affecter(fpt.getId(), paul.getId(), posteCa.getId(), Instant.now()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("n'est pas qualifié");
+    }
+
+    @Test
+    void affectationForcee_bypassQualif_siDispatch() {
+        var paul = membre("paul", 353);   // aucune qualification
+        when(membreRepo.findById(paul.getId())).thenReturn(Optional.of(paul));
+        when(planningService.estDeGarde(paul.getId())).thenReturn(true);
+        when(affectationRepo.findByMembreIdAndFinIsNull(paul.getId())).thenReturn(List.of());
+        when(securityService.hasRole("ROLE_SP_DISPATCH")).thenReturn(true);
+        when(affectationRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var dto = service.affecter(fpt.getId(), paul.getId(), posteCa.getId(), Instant.now(), true);
+        assertThat(dto.forcee()).isTrue();
+        assertThat(dto.forcePar()).isEqualTo("codis");
+    }
+
+    @Test
+    void affectationForcee_refusee_siPasDispatch() {
+        var paul = membre("paul", 353);
+        when(membreRepo.findById(paul.getId())).thenReturn(Optional.of(paul));
+        when(planningService.estDeGarde(paul.getId())).thenReturn(true);
+        when(affectationRepo.findByMembreIdAndFinIsNull(paul.getId())).thenReturn(List.of());
+        when(securityService.hasRole("ROLE_SP_DISPATCH")).thenReturn(false);
+        when(securityService.hasRole("ROLE_ADMIN_SP")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.affecter(fpt.getId(), paul.getId(), posteCa.getId(), Instant.now(), true))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("forcée réservée au dispatch");
+    }
+
+    @Test
+    void affectationForcee_normale_siDejaQualifie_pasDeForcage() {
+        // jean est qualifié → forcer=true ne doit PAS marquer l'affectation comme forcée.
+        when(securityService.hasRole("ROLE_SP_DISPATCH")).thenReturn(true);
+        when(affectationRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        var dto = service.affecter(fpt.getId(), jean.getId(), posteCa.getId(), Instant.now(), true);
+        assertThat(dto.forcee()).isFalse();
     }
 
     @Test

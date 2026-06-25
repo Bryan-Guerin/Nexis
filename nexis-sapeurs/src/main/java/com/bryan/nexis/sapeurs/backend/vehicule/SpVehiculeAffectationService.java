@@ -81,6 +81,16 @@ public class SpVehiculeAffectationService {
 
     @Transactional
     public SpVehiculeAffectationDto affecter(UUID vehiculeId, UUID membreId, UUID posteId, Instant debut) {
+        return affecter(vehiculeId, membreId, posteId, debut, false);
+    }
+
+    /**
+     * Affectation. Si {@code forcer=true}, bypass UNIQUEMENT le check de qualification
+     * (les autres règles — appartenance du poste, déjà sur ce véhicule, de garde, capacité — restent).
+     * Réservé à ROLE_SP_DISPATCH (ou ROLE_ADMIN_SP par héritage). Tracé en base (forcee/forcePar/forceLe).
+     */
+    @Transactional
+    public SpVehiculeAffectationDto affecter(UUID vehiculeId, UUID membreId, UUID posteId, Instant debut, boolean forcer) {
         var vehicule = vehiculeRepo.findById(vehiculeId)
                 .orElseThrow(() -> new NoSuchElementException("Véhicule SP introuvable : " + vehiculeId));
         var membre = membreRepo.findById(membreId)
@@ -106,12 +116,17 @@ public class SpVehiculeAffectationService {
             throw new IllegalStateException("Le membre n'est pas de garde : affectation impossible.");
         }
 
-        // Le membre est qualifié pour la FONCTION requise par le poste
+        // Le membre est qualifié pour la FONCTION requise par le poste (bypass possible : forcer + dispatch).
         boolean qualifie = membre.getQualifications().stream()
                 .anyMatch(q -> q.getFonction().getId().equals(poste.getFonction().getId()));
         if (!qualifie) {
-            throw new IllegalStateException("Le membre " + membreId
-                    + " n'est pas qualifié pour la fonction " + poste.getFonction().getCode());
+            if (!forcer) {
+                throw new IllegalStateException("Le membre " + membre
+                        + " n'est pas qualifié pour la fonction " + poste.getFonction().getCode());
+            }
+            if (!securityService.hasRole("ROLE_SP_DISPATCH") && !securityService.hasRole("ROLE_ADMIN_SP")) {
+                throw new IllegalStateException("Affectation forcée réservée au dispatch (ou admin SP).");
+            }
         }
 
         long occupes = affectationRepo.countByVehiculeIdAndPosteIdAndFinIsNull(vehiculeId, posteId);
@@ -119,19 +134,39 @@ public class SpVehiculeAffectationService {
             throw new IllegalStateException("Capacité du poste " + poste.getFonction().getCode() + " atteinte (" + poste.getNbPlaces() + "/" + poste.getNbPlaces() + ")");
         }
 
-        var saved = affectationRepo.save(new SpVehiculeAffectation(vehicule, membre, poste, debut));
+        var aff = new SpVehiculeAffectation(vehicule, membre, poste, debut);
+        boolean forcageEffectif = forcer && !qualifie;
+        if (forcageEffectif) aff.marquerForcee(actor(), Instant.now());
+        var saved = affectationRepo.save(aff);
 
-        log.info("Affectation : {} → {} (poste {})", membre, vehicule, poste.getFonction().getCode());
+        if (forcageEffectif) {
+            log.warn("Affectation FORCÉE par {} : {} → {} (poste {} non qualifié)",
+                    actor(), membre, vehicule, poste.getFonction().getCode());
+        } else {
+            log.info("Affectation : {} → {} (poste {})", membre, vehicule, poste.getFonction().getCode());
+        }
         events.publishEvent(RealtimeEvent.faction(RealtimeEvent.AFFECTATION, "SP",
                 membre + " affecté à " + vehicule,
                 Map.of("vehiculeId", vehiculeId.toString(), "membreId", membreId.toString()), actor()));
 
         // Véhicule déjà engagé sur une intervention ouverte → le nouvel équipier (armement auto
         // ou retardataire affecté après le départ) reçoit le bip de départ, comme l'équipage initial.
-        interventionRepo.findByFinIsNull().stream()
+        var interOuverteOpt = interventionRepo.findByFinIsNull().stream()
                 .filter(i -> i.getEngins().stream().anyMatch(e -> e.getId().equals(vehiculeId)))
-                .findFirst()
-                .ifPresent(inter -> bipMembreDepart(saved, inter));
+                .findFirst();
+        interOuverteOpt.ifPresent(inter -> bipMembreDepart(saved, inter));
+
+        // Trace l'affectation forcée en main courante (audit). Si l'engin est sur une intervention
+        // ouverte, le message remonte sur celle-ci ; sinon, faction-wide sans référence.
+        if (forcageEffectif) {
+            String msg = "⚠ Affectation forcée par " + actor() + " : " + membre + " (non qualifié "
+                    + poste.getFonction().getCode() + ") → " + vehicule;
+            var payload = Map.of("vehiculeId", vehiculeId.toString(), "membreId", membreId.toString(),
+                    "fonction", poste.getFonction().getCode());
+            var ev = RealtimeEvent.faction(RealtimeEvent.MAIN_COURANTE, "SP", msg, payload, actor());
+            interOuverteOpt.ifPresentOrElse(inter -> events.publishEvent(ev.withReference(inter.getCode())),
+                                            () -> events.publishEvent(ev));
+        }
 
         return SpVehiculeAffectationDto.from(saved);
     }
