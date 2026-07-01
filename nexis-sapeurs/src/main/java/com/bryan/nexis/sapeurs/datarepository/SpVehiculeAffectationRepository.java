@@ -36,4 +36,7 @@ public interface SpVehiculeAffectationRepository extends JpaRepository<SpVehicul
 
     @Query("SELECT COUNT(a) FROM SpVehiculeAffectation a WHERE a.poste.id = :posteId")
     long countByPosteId(UUID posteId);
+
+    /** Affectations forcées (bypass qualification) — audit, plus récentes d'abord. */
+    List<SpVehiculeAffectation> findByForceeTrueOrderByForceLeDesc();
 }

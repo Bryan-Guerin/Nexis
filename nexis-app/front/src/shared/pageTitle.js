@@ -21,6 +21,7 @@ const TITLES = {
   '/sp/stats':          'Sapeurs-Pompiers · Statistiques',
   '/sp/rh':             'Sapeurs-Pompiers · RH / Paie',
   '/sp/documents':      'Sapeurs-Pompiers · Documents',
+  '/sp/audit':          'Sapeurs-Pompiers · Audit',
   '/sp/config':         'Sapeurs-Pompiers · Configuration',
 
   '/admin':             'Administration · Utilisateurs',

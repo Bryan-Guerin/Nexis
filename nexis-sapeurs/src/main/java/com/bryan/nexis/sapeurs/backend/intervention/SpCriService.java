@@ -88,7 +88,9 @@ public class SpCriService {
         return dto;
     }
 
-    /** Validation : admin SP, ou porteur d'un grade configuré comme « peut valider CRI » (sergent et +). */
+    /** Validation : admin SP, ou porteur d'un grade configuré comme « peut valider CRI » (sergent et +).
+     *  Séparation des rôles : on ne valide pas son propre CRI (sauf admin SP). Quand le dernier CRI
+     *  de l'intervention passe VALIDE, la clôture définitive est notée en main courante. */
     @Transactional
     public SpCriDto valider(UUID criId) {
         var cri = criRepo.findById(criId)
@@ -99,11 +101,22 @@ public class SpCriService {
         if (!utilisateurPeutValider(actor())) {
             throw new IllegalStateException("Validation réservée aux grades autorisés (sergent et +) ou à un admin SP.");
         }
+        if (actor() != null && actor().equals(cri.getSoumisPar()) && !securityService.hasRole("ROLE_ADMIN_SP")) {
+            throw new IllegalStateException("Un CRI ne peut pas être validé par celui qui l'a soumis.");
+        }
         cri.setStatut(SpCri.VALIDE);
         cri.setValidePar(actor());
         cri.setValideLe(Instant.now());
         var dto = SpCriDto.from(criRepo.update(cri));
         notifierMaj(cri);
+        var inter = cri.getIntervention();
+        boolean tousValides = criRepo.findByInterventionId(inter.getId()).stream()
+                .allMatch(c -> SpCri.VALIDE.equals(c.getStatut()));
+        if (tousValides) {
+            events.publishEvent(RealtimeEvent.faction(RealtimeEvent.MAIN_COURANTE, "SP",
+                    "Intervention close — tous les CRI validés",
+                    Map.of("interventionId", inter.getId().toString()), actor()).withReference(inter.getCode()));
+        }
         return dto;
     }
 
@@ -144,7 +157,9 @@ public class SpCriService {
         if (SpCri.VALIDE.equals(cri.getStatut())) {
             throw new IllegalStateException("CRI déjà validé : non modifiable.");
         }
-        if (!securityService.hasRole("ROLE_ADMIN_SP") && !estEquipier(cri.getVehicule().getId(), actor())) {
+        if (!securityService.hasRole("ROLE_ADMIN_SP")
+                && !estEquipier(cri.getVehicule().getId(), actor())
+                && !estEquipierHistorise(cri.getIntervention(), actor())) {
             throw new IllegalStateException("Réservé à l'équipage du véhicule.");
         }
         return cri;
@@ -153,5 +168,21 @@ public class SpCriService {
     private boolean estEquipier(UUID vehiculeId, String username) {
         return username != null && affectationRepo.findByVehiculeIdAndFinIsNull(vehiculeId).stream()
                 .anyMatch(a -> username.equals(a.getMembre().getUser().getUsername()));
+    }
+
+    /**
+     * Équipier présent dans l'équipage FIGÉ à la clôture (snapshot). Permet de saisir / soumettre
+     * son CRI après la fin de garde ou une désaffectation : l'affectation véhicule active n'existe
+     * plus, mais la participation à l'intervention est historisée.
+     */
+    private boolean estEquipierHistorise(com.bryan.nexis.sapeurs.datamodel.SpIntervention inter, String username) {
+        if (username == null || inter == null) return false;
+        var membreId = userRepo.findByUsername(username)
+                .flatMap(u -> membreRepo.findByUserId(u.getId()))
+                .map(m -> m.getId()).orElse(null);
+        if (membreId == null) return false;
+        return inter.getEnginsHisto().stream()
+                .flatMap(e -> e.getEquipage().stream())
+                .anyMatch(eq -> membreId.equals(eq.getMembreId()));
     }
 }

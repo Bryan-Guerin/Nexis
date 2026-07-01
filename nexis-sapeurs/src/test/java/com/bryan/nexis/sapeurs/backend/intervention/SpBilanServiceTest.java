@@ -41,11 +41,15 @@ class SpBilanServiceTest {
         victimeRepo      = mock(SpVictimeRepository.class);
         bilanRepo        = mock(SpBilanRepository.class);
         var affectationRepo = mock(SpVehiculeAffectationRepository.class);
+        var criRepo    = mock(com.bryan.nexis.sapeurs.datarepository.SpCriRepository.class);
+        var membreRepo = mock(com.bryan.nexis.sapeurs.datarepository.SpMembreRepository.class);
+        var userRepo   = mock(com.bryan.nexis.core.datarepository.RefUserRepository.class);
         security = mock(SecurityService.class);
         json     = ObjectMapper.getDefault();   // vrai serde (round-trip réel)
         @SuppressWarnings("unchecked")
         ApplicationEventPublisher<RealtimeEvent> events = mock(ApplicationEventPublisher.class);
-        service  = new SpBilanService(interventionRepo, victimeRepo, bilanRepo, affectationRepo, security, json, events);
+        service  = new SpBilanService(interventionRepo, victimeRepo, bilanRepo, affectationRepo,
+                criRepo, membreRepo, userRepo, security, json, events);
         when(security.username()).thenReturn(Optional.of("admin"));
         when(security.hasRole("ROLE_ADMIN_SP")).thenReturn(true);   // bypass équipier
     }

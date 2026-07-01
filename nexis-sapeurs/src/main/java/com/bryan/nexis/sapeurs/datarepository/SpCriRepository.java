@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface SpCriRepository extends JpaRepository<SpCri, UUID> {
     List<SpCri> findByInterventionId(UUID interventionId);
     List<SpCri> findByInterventionIdIn(java.util.Collection<UUID> interventionIds);
+    List<SpCri> findByStatutOrderByValideLeDesc(String statut);
     boolean existsByInterventionIdAndVehiculeId(UUID interventionId, UUID vehiculeId);
     boolean existsByVehiculeId(UUID vehiculeId);
     long countByStatut(String statut);

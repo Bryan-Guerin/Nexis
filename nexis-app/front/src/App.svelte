@@ -33,6 +33,7 @@
     '/sp/stats':         wrap({ asyncComponent: () => import('./sapeurs/SpStatsPage.svelte') }),
     '/sp/rh':            wrap({ asyncComponent: () => import('./sapeurs/SpRhPage.svelte') }),
     '/sp/documents':     wrap({ asyncComponent: () => import('./sapeurs/SpDocumentsPage.svelte') }),
+    '/sp/audit':         wrap({ asyncComponent: () => import('./sapeurs/SpAuditPage.svelte') }),
     '/sp/config':        wrap({ asyncComponent: () => import('./sapeurs/SpConfigPage.svelte') }),
     '/admin':            wrap({ asyncComponent: () => import('./admin/AdminPage.svelte') }),
     '/admin/audit':      wrap({ asyncComponent: () => import('./admin/AuditPage.svelte') }),

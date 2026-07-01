@@ -6,13 +6,17 @@ import com.bryan.nexis.sapeurs.backend.bilan.BilanSapContenu;
 import com.bryan.nexis.sapeurs.backend.bilan.BilanSrContenu;
 import com.bryan.nexis.sapeurs.backend.dto.SpBilanDto;
 import com.bryan.nexis.sapeurs.backend.dto.SpVictimeDto;
+import com.bryan.nexis.core.datarepository.RefUserRepository;
 import com.bryan.nexis.sapeurs.datamodel.FamilleBilan;
 import com.bryan.nexis.sapeurs.datamodel.Sexe;
 import com.bryan.nexis.sapeurs.datamodel.SpBilan;
+import com.bryan.nexis.sapeurs.datamodel.SpCri;
 import com.bryan.nexis.sapeurs.datamodel.SpIntervention;
 import com.bryan.nexis.sapeurs.datamodel.SpVictime;
 import com.bryan.nexis.sapeurs.datarepository.SpBilanRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpCriRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpInterventionRepository;
+import com.bryan.nexis.sapeurs.datarepository.SpMembreRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVehiculeAffectationRepository;
 import com.bryan.nexis.sapeurs.datarepository.SpVictimeRepository;
 import io.micronaut.context.event.ApplicationEventPublisher;
@@ -46,18 +50,25 @@ public class SpBilanService {
     private final SpVictimeRepository             victimeRepo;
     private final SpBilanRepository               bilanRepo;
     private final SpVehiculeAffectationRepository affectationRepo;
+    private final SpCriRepository                 criRepo;      // statut des CRI → intervention close ou non
+    private final SpMembreRepository              membreRepo;   // username → membre (équipage historisé)
+    private final RefUserRepository               userRepo;
     private final SecurityService                 security;
     private final JsonMapper                      json;
     private final ApplicationEventPublisher<RealtimeEvent> events;
 
     public SpBilanService(SpInterventionRepository interventionRepo, SpVictimeRepository victimeRepo,
                           SpBilanRepository bilanRepo, SpVehiculeAffectationRepository affectationRepo,
+                          SpCriRepository criRepo, SpMembreRepository membreRepo, RefUserRepository userRepo,
                           SecurityService security, JsonMapper json,
                           ApplicationEventPublisher<RealtimeEvent> events) {
         this.interventionRepo = interventionRepo;
         this.victimeRepo      = victimeRepo;
         this.bilanRepo        = bilanRepo;
         this.affectationRepo  = affectationRepo;
+        this.criRepo          = criRepo;
+        this.membreRepo       = membreRepo;
+        this.userRepo         = userRepo;
         this.security         = security;
         this.json             = json;
         this.events           = events;
@@ -80,14 +91,13 @@ public class SpBilanService {
         return dto;
     }
 
-    /** Édite l'identité d'une victime — refusé si l'intervention est close. */
+    /** Édite l'identité d'une victime — refusé une fois l'intervention close (tous les CRI validés). */
     @Transactional
     public SpVictimeDto modifierVictime(UUID victimeId, String libelle, String nom, String prenom, String sexe) {
         var victime = victimeRepo.findById(victimeId)
                 .orElseThrow(() -> new NoSuchElementException("Victime introuvable : " + victimeId));
         var inter = victime.getIntervention();
         assertPeutSaisir(inter);
-        if (inter.getFin() != null) throw new IllegalStateException("Intervention close : victime non modifiable.");
         appliquerIdentite(victime, libelle, nom, prenom, sexe);
         var dto = SpVictimeDto.from(victimeRepo.update(victime));
         notifierMaj(inter);
@@ -228,10 +238,26 @@ public class SpBilanService {
         catch (IOException e) { return Map.of(); }
     }
 
+    /**
+     * Saisie autorisée : admin SP, équipier actif d'un engin, OU équipier historisé (après la
+     * clôture, engins détachés). Refusée une fois l'intervention CLOSE — alignée sur le CRI :
+     * les bilans restent complétables pendant « en attente CRI / validation », figés à la
+     * validation du dernier CRI.
+     */
     private void assertPeutSaisir(SpIntervention inter) {
-        if (!security.hasRole("ROLE_ADMIN_SP") && !estEquipier(inter, actor())) {
+        if (estClose(inter)) {
+            throw new IllegalStateException("Intervention close (CRI validés) : bilans figés.");
+        }
+        if (!security.hasRole("ROLE_ADMIN_SP") && !estEquipier(inter, actor()) && !estEquipierHistorise(inter, actor())) {
             throw new IllegalStateException("Seul un équipier de l'intervention peut saisir un bilan.");
         }
+    }
+
+    /** Close définitive = terminée ET aucun CRI restant à valider (aligné sur le statut dérivé front/liste). */
+    private boolean estClose(SpIntervention inter) {
+        if (inter.getFin() == null) return false;
+        var cris = criRepo.findByInterventionId(inter.getId());
+        return cris.isEmpty() || cris.stream().allMatch(c -> SpCri.VALIDE.equals(c.getStatut()));
     }
 
     private boolean estEquipier(SpIntervention inter, String username) {
@@ -239,6 +265,18 @@ public class SpBilanService {
         return inter.getEngins().stream().anyMatch(engin ->
                 affectationRepo.findByVehiculeIdAndFinIsNull(engin.getId()).stream()
                         .anyMatch(a -> username.equals(a.getMembre().getUser().getUsername())));
+    }
+
+    /** Présent dans l'équipage figé à la clôture (les engins actifs sont détachés à ce moment-là). */
+    private boolean estEquipierHistorise(SpIntervention inter, String username) {
+        if (username == null) return false;
+        var membreId = userRepo.findByUsername(username)
+                .flatMap(u -> membreRepo.findByUserId(u.getId()))
+                .map(m -> m.getId()).orElse(null);
+        if (membreId == null) return false;
+        return inter.getEnginsHisto().stream()
+                .flatMap(e -> e.getEquipage().stream())
+                .anyMatch(eq -> membreId.equals(eq.getMembreId()));
     }
 
     private String actor() {

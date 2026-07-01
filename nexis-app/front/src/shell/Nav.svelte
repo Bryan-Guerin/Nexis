@@ -17,12 +17,12 @@
     { path: '/sp/stats',           label: 'Statistiques',    icon: '📈', roles: ['ROLE_SP'] },
     { path: '/sp/documents',       label: 'Documents',       icon: '📄', roles: ['ROLE_SP'] },
     { path: '/sp/rh',              label: 'RH / Paie',       icon: '💶', roles: ['ROLE_SP_RH'] },
+    { path: '/sp/audit',           label: 'Audit',           icon: '🔎', roles: ['ROLE_SP_DISPATCH'] },
     { path: '/sp/config',          label: 'Configuration',   icon: '⚙️', roles: ['ROLE_ADMIN_SP'] },
 
     { section: 'Gendarmerie',                                icon: '🚓', roles: ['ROLE_GN'] },
     { path: '/gn',                 label: 'Tableau de bord', icon: '📊', roles: ['ROLE_GN'] },
     { path: '/gn/dispatch',        label: 'Dispatch',        icon: '🚨', roles: ['ROLE_GN'] },
-    { path: '/gn/interventions',   label: 'Interventions',   icon: '🔵', roles: ['ROLE_GN'] },
     { path: '/gn/planning',        label: 'Planning',        icon: '📅', roles: ['ROLE_GN'] },
     { path: '/gn/vehicules',       label: 'Véhicules',       icon: '🚓', roles: ['ROLE_GN'] },
     { path: '/gn/effectifs',       label: 'Effectifs',       icon: '👮', roles: ['ROLE_GN'] },

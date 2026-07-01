@@ -665,8 +665,10 @@
                 <div class="cri-head">
                   <span class="eng-name">{cri.vehiculeLibelle}</span>
                   <span class="cri-badge {cri.statut.toLowerCase()}">{CRI_LABEL[cri.statut] ?? cri.statut}</span>
-                  {#if cri.statut === 'SOUMIS' && peutValiderCri}
+                  {#if cri.statut === 'SOUMIS' && peutValiderCri && (isAdmin || cri.soumisPar !== $currentUser?.username)}
                     <button class="btn-primary cri-validate" onclick={() => criValider(cri)}>Valider</button>
+                  {:else if cri.statut === 'SOUMIS' && peutValiderCri}
+                    <span class="muted small" title="Un CRI ne peut pas être validé par celui qui l'a soumis">validation par un tiers</span>
                   {/if}
                   {#if cri.validePar}<span class="muted small">par {cri.validePar}</span>{/if}
                 </div>
